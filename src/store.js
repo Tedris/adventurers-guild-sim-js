@@ -18,6 +18,8 @@ export function createStore(initialState, validators = {}) {
     switch (action.type) {
       case 'GOLD':
         return { ...currentState, gold: (currentState.gold ?? 0) + action.payload };
+      case 'MERGE_STATE':
+        return structuredClone(action.payload);
       default:
         return currentState;
     }
