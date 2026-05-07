@@ -1,5 +1,7 @@
 // Adventurers Guild Simulator — Application Entry Point
 // =====================================================
+// Wires together: store.js, entities.js, save-load.js
+// Handles: initialization, state restoration, auto-save, rendering
 
 import { createStore } from './store.js';
 import { initStore, loadState, enableAutoSave } from './save-load.js';
@@ -28,6 +30,9 @@ function render(state) {
   console.log(`Adventurers: ${state.adventurers.length}`);
   console.log(`Quests: ${state.quests.length}`);
   console.log(`Party: ${state.party?.adventurerIds?.length || 0} members`);
+  if (state.activeQuest) {
+    console.log(`Active Quest: ${state.activeQuest.name || 'unnamed'}`);
+  }
   console.log('=================\n');
 }
 
