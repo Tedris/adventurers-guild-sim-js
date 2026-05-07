@@ -141,3 +141,33 @@ export function validateParty(adventurerIds) {
   if (adventurerIds.length > MAX_PARTY_SIZE) return { valid: false, reason: `Party too large: ${adventurerIds.length} > ${MAX_PARTY_SIZE}` };
   return { valid: true };
 }
+
+// ─── Game Defaults ───
+
+/**
+ * Create a fresh game state with entity defaults.
+ * @returns {Object} Initial game state
+ */
+export function gameDefaults() {
+  return {
+    gold: 0,
+    day: 1,
+    adventurers: [],
+    quests: [],
+    party: defaultParty([]),
+    activeQuest: null,
+    fame: 0,
+  };
+}
+
+/**
+ * Validate full game state shape.
+ * @param {Object} state — Game state to validate
+ * @returns {{ valid: boolean, reason?: string }}
+ */
+export function validateGame(state) {
+  if (!Array.isArray(state.adventurers)) return { valid: false, reason: 'Missing adventurers array' };
+  if (!Array.isArray(state.quests)) return { valid: false, reason: 'Missing quests array' };
+  if (!state.party || typeof state.party !== 'object') return { valid: false, reason: 'Missing party object' };
+  return { valid: true };
+}
