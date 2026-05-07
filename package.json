@@ -1,0 +1,12 @@
+{
+  "name": "adventurers-guild-sim",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "esbuild src/app.js src/styles.css --outdir=dist --bundle --sourcemap --watch",
+    "build": "esbuild src/app.js src/styles.css --outdir=dist --bundle --sourcemap --minify"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0"
+  }
+}
