@@ -297,6 +297,141 @@ export function getSoloEligible(adventurers) {
   return adventurers.some(a => a.rank === 'Legend');
 }
 
+// ─── Quest Resolution ───
+
+const EQUIPMENT_BONUS = {
+  Common: 1,
+  Uncommon: 2,
+  Rare: 3,
+  Epic: 5,
+};
+
+/**
+ * Calculate total stat contribution for a party on a given stat.
+ * @param {Object[]} adventurers — Party adventurers
+ * @param {string} statName — Stat to sum (str, dex, int, vit, lck)
+ * @returns {number} Total stat value
+ */
+export function calculateStatContribution(adventurers, statName) {
+  let total = 0;
+  for (const adventurer of adventurers) {
+    total += adventurer.stats?.[statName] ?? 0;
+
+    // Add equipment bonus if equipped
+    const equipment = adventurer.equipment || {};
+    for (const slot of ['weapon', 'armor', 'accessory']) {
+      const item = equipment[slot];
+      if (item && item.rarity && EQUIPMENT_BONUS[item.rarity]) {
+        total += EQUIPMENT_BONUS[item.rarity];
+      }
+    }
+  }
+  return total;
+}
+
+/**
+ * Calculate effective party stat with synergy bonus and solo penalty.
+ * @param {Object[]} adventurers — Party adventurers
+ * @param {Object} quest — Quest object
+ * @param {string} statName — Stat to calculate
+ * @returns {number} Effective stat value
+ */
+export function calculatePartyEffectiveStat(adventurers, quest, statName) {
+  let effective = calculateStatContribution(adventurers, statName);
+
+  // Solo penalty
+  if (adventurers.length === 1) {
+    effective *= 0.85;
+  }
+
+  // Apply synergy bonus from party
+  const { synergyScore } = calculateSynergyScore(adventurers, quest);
+  effective *= (1 + synergyScore * 0.1);
+
+  return Math.floor(effective);
+}
+
+/**
+ * Calculate quest success rate (D-07).
+ * @param {Object[]} adventurers — Party adventurers
+ * @param {Object} quest — Quest object
+ * @returns {number} Success rate as percentage (10-95)
+ */
+export function calculateQuestSuccessRate(adventurers, quest) {
+  const minStats = quest.requirements?.minStats || {};
+  const statNames = Object.keys(minStats);
+
+  if (statNames.length === 0) return 50; // No requirements = 50% chance
+
+  let product = 1;
+  for (const statName of statNames) {
+    const required = minStats[statName];
+    const effective = calculatePartyEffectiveStat(adventurers, quest, statName);
+    const ratio = effective / required;
+
+    // Cap at 1.5 (diminishing returns)
+    const cappedRatio = Math.min(ratio, 1.5);
+    product *= cappedRatio;
+  }
+
+  // Normalize to 0-100%
+  const normalized = (product / Math.pow(1.5, statNames.length)) * 100;
+
+  // Clamp to 10-95%
+  return Math.max(10, Math.min(95, Math.round(normalized)));
+}
+
+/**
+ * Calculate quest outcome (D-06).
+ * @param {Object[]} adventurers — Party adventurers
+ * @param {Object} quest — Quest object
+ * @param {boolean} success — Whether the quest succeeded
+ * @returns {{ success: boolean, gold: number, experience: number, moraleAdjustment: number }}
+ */
+export function calculateQuestOutcome(adventurers, quest, success) {
+  if (success) {
+    const successRate = calculateQuestSuccessRate(adventurers, quest);
+    const performanceMultiplier = 1 + (successRate / 100) * 0.5;
+    const finalGold = Math.floor(quest.rewards.gold * performanceMultiplier);
+    const finalXP = Math.floor(quest.rewards.experience * performanceMultiplier);
+    return { success: true, gold: finalGold, experience: finalXP, moraleAdjustment: 0 };
+  } else {
+    // Failure: partial rewards
+    const partialGold = Math.floor(quest.rewards.gold * 0.2);
+    const partialXP = Math.floor(quest.rewards.experience * 0.1);
+    return { success: false, gold: partialGold, experience: partialXP, moraleAdjustment: -5 };
+  }
+}
+
+/**
+ * Generate a pool of quest templates.
+ * @param {number} [count=3] — Number of quests to generate
+ * @returns {Object[]} Array of quest templates
+ */
+export function generateQuestPool(count = 3) {
+  const templates = [
+    // Easy quests (difficulty 1-2)
+    { name: 'Scout the nearby forest', difficulty: 1, requirements: { minStats: { str: 5, dex: 5, int: 5, vit: 5, lck: 5 }, preferredClasses: ['Sword', 'Bow'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 15, experience: 25 }, description: 'Reconnaissance mission in the nearby forest.' },
+    { name: 'Clear rat infestation', difficulty: 1, requirements: { minStats: { str: 4, dex: 4, int: 3, vit: 4, lck: 3 }, preferredClasses: ['Sword', 'Dagger'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 10, experience: 20 }, description: 'The town needs rats cleared from the cellar.' },
+    { name: 'Deliver messages to border village', difficulty: 2, requirements: { minStats: { str: 5, dex: 6, int: 4, vit: 5, lck: 5 }, preferredClasses: ['Bow', 'Wand'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 20, experience: 30 }, description: 'Urgent message delivery to a distant village.' },
+    // Medium quests (difficulty 3-4)
+    { name: 'Hunt bandits on the highway', difficulty: 3, requirements: { minStats: { str: 8, dex: 7, int: 5, vit: 7, lck: 6 }, preferredClasses: ['Sword', 'Axe'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 40, experience: 50 }, description: 'Bandits have been plundering merchant caravans.' },
+    { name: 'Explore the abandoned mine', difficulty: 3, requirements: { minStats: { str: 7, dex: 6, int: 8, vit: 6, lck: 7 }, preferredClasses: ['Staff', 'Shield'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 45, experience: 55 }, description: 'An old mine has been emitting strange noises.' },
+    { name: 'Escort merchant caravan', difficulty: 4, requirements: { minStats: { str: 9, dex: 8, int: 6, vit: 9, lck: 7 }, preferredClasses: ['Shield', 'Sword'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 55, experience: 60 }, description: 'Protect a valuable merchant caravan through dangerous territory.' },
+    // Hard quests (difficulty 5)
+    { name: 'Slay the dragon', difficulty: 5, requirements: { minStats: { str: 15, dex: 12, int: 10, vit: 14, lck: 12 }, preferredClasses: ['Sword', 'Axe', 'Mace'], minPartySize: 1, maxPartySize: 3 }, rewards: { gold: 100, experience: 120 }, description: 'A dragon has taken up residence in the mountain. Only the bravest dare attempt this.' },
+    { name: 'Infiltrate the rival guild', difficulty: 5, requirements: { minStats: { str: 10, dex: 14, int: 12, vit: 10, lck: 13 }, preferredClasses: ['Dagger', 'Bow'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 90, experience: 110 }, description: 'The rival guild has been poaching your adventurers. Infiltrate and expose them.' },
+  ];
+
+  // Select 'count' quests, cycling through difficulty tiers
+  const selected = [];
+  for (let i = 0; i < count; i++) {
+    const template = templates[i % templates.length];
+    selected.push({ ...template, id: crypto.randomUUID() });
+  }
+  return selected;
+}
+
 // ─── Game Defaults ───
 
 /**
