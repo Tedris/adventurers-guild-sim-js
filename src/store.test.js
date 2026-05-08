@@ -264,6 +264,34 @@ import('./store.js').then((module) => {
     assert(updatedHero.experience > 0, `adventurer should gain XP, got ${updatedHero.experience}`);
   });
 
+  // --- Tests for UPGRADE_GUILD ---
+
+  test('UPGRADE_GUILD deducts correct cost', () => {
+    const store = createStore({ gold: 200, adventurers: [], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 }, quests: [], activeQuest: null, upgrades: { office: 0, equipment: 0, job_postings: 0 } });
+    store.dispatch({ type: 'UPGRADE_GUILD', payload: { upgradeType: 'office', gold: 100 } });
+    const state = store.getState();
+    assert(state.gold === 150, `gold should be 150 after paying 50, got ${state.gold}`);
+  });
+
+  test('UPGRADE_GUILD increments upgrade level', () => {
+    const store = createStore({ gold: 200, adventurers: [], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 }, quests: [], activeQuest: null, upgrades: { office: 0, equipment: 0, job_postings: 0 } });
+    store.dispatch({ type: 'UPGRADE_GUILD', payload: { upgradeType: 'office', gold: 100 } });
+    const state = store.getState();
+    assert(state.upgrades.office === 1, `office level should be 1, got ${state.upgrades.office}`);
+  });
+
+  test('UPGRADE_GUILD rejects invalid upgrade type', () => {
+    const store = createStore({ gold: 200, adventurers: [], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 }, quests: [], activeQuest: null, upgrades: { office: 0, equipment: 0, job_postings: 0 } });
+    const result = store.dispatch({ type: 'UPGRADE_GUILD', payload: { upgradeType: 'invalid', gold: 100 } });
+    assert(result === false, 'UPGRADE_GUILD should reject invalid type');
+  });
+
+  test('UPGRADE_GUILD rejects insufficient gold', () => {
+    const store = createStore({ gold: 200, adventurers: [], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 }, quests: [], activeQuest: null, upgrades: { office: 0, equipment: 0, job_postings: 0 } });
+    const result = store.dispatch({ type: 'UPGRADE_GUILD', payload: { upgradeType: 'office', gold: 10 } });
+    assert(result === false, 'UPGRADE_GUILD should reject insufficient gold');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);
