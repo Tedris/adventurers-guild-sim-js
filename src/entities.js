@@ -13,6 +13,10 @@ export const VALID_ORIGINS = [
   'Town-born', 'Migrant', 'Wanderer', 'Exile', 'Apprentice',
 ];
 
+export const RARITY_TIERS = ['Common', 'Uncommon', 'Rare', 'Epic'];
+export const VALID_RANKS = ['Novice', 'Journeyman', 'Veteran', 'Champion', 'Legend'];
+export const DEFAULT_WAGE = 2;
+
 export const MIN_STAT = 1;
 export const MAX_STAT = 20;
 export const DEFAULT_MORALE = 70;
@@ -24,6 +28,77 @@ function rollStat() {
   return 3 + Math.floor(Math.random() * 3)
            + Math.floor(Math.random() * 3)
            + Math.floor(Math.random() * 3);
+}
+
+// ─── Wage Calculation ───
+
+const RANK_WAGE_BASE = {
+  Novice: 2,
+  Journeyman: 3,
+  Veteran: 4,
+  Champion: 5,
+  Legend: 7,
+};
+
+/**
+ * Calculate wage for an adventurer based on rank and equipment rarity.
+ * @param {Object} adventurer — Adventurer entity
+ * @returns {number} Wage in gold
+ */
+export function calculateWage(adventurer) {
+  let wage = RANK_WAGE_BASE[adventurer.rank] ?? DEFAULT_WAGE;
+
+  // Add +1g per rarity tier above Common
+  const equipment = adventurer.equipment || {};
+  const slots = ['weapon', 'armor', 'accessory'];
+  for (const slot of slots) {
+    const item = equipment[slot];
+    if (item && item.rarity) {
+      const tierIndex = RARITY_TIERS.indexOf(item.rarity);
+      if (tierIndex > 0) {
+        wage += tierIndex; // Common=0, Uncommon=1, Rare=2, Epic=3
+      }
+    }
+  }
+
+  return wage;
+}
+
+/**
+ * Calculate aptitudes for an adventurer based on their class.
+ * @param {Object} adventurer — Adventurer entity
+ * @returns {Object} Map of quest type to aptitude level (0–1)
+ */
+export function calculateAptitudes(adventurer) {
+  const classAptitudes = {
+    Sword:  { tracking: 0.8, combat: 0.9 },
+    Wand:   { herb_gathering: 0.9, investigation: 0.7 },
+    Bow:    { tracking: 0.9, ranged_combat: 0.8 },
+    Staff:  { herb_gathering: 0.8, investigation: 0.8 },
+    Shield: { defense: 0.9, protection: 0.7 },
+    Dagger: { stealth: 0.9, assassination: 0.8 },
+    Axe:    { tracking: 0.7, combat: 0.8 },
+    Mace:   { combat: 0.8, defense: 0.7 },
+  };
+
+  return classAptitudes[adventurer.class] || {};
+}
+
+/**
+ * Generate a recruitment pool of adventurers.
+ * @param {number} [count=1] — Number of adventurers to generate
+ * @returns {Object[]} Array of adventurer entities
+ */
+export function generateRecruitmentPool(count = 1) {
+  const pool = [];
+  for (let i = 0; i < count; i++) {
+    const adventurer = defaultAdventurer();
+    adventurer.rank = 'Novice';
+    adventurer.aptitudes = calculateAptitudes(adventurer);
+    adventurer.wage = calculateWage(adventurer);
+    pool.push(adventurer);
+  }
+  return pool;
 }
 
 /**
@@ -58,6 +133,9 @@ export function defaultAdventurer(overrides = {}) {
     personality: overrides.personality || { traits: [] },
     level: overrides.level ?? 1,
     experience: overrides.experience ?? 0,
+    rank: 'Novice',
+    aptitudes: {},
+    wage: 0,
   };
 }
 
@@ -104,6 +182,7 @@ export function defaultParty(adventurerIds = []) {
     id: generateId(),
     adventurerIds: adventurerIds.slice(0, MAX_PARTY_SIZE),
     synergyScore: 0,
+    aptitudeBonus: 0,
   };
 }
 
@@ -157,6 +236,9 @@ export function gameDefaults() {
     party: defaultParty([]),
     activeQuest: null,
     fame: 0,
+    recruitmentPool: [],
+    wageReserves: 0,
+    lastWageDay: 0,
   };
 }
 
