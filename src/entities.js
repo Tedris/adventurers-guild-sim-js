@@ -432,6 +432,147 @@ export function generateQuestPool(count = 3) {
   return selected;
 }
 
+// ─── Economy Engine ───
+
+const BASE_WAGE_SCALE = 0.1; // 10% increase per guild level
+const FAME_DISCOUNT_THRESHOLDS = [50, 100]; // fame levels for 10%/20% discount
+const FAME_DISCOUNT_VALUES = [0.1, 0.2];
+
+const UPGRADE_BASE_COSTS = {
+  office: 50,
+  equipment: 30,
+  job_postings: 15,
+};
+
+const UPGRADE_NAMES = {
+  office: 'Guild Office',
+  equipment: 'Equipment Stock',
+  job_postings: 'Job Postings',
+};
+
+const UPGRADE_DESCRIPTIONS = {
+  office: 'Upgrade guild office — attracts better adventurers and increases fame gain.',
+  equipment: 'Improve equipment stock — grants +10% quest success rate.',
+  job_postings: 'Post job listings — improves recruitment pool quality.',
+};
+
+/**
+ * Calculate scaled wage for adventurers based on guild level and fame.
+ * @param {Object[]} adventurers — Party adventurers
+ * @param {number} guildLevel — Current guild level
+ * @param {number} [fame=0] — Current guild fame
+ * @returns {{ scaledWage: number, totalWageBill: number, scaleFactor: number }}
+ */
+export function calculateWageScale(adventurers, guildLevel, fame = 0) {
+  // Level scaling: 10% increase per level above 1
+  const scaleFactor = 1 + (guildLevel - 1) * BASE_WAGE_SCALE;
+
+  // Fame discount
+  let fameDiscount = 0;
+  if (fame > FAME_DISCOUNT_THRESHOLDS[1]) {
+    fameDiscount = FAME_DISCOUNT_VALUES[1]; // 20%
+  } else if (fame > FAME_DISCOUNT_THRESHOLDS[0]) {
+    fameDiscount = FAME_DISCOUNT_VALUES[0]; // 10%
+  }
+
+  let totalWageBill = 0;
+  for (const adventurer of adventurers) {
+    const baseWage = calculateWage(adventurer);
+    const scaledWage = baseWage * scaleFactor * (1 - fameDiscount);
+    totalWageBill += scaledWage;
+  }
+
+  return {
+    scaleFactor,
+    fameDiscount,
+    totalWageBill: Math.round(totalWageBill),
+  };
+}
+
+/**
+ * Calculate upgrade cost based on type and current level.
+ * @param {string} upgradeType — 'office', 'equipment', or 'job_postings'
+ * @param {number} currentLevel — Current upgrade level
+ * @returns {number} Cost in gold
+ */
+export function calculateUpgradeCost(upgradeType, currentLevel) {
+  const baseCost = UPGRADE_BASE_COSTS[upgradeType] || 30;
+  return Math.floor(baseCost * Math.pow(1.5, currentLevel || 0));
+}
+
+/**
+ * Get available upgrades based on current state.
+ * @param {Object} state — Current game state
+ * @returns {Object[]} Array of available upgrades with costs
+ */
+export function getAvailableUpgrades(state) {
+  const upgrades = state.upgrades || { office: 0, equipment: 0, job_postings: 0 };
+  const gold = state.gold ?? 0;
+
+  const results = [];
+  for (const type of ['office', 'equipment', 'job_postings']) {
+    const cost = calculateUpgradeCost(type, upgrades[type] || 0);
+    if (type === 'equipment' && gold < 20) continue;
+    if (type === 'job_postings' && gold < 10) continue;
+
+    results.push({
+      type,
+      name: UPGRADE_NAMES[type],
+      currentLevel: upgrades[type] || 0,
+      nextCost: cost,
+      description: UPGRADE_DESCRIPTIONS[type],
+    });
+  }
+  return results;
+}
+
+/**
+ * Calculate inflation pressure based on gold/adventurer ratio.
+ * @param {Object} state — Current game state
+ * @returns {{ ratio: number, pressure: 'low'|'medium'|'high' }}
+ */
+export function calculateInflationPressure(state) {
+  const totalGold = state.gold ?? 0;
+  const adventurerCount = (state.adventurers || []).length;
+  const denominator = adventurerCount * 3;
+
+  if (denominator === 0) return { ratio: 0, pressure: 'low' };
+
+  const ratio = totalGold / denominator;
+  let pressure;
+  if (ratio > 5) pressure = 'high';
+  else if (ratio > 2) pressure = 'medium';
+  else pressure = 'low';
+
+  return { ratio: Math.round(ratio * 100) / 100, pressure };
+}
+
+/**
+ * Calculate gold sink opportunities available to the player.
+ * @param {Object} state — Current game state
+ * @returns {Object[]} Array of spending options
+ */
+export function calculateGoldSinkOpportunities(state) {
+  const sinks = [];
+
+  // Restock pool costs (generate 1 adventurer)
+  sinks.push({ name: 'Restock Recruitment Pool', cost: 5, benefit: 'Generate 1 new adventurer in pool', type: 'recruitment' });
+
+  // Job postings
+  const jobPostingCost = calculateUpgradeCost('job_postings', (state.upgrades || {}).job_postings || 0);
+  sinks.push({ name: 'Post Job Listing', cost: jobPostingCost, benefit: 'Improve future recruitment quality', type: 'upgrade' });
+
+  // Equipment upgrade
+  const equipCost = calculateUpgradeCost('equipment', (state.upgrades || {}).equipment || 0);
+  sinks.push({ name: 'Upgrade Equipment Stock', cost: equipCost, benefit: '+10% quest success rate', type: 'upgrade' });
+
+  // Office upgrade
+  const officeCost = calculateUpgradeCost('office', (state.upgrades || {}).office || 0);
+  sinks.push({ name: 'Upgrade Guild Office', cost: officeCost, benefit: '+5% fame gain, better adventurer attraction', type: 'upgrade' });
+
+  return sinks;
+}
+
 // ─── Game Defaults ───
 
 /**
