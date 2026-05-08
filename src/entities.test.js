@@ -31,6 +31,10 @@ import('./entities.js').then((module) => {
     VALID_RANKS,
     RARITY_TIERS,
     DEFAULT_WAGE,
+    calculateClassDiversity,
+    calculateAptitudeBonus,
+    calculateSynergyScore,
+    getSoloEligible,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -281,6 +285,97 @@ import('./entities.js').then((module) => {
     const a = defaultAdventurer({ class: 'Dragon' });
     const apt = calculateAptitudes(a);
     assert(Object.keys(apt).length === 0, 'unknown class should have no aptitudes');
+  });
+
+  // --- Tests for calculateClassDiversity ---
+
+  test('calculateClassDiversity with 1 class returns bonus 0.2', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword' }),
+      defaultAdventurer({ class: 'Sword' }),
+    ];
+    const result = calculateClassDiversity(adventurers);
+    assert(result.uniqueClasses === 1, `expected 1 unique class, got ${result.uniqueClasses}`);
+    assert(result.bonus === 0.2, `expected bonus 0.2, got ${result.bonus}`);
+  });
+
+  test('calculateClassDiversity with 3 classes returns bonus ~0.6', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword' }),
+      defaultAdventurer({ class: 'Bow' }),
+      defaultAdventurer({ class: 'Staff' }),
+    ];
+    const result = calculateClassDiversity(adventurers);
+    assert(result.uniqueClasses === 3, `expected 3 unique classes, got ${result.uniqueClasses}`);
+    assert(Math.abs(result.bonus - 0.6) < 0.001, `expected bonus ~0.6, got ${result.bonus}`);
+  });
+
+  test('calculateClassDiversity with 4+ classes capped at 1.5', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword' }),
+      defaultAdventurer({ class: 'Bow' }),
+      defaultAdventurer({ class: 'Staff' }),
+      defaultAdventurer({ class: 'Shield' }),
+    ];
+    const result = calculateClassDiversity(adventurers);
+    assert(result.uniqueClasses === 4, `expected 4 unique classes, got ${result.uniqueClasses}`);
+    assert(result.bonus <= 1.5, `bonus should be capped at 1.5, got ${result.bonus}`);
+  });
+
+  // --- Tests for calculateAptitudeBonus ---
+
+  test('calculateAptitudeBonus with matching class aptitudes returns positive bonus', () => {
+    const swordApt = { tracking: 0.8, combat: 0.9 };
+    const adventurers = [defaultAdventurer({ class: 'Sword', aptitudes: swordApt })];
+    const bonus = calculateAptitudeBonus(adventurers, ['tracking', 'combat']);
+    assert(bonus > 0, `aptitude bonus should be positive, got ${bonus}`);
+  });
+
+  test('calculateAptitudeBonus with no matching aptitudes returns 0', () => {
+    const adventurers = [defaultAdventurer({ class: 'Sword', aptitudes: {} })];
+    const bonus = calculateAptitudeBonus(adventurers, ['herb_gathering']);
+    assert(bonus === 0, `aptitude bonus should be 0, got ${bonus}`);
+  });
+
+  // --- Tests for calculateSynergyScore ---
+
+  test('calculateSynergyScore combines diversity + aptitude', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword', aptitudes: { tracking: 0.8 } }),
+      defaultAdventurer({ class: 'Bow', aptitudes: { tracking: 0.9 } }),
+    ];
+    const quest = { requirements: { preferredClasses: ['tracking'] } };
+    const result = calculateSynergyScore(adventurers, quest);
+    assert(result.synergyScore > 0, `synergy should be positive, got ${result.synergyScore}`);
+    assert(result.diversityBonus > 0, `diversity bonus should be positive, got ${result.diversityBonus}`);
+    assert(result.aptitudeBonus >= 0, `aptitude bonus should be non-negative, got ${result.aptitudeBonus}`);
+  });
+
+  // --- Tests for getSoloEligible ---
+
+  test('getSoloEligible returns true for Legend rank', () => {
+    const adventurers = [defaultAdventurer({ rank: 'Legend' })];
+    assert(getSoloEligible(adventurers) === true, 'Legend should be solo eligible');
+  });
+
+  test('getSoloEligible returns false for non-Legend', () => {
+    const adventurers = [defaultAdventurer({ rank: 'Champion' })];
+    assert(getSoloEligible(adventurers) === false, 'Champion should NOT be solo eligible');
+  });
+
+  // --- Tests for validateParty with solo quests ---
+
+  test('validateParty enforces 2-3 size normally', () => {
+    assert(validateParty(['a1']).valid === false, 'party of 1 should be invalid normally');
+    assert(validateParty(['a1', 'a2']).valid === true, 'party of 2 should be valid');
+    assert(validateParty(['a1', 'a2', 'a3']).valid === true, 'party of 3 should be valid');
+    assert(validateParty(['a1', 'a2', 'a3', 'a4']).valid === false, 'party of 4 should be invalid');
+  });
+
+  test('validateParty allows size 1 for solo-eligible quests', () => {
+    const soloQuest = { requirements: { minPartySize: 1 } };
+    const result = validateParty(['a1'], soloQuest);
+    assert(result.valid === true, 'party of 1 should be valid for solo quest');
   });
 
   // Print summary
