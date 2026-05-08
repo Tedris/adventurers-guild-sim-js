@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, processTick } from './entities.js';
 
 /**
  * Creates a reactive state store.
@@ -221,6 +221,16 @@ export function createStore(initialState, validators = {}) {
           ...(upgradeType === 'equipment' ? { equipmentBonus: (currentState.equipmentBonus || 0) + 0.1 } : {}),
           ...(upgradeType === 'office' ? { fameMultiplier: (currentState.fameMultiplier || 1) + 0.05 } : {}),
         };
+      }
+      case 'TICK': {
+        const tickCount = action.payload?.tickCount ?? 1;
+        if (!Number.isInteger(tickCount) || tickCount <= 0) {
+          console.warn(`[Store] TICK rejected: invalid tickCount ${tickCount}`);
+          return currentState;
+        }
+
+        const newState = processTick(currentState, tickCount);
+        return newState;
       }
       default:
         return currentState;
