@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome } from './entities.js';
 
 /**
  * Creates a reactive state store.
@@ -119,6 +119,79 @@ export function createStore(initialState, validators = {}) {
             ...currentState.party,
             adventurerIds,
             synergyScore,
+          },
+        };
+      }
+      case 'SEND_QUEST': {
+        const { questId, partyId } = action.payload;
+
+        // Validate quest exists
+        const quest = currentState.quests.find(q => q.id === questId);
+        if (!quest) {
+          console.warn(`[Store] SEND_QUEST rejected: quest ${questId} not found`);
+          return currentState;
+        }
+
+        // Validate party exists
+        if (!currentState.party || !currentState.party.adventurerIds || currentState.party.adventurerIds.length === 0) {
+          console.warn('[Store] SEND_QUEST rejected: no valid party');
+          return currentState;
+        }
+
+        return {
+          ...currentState,
+          activeQuest: {
+            questId,
+            partyId: partyId || currentState.party.id,
+            status: 'active',
+            startTime: Date.now(),
+          },
+          quests: currentState.quests.filter(q => q.id !== questId),
+        };
+      }
+      case 'COMPLETE_QUEST': {
+        const { questId } = action.payload;
+
+        // Validate active quest exists
+        if (!currentState.activeQuest || currentState.activeQuest.questId !== questId || currentState.activeQuest.status !== 'active') {
+          console.warn('[Store] COMPLETE_QUEST rejected: no active quest found');
+          return currentState;
+        }
+
+        const quest = currentState.quests.find(q => q.id === questId) || { id: questId };
+        const partyAdventurers = currentState.adventurers.filter(a =>
+          (currentState.party?.adventurerIds || []).includes(a.id)
+        );
+
+        // Calculate success
+        const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
+        const succeeded = Math.random() * 100 < successRate;
+
+        // Calculate outcome
+        const outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
+
+        // Apply results
+        const newGold = Math.max(0, (currentState.gold ?? 0) + outcome.gold);
+        const updatedAdventurers = currentState.adventurers.map(a => {
+          let newMorale = a.morale;
+          if (!succeeded) {
+            newMorale = Math.max(0, a.morale + outcome.moraleAdjustment);
+          }
+          return {
+            ...a,
+            experience: a.experience + (succeeded ? Math.floor(outcome.experience / partyAdventurers.length) : Math.floor(outcome.experience / Math.max(partyAdventurers.length, 1) * 0.1)),
+            morale: newMorale,
+          };
+        });
+
+        return {
+          ...currentState,
+          gold: newGold,
+          adventurers: updatedAdventurers,
+          activeQuest: {
+            ...currentState.activeQuest,
+            status: succeeded ? 'complete' : 'failed',
+            result: outcome,
           },
         };
       }
