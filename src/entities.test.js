@@ -31,10 +31,16 @@ import('./entities.js').then((module) => {
     VALID_RANKS,
     RARITY_TIERS,
     DEFAULT_WAGE,
+    VALID_DIFFICULTIES,
     calculateClassDiversity,
     calculateAptitudeBonus,
     calculateSynergyScore,
     getSoloEligible,
+    calculateStatContribution,
+    calculatePartyEffectiveStat,
+    calculateQuestSuccessRate,
+    calculateQuestOutcome,
+    generateQuestPool,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -376,6 +382,104 @@ import('./entities.js').then((module) => {
     const soloQuest = { requirements: { minPartySize: 1 } };
     const result = validateParty(['a1'], soloQuest);
     assert(result.valid === true, 'party of 1 should be valid for solo quest');
+  });
+
+  // --- Tests for quest resolution ---
+
+  test('calculateStatContribution sums stat across party members', () => {
+    const adventurers = [
+      defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } }),
+      defaultAdventurer({ stats: { str: 8, dex: 8, int: 8, vit: 8, lck: 8 } }),
+    ];
+    const strTotal = calculateStatContribution(adventurers, 'str');
+    assert(strTotal === 18, `str total should be 18, got ${strTotal}`);
+  });
+
+  test('calculatePartyEffectiveStat applies synergy bonus', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword', stats: { str: 15, dex: 10, int: 10, vit: 10, lck: 10 } }),
+      defaultAdventurer({ class: 'Bow', stats: { str: 15, dex: 10, int: 10, vit: 10, lck: 10 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 10 } } };
+    const effective = calculatePartyEffectiveStat(adventurers, quest, 'str');
+    assert(effective >= 30, `effective should be >= 30 with synergy, got ${effective}`);
+  });
+
+  test('calculatePartyEffectiveStat applies solo penalty', () => {
+    const adventurers = [defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } })];
+    const quest = { requirements: { minStats: { str: 10 } } };
+    const effective = calculatePartyEffectiveStat(adventurers, quest, 'str');
+    assert(effective <= 10, `solo should apply 0.85 penalty, got ${effective}`);
+  });
+
+  test('calculateQuestSuccessRate with perfect stats returns ~95%', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 } }),
+      defaultAdventurer({ class: 'Bow', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 5, dex: 5, int: 5, vit: 5, lck: 5 } } };
+    const rate = calculateQuestSuccessRate(adventurers, quest);
+    assert(rate <= 95, `rate should be capped at 95, got ${rate}`);
+    assert(rate >= 80, `rate should be high with perfect stats, got ${rate}`);
+  });
+
+  test('calculateQuestSuccessRate with weak stats returns ~10%', () => {
+    const adventurers = [
+      defaultAdventurer({ stats: { str: 1, dex: 1, int: 1, vit: 1, lck: 1 } }),
+      defaultAdventurer({ stats: { str: 1, dex: 1, int: 1, vit: 1, lck: 1 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 15, dex: 15, int: 15, vit: 15, lck: 15 } } };
+    const rate = calculateQuestSuccessRate(adventurers, quest);
+    assert(rate >= 10, `rate should be at least 10, got ${rate}`);
+    assert(rate <= 25, `rate should be low with weak stats, got ${rate}`);
+  });
+
+  test('calculateQuestSuccessRate returns rate within 10-95% range', () => {
+    const adventurers = [
+      defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } }),
+      defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 10, dex: 10 } } };
+    const rate = calculateQuestSuccessRate(adventurers, quest);
+    assert(rate >= 10 && rate <= 95, `rate should be in 10-95 range, got ${rate}`);
+  });
+
+  test('calculateQuestOutcome with success returns gold and XP', () => {
+    const adventurers = [
+      defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } }),
+      defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } }),
+    ];
+    const quest = defaultQuest({ rewards: { gold: 50, experience: 60 } });
+    const outcome = calculateQuestOutcome(adventurers, quest, true);
+    assert(outcome.success === true, 'should be successful');
+    assert(outcome.gold > 0, 'gold should be positive');
+    assert(outcome.experience > 0, 'experience should be positive');
+  });
+
+  test('calculateQuestOutcome with failure returns partial rewards', () => {
+    const adventurers = [
+      defaultAdventurer({ stats: { str: 5, dex: 5, int: 5, vit: 5, lck: 5 } }),
+    ];
+    const quest = defaultQuest({ rewards: { gold: 100, experience: 100 } });
+    const outcome = calculateQuestOutcome(adventurers, quest, false);
+    assert(outcome.success === false, 'should be failed');
+    assert(outcome.gold === 20, `failed gold should be 20 (20%), got ${outcome.gold}`);
+    assert(outcome.experience === 10, `failed XP should be 10 (10%), got ${outcome.experience}`);
+    assert(outcome.moraleAdjustment === -5, 'morale should drop by 5');
+  });
+
+  test('generateQuestPool returns correct number of quests', () => {
+    const pool = generateQuestPool(5);
+    assert(pool.length === 5, `pool should have 5 quests, got ${pool.length}`);
+  });
+
+  test('generateQuestPool quests have valid difficulty and requirements', () => {
+    const pool = generateQuestPool(3);
+    for (const quest of pool) {
+      assert(VALID_DIFFICULTIES.includes(quest.difficulty), `difficulty ${quest.difficulty} should be valid`);
+      assert(quest.requirements?.minStats, 'quest should have minStats');
+      assert(quest.rewards?.gold > 0, 'quest should have positive gold reward');
+    }
   });
 
   // Print summary

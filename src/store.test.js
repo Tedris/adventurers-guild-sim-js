@@ -213,10 +213,55 @@ import('./store.js').then((module) => {
   test('REORDER_PARTY recalculates synergy on reorder', () => {
     const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { combat: 0.9 }, wage: 2 };
     const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { ranged_combat: 0.8 }, wage: 2 };
-    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 } });
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [] });
     store.dispatch({ type: 'REORDER_PARTY', payload: { adventurerIds: ['hero-2', 'hero-1'] } });
     const state = store.getState();
     assert(state.party.synergyScore > 0, `synergyScore should be recalculated, got ${state.party.synergyScore}`);
+  });
+
+  // --- Tests for SEND_QUEST ---
+
+  test('SEND_QUEST sets activeQuest correctly', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const quest = { id: 'q1', name: 'Test Quest', difficulty: 2, requirements: { minStats: { str: 5, dex: 5, int: 5, vit: 5, lck: 5 }, preferredClasses: [], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 30, experience: 40 }, description: 'A test quest.' };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [quest], activeQuest: null });
+    store.dispatch({ type: 'SEND_QUEST', payload: { questId: 'q1', partyId: 'p1' } });
+    const state = store.getState();
+    assert(state.activeQuest !== null, 'activeQuest should be set');
+    assert(state.activeQuest.questId === 'q1', 'questId should match');
+    assert(state.activeQuest.status === 'active', 'status should be active');
+    assert(state.quests.length === 0, 'quest should be removed from quests array');
+  });
+
+  test('SEND_QUEST rejects non-existent quest', () => {
+    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 }, quests: [], activeQuest: null });
+    const result = store.dispatch({ type: 'SEND_QUEST', payload: { questId: 'nonexistent', partyId: 'p1' } });
+    assert(result === false, 'SEND_QUEST should fail for non-existent quest');
+  });
+
+  // --- Tests for COMPLETE_QUEST ---
+
+  test('COMPLETE_QUEST applies gold reward on success', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const quest = { id: 'q1', name: 'Easy Quest', difficulty: 1, requirements: { minStats: { str: 3, dex: 3, int: 3, vit: 3, lck: 3 }, preferredClasses: [], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 50, experience: 60 }, description: 'An easy quest.' };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [quest], activeQuest: { questId: 'q1', partyId: 'p1', status: 'active', startTime: Date.now() } });
+    store.dispatch({ type: 'COMPLETE_QUEST', payload: { questId: 'q1' } });
+    const state = store.getState();
+    assert(state.gold >= 100, `gold should increase on success, got ${state.gold}`);
+    assert(state.activeQuest.status === 'complete' || state.activeQuest.status === 'failed', 'quest should be completed');
+  });
+
+  test('COMPLETE_QUEST updates adventurer experience', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 15, dex: 15, int: 15, vit: 15, lck: 15 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 15, dex: 15, int: 15, vit: 15, lck: 15 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const quest = { id: 'q2', name: 'Medium Quest', difficulty: 3, requirements: { minStats: { str: 8, dex: 8, int: 8, vit: 8, lck: 8 }, preferredClasses: [], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 40, experience: 80 }, description: 'A medium quest.' };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [quest], activeQuest: { questId: 'q2', partyId: 'p1', status: 'active', startTime: Date.now() } });
+    store.dispatch({ type: 'COMPLETE_QUEST', payload: { questId: 'q2' } });
+    const state = store.getState();
+    const updatedHero = state.adventurers.find(a => a.id === 'hero-1');
+    assert(updatedHero.experience > 0, `adventurer should gain XP, got ${updatedHero.experience}`);
   });
 
   // Print summary
