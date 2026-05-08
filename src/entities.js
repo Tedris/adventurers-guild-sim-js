@@ -573,6 +573,155 @@ export function calculateGoldSinkOpportunities(state) {
   return sinks;
 }
 
+// ─── Tick Processor ───
+
+/**
+ * Deduct wages from state gold.
+ * @param {Object} state — Current game state
+ * @returns {{ deducted: number, remainingGold: number, unpaid: boolean }}
+ */
+export function deductWages(state) {
+  const adventurers = state.adventurers || [];
+  const guildLevel = (state.guildLevel || 1);
+  const fame = state.fame || 0;
+
+  const { totalWageBill } = calculateWageScale(adventurers, guildLevel, fame);
+  const gold = state.gold ?? 0;
+
+  if (totalWageBill === 0 || adventurers.length === 0) {
+    return { deducted: 0, remainingGold: gold, unpaid: false };
+  }
+
+  const deducted = Math.min(totalWageBill, gold);
+  const unpaid = deducted < totalWageBill;
+
+  return { deducted, remainingGold: gold - deducted, unpaid };
+}
+
+/**
+ * Check and adjust adventurer morale based on tick conditions.
+ * @param {Object} state — Current game state
+ * @param {number} tickCount — Number of ticks passed
+ * @returns {{ adjustedAdventurers: Object[], moraleEvents: string[] }}
+ */
+export function checkMorale(state, tickCount) {
+  const adventurers = state.adventurers || [];
+  const guildLevel = (state.guildLevel || 1);
+  const fame = state.fame || 0;
+  const { totalWageBill } = calculateWageScale(adventurers, guildLevel, fame);
+  const gold = state.gold ?? 0;
+
+  const adjusted = adventurers.map(a => {
+    let morale = a.morale;
+
+    // Base morale decay: -1 per 10 ticks
+    const baseDecay = Math.floor(tickCount / 10);
+    morale -= baseDecay;
+
+    // Low gold warning: -2 if gold < totalWageBill
+    if (gold < totalWageBill && totalWageBill > 0) {
+      morale -= 2;
+    }
+
+    return { ...a, morale: Math.max(0, Math.min(100, morale)) };
+  });
+
+  const events = [];
+  if (gold < totalWageBill && totalWageBill > 0) {
+    events.push(`Warning: insufficient gold for wages (${gold} < ${totalWageBill})`);
+  }
+
+  return { adjustedAdventurers: adjusted, moraleEvents: events };
+}
+
+/**
+ * Check for adventurer departures (morale <= 0).
+ * @param {Object} state — Current game state
+ * @returns {{ departed: Object[], remaining: Object[] }}
+ */
+export function checkDepartures(state) {
+  const adventurers = state.adventurers || [];
+  const departed = [];
+  const remaining = [];
+
+  for (const adventurer of adventurers) {
+    if (adventurer.morale <= 0) {
+      departed.push(adventurer);
+    } else {
+      remaining.push(adventurer);
+    }
+  }
+
+  return { departed, remaining };
+}
+
+/**
+ * Process quest progress for active quests.
+ * @param {Object} state — Current game state
+ * @param {number} tickCount — Number of ticks passed
+ * @returns {{ updatedQuests: Object[], completedQuests: Object[], failedQuests: Object[] }}
+ */
+export function processQuestProgress(state, tickCount) {
+  const activeQuest = state.activeQuest;
+  const quests = state.quests || [];
+
+  if (!activeQuest || activeQuest.status !== 'active') {
+    return { updatedQuests: quests, completedQuests: [], failedQuests: [] };
+  }
+
+  const quest = quests.find(q => q.id === activeQuest.questId);
+  if (!quest) {
+    return { updatedQuests: quests, completedQuests: [], failedQuests: [] };
+  }
+
+  // Advance quest progress: tickCount / difficulty
+  const progress = (tickCount / quest.difficulty) * 10;
+
+  // For simplicity, auto-complete after enough ticks
+  const ticksNeeded = quest.difficulty * 10;
+  const completed = state.questTickCount >= ticksNeeded;
+
+  return {
+    updatedQuests: quests,
+    completedQuests: completed ? [quest] : [],
+    failedQuests: [],
+  };
+}
+
+/**
+ * Process a game tick — main tick processor.
+ * @param {Object} state — Current game state
+ * @param {number} [tickCount=1] — Number of ticks to process
+ * @returns {Object} Updated state
+ */
+export function processTick(state, tickCount = 1) {
+  let newState = { ...state, day: state.day + tickCount };
+
+  // Deduct wages
+  const wages = deductWages(newState);
+  newState = { ...newState, gold: wages.remainingGold };
+
+  // Check morale
+  const morale = checkMorale(newState, tickCount);
+  newState = { ...newState, adventurers: morale.adjustedAdventurers };
+
+  // Check departures
+  const departures = checkDepartures(newState);
+  newState = { ...newState, adventurers: departures.remaining };
+
+  // Process quest progress
+  const quests = processQuestProgress(newState, tickCount);
+  newState = {
+    ...newState,
+    questTickCount: (newState.questTickCount || 0) + tickCount,
+    activeQuest: quests.completedQuests.length > 0
+      ? { ...newState.activeQuest, status: 'complete', result: { success: true } }
+      : newState.activeQuest,
+  };
+
+  return newState;
+}
+
 // ─── Game Defaults ───
 
 /**
