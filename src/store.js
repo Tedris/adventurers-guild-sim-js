@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost } from './entities.js';
 
 /**
  * Creates a reactive state store.
@@ -193,6 +193,33 @@ export function createStore(initialState, validators = {}) {
             status: succeeded ? 'complete' : 'failed',
             result: outcome,
           },
+        };
+      }
+      case 'UPGRADE_GUILD': {
+        const { upgradeType, gold: goldPaid } = action.payload;
+        const validTypes = ['office', 'equipment', 'job_postings'];
+        if (!validTypes.includes(upgradeType)) {
+          console.warn(`[Store] UPGRADE_GUILD rejected: invalid type ${upgradeType}`);
+          return currentState;
+        }
+
+        const upgrades = currentState.upgrades || { office: 0, equipment: 0, job_postings: 0 };
+        const cost = calculateUpgradeCost(upgradeType, upgrades[upgradeType]);
+
+        if (goldPaid < cost) {
+          console.warn(`[Store] UPGRADE_GUILD rejected: insufficient gold (need ${cost}, have ${goldPaid})`);
+          return currentState;
+        }
+
+        const newUpgrades = { ...upgrades, [upgradeType]: upgrades[upgradeType] + 1 };
+
+        return {
+          ...currentState,
+          gold: currentState.gold - cost,
+          upgrades: newUpgrades,
+          // Apply upgrade effects
+          ...(upgradeType === 'equipment' ? { equipmentBonus: (currentState.equipmentBonus || 0) + 0.1 } : {}),
+          ...(upgradeType === 'office' ? { fameMultiplier: (currentState.fameMultiplier || 1) + 0.05 } : {}),
         };
       }
       default:
