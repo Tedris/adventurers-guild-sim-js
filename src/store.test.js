@@ -292,6 +292,27 @@ import('./store.js').then((module) => {
     assert(result === false, 'UPGRADE_GUILD should reject insufficient gold');
   });
 
+  // --- Tests for TICK ---
+
+  test('TICK action processes tick correctly', () => {
+    const store = createStore({ gold: 100, adventurers: [], day: 1, guildLevel: 1, fame: 0 });
+    store.dispatch({ type: 'TICK', payload: { tickCount: 5 } });
+    const state = store.getState();
+    assert(state.day === 6, `day should advance by 5, got ${state.day}`);
+  });
+
+  test('TICK validates positive tickCount', () => {
+    const store = createStore({ gold: 100, adventurers: [], day: 1 });
+    const result = store.dispatch({ type: 'TICK', payload: { tickCount: -1 } });
+    assert(result === false, 'TICK should reject negative tickCount');
+  });
+
+  test('TICK returns updated state', () => {
+    const store = createStore({ gold: 100, adventurers: [], day: 10, guildLevel: 1, fame: 0 });
+    const result = store.dispatch({ type: 'TICK', payload: { tickCount: 3 } });
+    assert(result === true, 'TICK should return true for valid action');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);

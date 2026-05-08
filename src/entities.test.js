@@ -46,6 +46,11 @@ import('./entities.js').then((module) => {
     getAvailableUpgrades,
     calculateInflationPressure,
     calculateGoldSinkOpportunities,
+    deductWages,
+    checkMorale,
+    checkDepartures,
+    processQuestProgress,
+    processTick,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -543,6 +548,67 @@ import('./entities.js').then((module) => {
     const state = { gold: 500, adventurers: [{ id: 'a1' }] };
     const result = calculateInflationPressure(state);
     assert(result.pressure === 'high', `high ratio should give high pressure, got ${result.pressure}`);
+  });
+
+  // --- Tests for tick processor ---
+
+  test('deductWages deducts correct total from gold', () => {
+    const adventurer1 = defaultAdventurer({ rank: 'Novice', wage: 2 });
+    const adventurer2 = defaultAdventurer({ rank: 'Journeyman', wage: 3 });
+    const state = { gold: 100, adventurers: [adventurer1, adventurer2] };
+    const result = deductWages(state);
+    assert(result.deducted === 5, `should deduct 5 (2+3), got ${result.deducted}`);
+    assert(result.remainingGold === 95, `remaining should be 95, got ${result.remainingGold}`);
+  });
+
+  test('deductWages with insufficient gold deducts what is available', () => {
+    const adventurer = defaultAdventurer({ rank: 'Veteran', wage: 4 });
+    const state = { gold: 2, adventurers: [adventurer] };
+    const result = deductWages(state);
+    assert(result.deducted === 2, `should deduct 2 (all gold), got ${result.deducted}`);
+    assert(result.unpaid === true, 'should mark as unpaid');
+  });
+
+  test('deductWages with no adventurers returns 0 deduction', () => {
+    const state = { gold: 100, adventurers: [] };
+    const result = deductWages(state);
+    assert(result.deducted === 0, 'should deduct 0 with no adventurers');
+  });
+
+  test('checkMorale applies base decay (-1 per 10 ticks)', () => {
+    const adventurer = defaultAdventurer({ morale: 50 });
+    const state = { gold: 100, adventurers: [adventurer], guildLevel: 1, fame: 0 };
+    const result = checkMorale(state, 20);
+    assert(result.adjustedAdventurers[0].morale === 48, `morale should decay by 2 (20 ticks / 10), got ${result.adjustedAdventurers[0].morale}`);
+  });
+
+  test('checkMorale applies low gold penalty', () => {
+    const adventurer = defaultAdventurer({ rank: 'Novice', morale: 50 });
+    const state = { gold: 1, adventurers: [adventurer], guildLevel: 1, fame: 0 };
+    const result = checkMorale(state, 5);
+    assert(result.adjustedAdventurers[0].morale < 50, `morale should decrease with low gold, got ${result.adjustedAdventurers[0].morale}`);
+  });
+
+  test('checkDepartures removes adventurers with morale <= 0', () => {
+    const alive = defaultAdventurer({ morale: 50 });
+    const departed = defaultAdventurer({ morale: 0 });
+    const state = { gold: 100, adventurers: [alive, departed] };
+    const result = checkDepartures(state);
+    assert(result.departed.length === 1, 'one adventurer should have departed');
+    assert(result.remaining.length === 1, 'one adventurer should remain');
+  });
+
+  test('checkDepartures keeps adventurers with morale > 0', () => {
+    const adventurer = defaultAdventurer({ morale: 10 });
+    const state = { gold: 100, adventurers: [adventurer] };
+    const result = checkDepartures(state);
+    assert(result.remaining.length === 1, 'adventurer should remain with positive morale');
+  });
+
+  test('processTick advances day', () => {
+    const state = { gold: 100, adventurers: [], day: 10, guildLevel: 1, fame: 0 };
+    const result = processTick(state, 1);
+    assert(result.day === 11, `day should advance by 1, got ${result.day}`);
   });
 
   // Print summary
