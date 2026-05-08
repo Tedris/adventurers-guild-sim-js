@@ -162,13 +162,61 @@ import('./store.js').then((module) => {
 
   test('RESTOCK: appends to existing recruitmentPool', () => {
     const existing = { id: 'existing-1', name: 'Existing', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
-    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [existing] });
+    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [existing], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
     const newAdventurers = [{ id: 'new-1', name: 'New', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 }];
     store.dispatch({ type: 'RESTOCK', payload: { adventurers: newAdventurers } });
     const state = store.getState();
     assert(state.recruitmentPool.length === 2, `recruitmentPool should have 2 (1 existing + 1 new), got ${state.recruitmentPool.length}`);
     assert(state.recruitmentPool[0].id === 'existing-1', 'existing adventurer should still be in pool');
     assert(state.recruitmentPool[1].id === 'new-1', 'new adventurer should be appended');
+  });
+
+  // --- Tests for ASSIGN_PARTY ---
+
+  test('ASSIGN_PARTY validates party size', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [hero1], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
+    // Party of 1 without solo quest should fail
+    const result = store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1'] } });
+    assert(result === false, 'ASSIGN_PARTY should fail for party of 1 without solo quest');
+  });
+
+  test('ASSIGN_PARTY calculates synergy score correctly', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { tracking: 0.8 }, wage: 2 };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { tracking: 0.9 }, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
+    store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1', 'hero-2'] } });
+    const state = store.getState();
+    assert(state.party.synergyScore > 0, `synergyScore should be positive, got ${state.party.synergyScore}`);
+    assert(state.party.adventurerIds.length === 2, `party should have 2 adventurers, got ${state.party.adventurerIds.length}`);
+  });
+
+  test('ASSIGN_PARTY rejects duplicate adventurer IDs', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [hero1], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
+    const result = store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1', 'hero-1'] } });
+    assert(result === false, 'ASSIGN_PARTY should reject duplicate IDs');
+  });
+
+  // --- Tests for REORDER_PARTY ---
+
+  test('REORDER_PARTY maintains party integrity', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 } });
+    store.dispatch({ type: 'REORDER_PARTY', payload: { adventurerIds: ['hero-2', 'hero-1'] } });
+    const state = store.getState();
+    assert(state.party.adventurerIds[0] === 'hero-2', 'first should now be hero-2');
+    assert(state.party.adventurerIds[1] === 'hero-1', 'second should now be hero-1');
+  });
+
+  test('REORDER_PARTY recalculates synergy on reorder', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { combat: 0.9 }, wage: 2 };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { ranged_combat: 0.8 }, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 } });
+    store.dispatch({ type: 'REORDER_PARTY', payload: { adventurerIds: ['hero-2', 'hero-1'] } });
+    const state = store.getState();
+    assert(state.party.synergyScore > 0, `synergyScore should be recalculated, got ${state.party.synergyScore}`);
   });
 
   // Print summary
