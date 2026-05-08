@@ -20,6 +20,32 @@ export function createStore(initialState, validators = {}) {
         return { ...currentState, gold: (currentState.gold ?? 0) + action.payload };
       case 'MERGE_STATE':
         return structuredClone(action.payload);
+      case 'HIRE': {
+        const adventurerId = action.payload.adventurerId;
+        const poolIndex = currentState.recruitmentPool.findIndex(a => a.id === adventurerId);
+        if (poolIndex === -1) return currentState; // adventurer not in pool
+
+        const adventurer = currentState.recruitmentPool[poolIndex];
+        const newPool = [...currentState.recruitmentPool];
+        newPool.splice(poolIndex, 1);
+
+        return {
+          ...currentState,
+          recruitmentPool: newPool,
+          adventurers: [...currentState.adventurers, adventurer],
+        };
+      }
+      case 'RESTOCK': {
+        const count = action.payload.count ?? 1;
+        if (!Number.isInteger(count) || count <= 0) return currentState;
+
+        // This will be populated by the caller with pool entries
+        const newPoolEntries = action.payload.adventurers || [];
+        return {
+          ...currentState,
+          recruitmentPool: [...currentState.recruitmentPool, ...newPoolEntries],
+        };
+      }
       default:
         return currentState;
     }
