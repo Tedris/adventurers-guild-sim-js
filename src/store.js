@@ -3,6 +3,8 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
+import { validateParty, calculateSynergyScore } from './entities.js';
+
 /**
  * Creates a reactive state store.
  * @param {Object} initialState - Initial game state
@@ -44,6 +46,80 @@ export function createStore(initialState, validators = {}) {
         return {
           ...currentState,
           recruitmentPool: [...currentState.recruitmentPool, ...newPoolEntries],
+        };
+      }
+      case 'ASSIGN_PARTY': {
+        const { partyId, adventurerIds, quest } = action.payload;
+        // Validate party size
+        const partyValidation = validateParty(adventurerIds, quest);
+        if (!partyValidation.valid) {
+          console.warn(`[Store] ASSIGN_PARTY rejected: ${partyValidation.reason}`);
+          return currentState;
+        }
+
+        // Validate all adventurers exist in roster
+        const rosterIds = new Set(currentState.adventurers.map(a => a.id));
+        for (const id of adventurerIds) {
+          if (!rosterIds.has(id)) {
+            console.warn(`[Store] ASSIGN_PARTY rejected: adventurer ${id} not in roster`);
+            return currentState;
+          }
+        }
+
+        // Check for duplicates
+        if (new Set(adventurerIds).size !== adventurerIds.length) {
+          console.warn('[Store] ASSIGN_PARTY rejected: duplicate adventurer IDs');
+          return currentState;
+        }
+
+        // Calculate synergy score
+        const partyAdventurers = currentState.adventurers.filter(a => adventurerIds.includes(a.id));
+        const { synergyScore } = calculateSynergyScore(partyAdventurers, quest || null);
+
+        return {
+          ...currentState,
+          party: {
+            ...currentState.party,
+            adventurerIds,
+            synergyScore,
+          },
+        };
+      }
+      case 'REORDER_PARTY': {
+        const { adventurerIds } = action.payload;
+
+        // Validate party size (allow 1+ for reordering)
+        if (adventurerIds.length < 1) {
+          console.warn('[Store] REORDER_PARTY rejected: empty party');
+          return currentState;
+        }
+
+        // Validate all adventurers exist in party
+        const currentPartyIds = new Set(currentState.party.adventurerIds);
+        for (const id of adventurerIds) {
+          if (!currentPartyIds.has(id)) {
+            console.warn(`[Store] REORDER_PARTY rejected: adventurer ${id} not in current party`);
+            return currentState;
+          }
+        }
+
+        // Check for duplicates
+        if (new Set(adventurerIds).size !== adventurerIds.length) {
+          console.warn('[Store] REORDER_PARTY rejected: duplicate adventurer IDs');
+          return currentState;
+        }
+
+        // Recalculate synergy
+        const partyAdventurers = currentState.adventurers.filter(a => adventurerIds.includes(a.id));
+        const { synergyScore } = calculateSynergyScore(partyAdventurers);
+
+        return {
+          ...currentState,
+          party: {
+            ...currentState.party,
+            adventurerIds,
+            synergyScore,
+          },
         };
       }
       default:
