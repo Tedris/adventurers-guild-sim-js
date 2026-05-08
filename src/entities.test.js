@@ -41,6 +41,11 @@ import('./entities.js').then((module) => {
     calculateQuestSuccessRate,
     calculateQuestOutcome,
     generateQuestPool,
+    calculateWageScale,
+    calculateUpgradeCost,
+    getAvailableUpgrades,
+    calculateInflationPressure,
+    calculateGoldSinkOpportunities,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -480,6 +485,64 @@ import('./entities.js').then((module) => {
       assert(quest.requirements?.minStats, 'quest should have minStats');
       assert(quest.rewards?.gold > 0, 'quest should have positive gold reward');
     }
+  });
+
+  // --- Tests for economy engine ---
+
+  test('calculateWageScale at level 1 returns scaleFactor 1', () => {
+    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
+    const result = calculateWageScale(adventurers, 1);
+    assert(result.scaleFactor === 1, `scaleFactor at level 1 should be 1, got ${result.scaleFactor}`);
+  });
+
+  test('calculateWageScale at level 3 returns scaleFactor 1.2', () => {
+    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
+    const result = calculateWageScale(adventurers, 3);
+    assert(result.scaleFactor === 1.2, `scaleFactor at level 3 should be 1.2, got ${result.scaleFactor}`);
+  });
+
+  test('calculateWageScale with fame > 50 applies 10% discount', () => {
+    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
+    const result = calculateWageScale(adventurers, 1, 60);
+    assert(result.fameDiscount === 0.1, `fameDiscount should be 0.1, got ${result.fameDiscount}`);
+  });
+
+  test('calculateWageScale with fame > 100 applies 20% discount', () => {
+    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
+    const result = calculateWageScale(adventurers, 1, 120);
+    assert(result.fameDiscount === 0.2, `fameDiscount should be 0.2, got ${result.fameDiscount}`);
+  });
+
+  test('calculateUpgradeCost base costs: office=50, equipment=30, job_postings=15', () => {
+    assert(calculateUpgradeCost('office', 0) === 50, `office base cost should be 50, got ${calculateUpgradeCost('office', 0)}`);
+    assert(calculateUpgradeCost('equipment', 0) === 30, `equipment base cost should be 30, got ${calculateUpgradeCost('equipment', 0)}`);
+    assert(calculateUpgradeCost('job_postings', 0) === 15, `job_postings base cost should be 15, got ${calculateUpgradeCost('job_postings', 0)}`);
+  });
+
+  test('calculateUpgradeCost level 2 costs 1.5x level 1', () => {
+    const level1 = calculateUpgradeCost('office', 0);
+    const level2 = calculateUpgradeCost('office', 1);
+    assert(level2 === Math.floor(50 * 1.5), `level 2 cost should be ${Math.floor(50 * 1.5)}, got ${level2}`);
+  });
+
+  test('getAvailableUpgrades filters by gold availability', () => {
+    const state = { gold: 5, upgrades: { office: 0, equipment: 0, job_postings: 0 } };
+    const available = getAvailableUpgrades(state);
+    const types = available.map(u => u.type);
+    assert(!types.includes('equipment'), 'equipment should be unavailable with gold=5');
+    assert(types.includes('office'), 'office should be available');
+  });
+
+  test('calculateInflationPressure low ratio returns low pressure', () => {
+    const state = { gold: 10, adventurers: [{ id: 'a1' }, { id: 'a2' }] };
+    const result = calculateInflationPressure(state);
+    assert(result.pressure === 'low', `low ratio should give low pressure, got ${result.pressure}`);
+  });
+
+  test('calculateInflationPressure high ratio returns high pressure', () => {
+    const state = { gold: 500, adventurers: [{ id: 'a1' }] };
+    const result = calculateInflationPressure(state);
+    assert(result.pressure === 'high', `high ratio should give high pressure, got ${result.pressure}`);
   });
 
   // Print summary
