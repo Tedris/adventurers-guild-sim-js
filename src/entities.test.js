@@ -25,6 +25,12 @@ import('./entities.js').then((module) => {
     validateParty,
     VALID_CLASSES,
     VALID_ORIGINS,
+    calculateWage,
+    generateRecruitmentPool,
+    calculateAptitudes,
+    VALID_RANKS,
+    RARITY_TIERS,
+    DEFAULT_WAGE,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -176,6 +182,105 @@ import('./entities.js').then((module) => {
   test('validateParty rejects party too large (4)', () => {
     const result = validateParty(['a1', 'a2', 'a3', 'a4']);
     assert(result.valid === false, 'party of 4 should be rejected');
+  });
+
+  // --- Tests for calculateWage ---
+
+  test('calculateWage returns correct wage for Novice rank', () => {
+    const a = defaultAdventurer({ rank: 'Novice' });
+    assert(calculateWage(a) === 2, `Novice wage should be 2, got ${calculateWage(a)}`);
+  });
+
+  test('calculateWage returns correct wage for Journeyman rank', () => {
+    const a = defaultAdventurer({ rank: 'Journeyman' });
+    assert(calculateWage(a) === 3, `Journeyman wage should be 3, got ${calculateWage(a)}`);
+  });
+
+  test('calculateWage returns correct wage for Veteran rank', () => {
+    const a = defaultAdventurer({ rank: 'Veteran' });
+    assert(calculateWage(a) === 4, `Veteran wage should be 4, got ${calculateWage(a)}`);
+  });
+
+  test('calculateWage returns correct wage for Champion rank', () => {
+    const a = defaultAdventurer({ rank: 'Champion' });
+    assert(calculateWage(a) === 5, `Champion wage should be 5, got ${calculateWage(a)}`);
+  });
+
+  test('calculateWage returns correct wage for Legend rank', () => {
+    const a = defaultAdventurer({ rank: 'Legend' });
+    assert(calculateWage(a) === 7, `Legend wage should be 7, got ${calculateWage(a)}`);
+  });
+
+  test('calculateWage adds rarity bonus for Rare equipment', () => {
+    const a = defaultAdventurer({ rank: 'Novice', equipment: { weapon: { rarity: 'Rare' } } });
+    const wage = calculateWage(a);
+    assert(wage === 4, `Novice + Rare weapon should be 4g, got ${wage}`);
+  });
+
+  test('calculateWage adds rarity bonus for Epic equipment', () => {
+    const a = defaultAdventurer({ rank: 'Novice', equipment: { weapon: { rarity: 'Epic' }, armor: { rarity: 'Rare' } } });
+    const wage = calculateWage(a);
+    assert(wage === 7, `Novice + Epic weapon + Rare armor should be 7g, got ${wage}`);
+  });
+
+  // --- Tests for generateRecruitmentPool ---
+
+  test('generateRecruitmentPool(1) returns array with one adventurer', () => {
+    const pool = generateRecruitmentPool(1);
+    assert(Array.isArray(pool), 'must return array');
+    assert(pool.length === 1, `pool length should be 1, got ${pool.length}`);
+  });
+
+  test('generateRecruitmentPool(3) returns array with three adventurers', () => {
+    const pool = generateRecruitmentPool(3);
+    assert(pool.length === 3, `pool length should be 3, got ${pool.length}`);
+  });
+
+  test('each adventurer from pool has valid class', () => {
+    const pool = generateRecruitmentPool(5);
+    for (const a of pool) {
+      assert(VALID_CLASSES.includes(a.class), `class ${a.class} not in VALID_CLASSES`);
+    }
+  });
+
+  test('each adventurer has stats within MIN_STAT-MAX_STAT range', () => {
+    const pool = generateRecruitmentPool(5);
+    for (const a of pool) {
+      for (const [stat, value] of Object.entries(a.stats)) {
+        assert(value >= 1 && value <= 20, `stat ${stat}=${value} out of range`);
+      }
+    }
+  });
+
+  test('generateRecruitmentPool sets rank=Novice and wage via calculateWage', () => {
+    const pool = generateRecruitmentPool(2);
+    for (const a of pool) {
+      assert(a.rank === 'Novice', `rank should be Novice, got ${a.rank}`);
+      assert(a.wage > 0, `wage should be > 0, got ${a.wage}`);
+      assert(a.wage === calculateWage(a), `wage should match calculateWage`);
+    }
+  });
+
+  // --- Tests for calculateAptitudes ---
+
+  test('calculateAptitudes returns object for Sword class', () => {
+    const a = defaultAdventurer({ class: 'Sword' });
+    const apt = calculateAptitudes(a);
+    assert('tracking' in apt, 'Sword should have tracking aptitude');
+    assert('combat' in apt, 'Sword should have combat aptitude');
+  });
+
+  test('calculateAptitudes returns object for Bow class', () => {
+    const a = defaultAdventurer({ class: 'Bow' });
+    const apt = calculateAptitudes(a);
+    assert('tracking' in apt, 'Bow should have tracking aptitude');
+    assert('ranged_combat' in apt, 'Bow should have ranged_combat aptitude');
+  });
+
+  test('calculateAptitudes returns empty object for unknown class', () => {
+    const a = defaultAdventurer({ class: 'Dragon' });
+    const apt = calculateAptitudes(a);
+    assert(Object.keys(apt).length === 0, 'unknown class should have no aptitudes');
   });
 
   // Print summary

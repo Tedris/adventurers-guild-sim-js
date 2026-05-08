@@ -122,6 +122,55 @@ import('./store.js').then((module) => {
     assert(state2.inventory.potion !== true, 'nested state should not be affected by external mutation');
   });
 
+  // --- Tests for HIRE action ---
+
+  test('HIRE: dispatches and adds adventurer to roster', () => {
+    const poolAdventurer = { id: 'pool-1', name: 'Pool Hero', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [poolAdventurer] });
+    store.dispatch({ type: 'HIRE', payload: { adventurerId: 'pool-1' } });
+    const state = store.getState();
+    assert(state.adventurers.length === 1, `roster should have 1 adventurer, got ${state.adventurers.length}`);
+    assert(state.adventurers[0].id === 'pool-1', 'hired adventurer should be in roster');
+  });
+
+  test('HIRE: removes adventurer from recruitmentPool', () => {
+    const poolAdventurer = { id: 'pool-2', name: 'Pool Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [poolAdventurer] });
+    store.dispatch({ type: 'HIRE', payload: { adventurerId: 'pool-2' } });
+    const state = store.getState();
+    assert(state.recruitmentPool.length === 0, `recruitmentPool should be empty, got ${state.recruitmentPool.length}`);
+  });
+
+  test('HIRE: validates adventurer exists in pool (rejects non-existent)', () => {
+    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [] });
+    const result = store.dispatch({ type: 'HIRE', payload: { adventurerId: 'nonexistent' } });
+    assert(result === false, 'HIRE should return false for non-existent adventurer');
+  });
+
+  // --- Tests for RESTOCK action ---
+
+  test('RESTOCK: generates specified number of adventurers', () => {
+    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [] });
+    const newAdventurers = [
+      { id: 'new-1', name: 'New 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 },
+      { id: 'new-2', name: 'New 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 },
+    ];
+    store.dispatch({ type: 'RESTOCK', payload: { adventurers: newAdventurers } });
+    const state = store.getState();
+    assert(state.recruitmentPool.length === 2, `recruitmentPool should have 2, got ${state.recruitmentPool.length}`);
+  });
+
+  test('RESTOCK: appends to existing recruitmentPool', () => {
+    const existing = { id: 'existing-1', name: 'Existing', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [existing] });
+    const newAdventurers = [{ id: 'new-1', name: 'New', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 }];
+    store.dispatch({ type: 'RESTOCK', payload: { adventurers: newAdventurers } });
+    const state = store.getState();
+    assert(state.recruitmentPool.length === 2, `recruitmentPool should have 2 (1 existing + 1 new), got ${state.recruitmentPool.length}`);
+    assert(state.recruitmentPool[0].id === 'existing-1', 'existing adventurer should still be in pool');
+    assert(state.recruitmentPool[1].id === 'new-1', 'new adventurer should be appended');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);
