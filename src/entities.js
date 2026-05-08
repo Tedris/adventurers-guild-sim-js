@@ -56,7 +56,7 @@ export function calculateWage(adventurer) {
     if (item && item.rarity) {
       const tierIndex = RARITY_TIERS.indexOf(item.rarity);
       if (tierIndex > 0) {
-        wage += tierIndex; // Common=0, Uncommon=1, Rare=2, Epic=3
+        wage += tierIndex; // Uncommon=+1, Rare=+2, Epic=+3
       }
     }
   }
@@ -124,18 +124,18 @@ export function defaultAdventurer(overrides = {}) {
       lck: overrides.stats?.lck ?? rollStat(),
     },
     equipment: {
-      weapon: null,
-      armor: null,
-      accessory: null,
+      weapon: overrides.equipment?.weapon ?? null,
+      armor: overrides.equipment?.armor ?? null,
+      accessory: overrides.equipment?.accessory ?? null,
     },
     morale: Math.max(0, Math.min(100, overrides.morale ?? DEFAULT_MORALE)),
     origin: overrides.origin || VALID_ORIGINS[Math.floor(Math.random() * VALID_ORIGINS.length)],
     personality: overrides.personality || { traits: [] },
     level: overrides.level ?? 1,
     experience: overrides.experience ?? 0,
-    rank: 'Novice',
-    aptitudes: {},
-    wage: 0,
+    rank: overrides.rank ?? 'Novice',
+    aptitudes: overrides.aptitudes ?? {},
+    wage: overrides.wage ?? 0,
   };
 }
 
@@ -213,12 +213,88 @@ export function validateAdventurer(data) {
 /**
  * Validate party size constraints.
  * @param {string[]} adventurerIds — Array of adventurer IDs
+ * @param {Object} [quest=null] — Optional quest for solo eligibility check
  * @returns {{ valid: boolean, reason?: string }}
  */
-export function validateParty(adventurerIds) {
+export function validateParty(adventurerIds, quest = null) {
+  // Solo quest: allow party size of 1 if we have Legend rank
+  if (quest && quest.requirements?.minPartySize === 1) {
+    // This is a solo-eligible quest; size 1 is allowed
+    if (adventurerIds.length > MAX_PARTY_SIZE) return { valid: false, reason: `Party too large: ${adventurerIds.length} > ${MAX_PARTY_SIZE}` };
+    return { valid: true };
+  }
+
   if (adventurerIds.length < MIN_PARTY_SIZE) return { valid: false, reason: `Party too small: ${adventurerIds.length} < ${MIN_PARTY_SIZE}` };
   if (adventurerIds.length > MAX_PARTY_SIZE) return { valid: false, reason: `Party too large: ${adventurerIds.length} > ${MAX_PARTY_SIZE}` };
   return { valid: true };
+}
+
+// ─── Party Synergy ───
+
+/**
+ * Calculate class diversity bonus for a party.
+ * @param {Object[]} adventurers — Party adventurers
+ * @returns {{ uniqueClasses: number, bonus: number }}
+ */
+export function calculateClassDiversity(adventurers) {
+  const uniqueClasses = new Set(adventurers.map(a => a.class));
+  const uniqueCount = uniqueClasses.size;
+  const bonus = Math.min(uniqueCount * 0.2, 1.5);
+  return { uniqueClasses: uniqueCount, bonus };
+}
+
+/**
+ * Calculate aptitude bonus for a party against preferred quest classes.
+ * @param {Object[]} adventurers — Party adventurers
+ * @param {string[]} preferredClasses — Quest preferred class names
+ * @returns {number} Total aptitude bonus
+ */
+export function calculateAptitudeBonus(adventurers, preferredClasses) {
+  let bonus = 0;
+  for (const adventurer of adventurers) {
+    const aptitudes = adventurer.aptitudes || {};
+    for (const preferredClass of preferredClasses) {
+      // Check if the adventurer has an aptitude matching this preferred class type
+      for (const [aptitudeKey, aptitudeValue] of Object.entries(aptitudes)) {
+        if (preferredClass.toLowerCase().includes(aptitudeKey.split('_')[0]) ||
+            aptitudeKey.toLowerCase().includes(preferredClass.split(' ')[0].toLowerCase())) {
+          bonus += aptitudeValue * 0.15;
+        }
+      }
+      // Also check direct class match
+      if (adventurer.class.toLowerCase() === preferredClass.toLowerCase()) {
+        bonus += 0.15;
+      }
+    }
+  }
+  return bonus;
+}
+
+/**
+ * Calculate synergy score for a party against a quest.
+ * @param {Object[]} adventurers — Party adventurers
+ * @param {Object} [quest=null] — Optional quest for aptitude matching
+ * @returns {{ synergyScore: number, diversityBonus: number, aptitudeBonus: number }}
+ */
+export function calculateSynergyScore(adventurers, quest = null) {
+  const { bonus: diversityBonus } = calculateClassDiversity(adventurers);
+
+  let aptitudeBonus = 0;
+  if (quest && quest.requirements?.preferredClasses) {
+    aptitudeBonus = calculateAptitudeBonus(adventurers, quest.requirements.preferredClasses);
+  }
+
+  const synergyScore = diversityBonus + aptitudeBonus;
+  return { synergyScore, diversityBonus, aptitudeBonus };
+}
+
+/**
+ * Check if any adventurer in the party is eligible for solo quests.
+ * @param {Object[]} adventurers — Party adventurers
+ * @returns {boolean} True if any adventurer has Legend rank
+ */
+export function getSoloEligible(adventurers) {
+  return adventurers.some(a => a.rank === 'Legend');
 }
 
 // ─── Game Defaults ───
