@@ -1169,6 +1169,16 @@ export function gameDefaults() {
     recruitmentPool: [],
     wageReserves: 0,
     lastWageDay: 0,
+    // Progression tracking (Phase 3)
+    questCount: 0,
+    // Event system (Phase 3)
+    events: [],
+    eventCooldowns: {},
+    // Event modifiers (Phase 3)
+    wageMultiplier: 1,
+    questRisk: 0,
+    reputation: 0,
+    favorDebt: 0,
   };
 }
 
@@ -1181,5 +1191,7 @@ export function validateGame(state) {
   if (!Array.isArray(state.adventurers)) return { valid: false, reason: 'Missing adventurers array' };
   if (!Array.isArray(state.quests)) return { valid: false, reason: 'Missing quests array' };
   if (!state.party || typeof state.party !== 'object') return { valid: false, reason: 'Missing party object' };
+  // Events array is optional (for saves from before Phase 3)
+  if (state.events !== undefined && !Array.isArray(state.events)) return { valid: false, reason: 'events must be an array' };
   return { valid: true };
 }
