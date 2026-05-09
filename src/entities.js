@@ -17,6 +17,100 @@ export const RARITY_TIERS = ['Common', 'Uncommon', 'Rare', 'Epic'];
 export const VALID_RANKS = ['Novice', 'Journeyman', 'Veteran', 'Champion', 'Legend'];
 export const DEFAULT_WAGE = 2;
 
+// ─── Name Generation (Phase 3) ───
+
+const NAME_SYLLABLES = {
+  start: ['Ae', 'Bal', 'Cael', 'Dar', 'El', 'Fen', 'Grim', 'Hal', 'Ith', 'Jor', 'Kal', 'Lyr', 'Mor', 'Nex', 'Or', 'Pel', 'Quin', 'Ran', 'Sel', 'Thor', 'Ul', 'Val', 'War', 'Xan', 'Yar', 'Zep'],
+  end: ['an', 'ar', 'as', 'din', 'dor', 'el', 'en', 'er', 'gar', 'gin', 'ias', 'in', 'ion', 'ius', 'kar', 'lan', 'lin', 'mar', 'mus', 'nar', 'or', 'rin', 'ros', 'sar', 'thas', 'tin', 'tor', 'us', 'win'],
+};
+
+/**
+ * Generate a procedurally composed adventurer name from syllable pools.
+ * Combines a start syllable + end syllable.
+ * @param {Object} [overrides={}] — Optional overrides
+ * @param {string} [overrides.name] — Specific name to return instead of generated
+ * @param {string} [overrides.gender] — Not used yet, reserved for future gendered pools
+ * @returns {string} Generated name (e.g., 'Aerin', 'Grimar')
+ */
+export function generateName(overrides = {}) {
+  if (overrides.name) return overrides.name;
+  const start = NAME_SYLLABLES.start[Math.floor(Math.random() * NAME_SYLLABLES.start.length)];
+  const end = NAME_SYLLABLES.end[Math.floor(Math.random() * NAME_SYLLABLES.end.length)];
+  return start + end;
+}
+
+// ─── Personality Traits (Phase 3) ───
+
+export const VALID_PERSONALITY_TRAITS = [
+  // Courageous types (+morale, +combat quests)
+  'Brave', 'Fierce', 'Unyielding', 'Stalwart', 'Dauntless',
+  // Cautious types (+defense quests, +morale stability)
+  'Cautious', 'Prudent', 'Methodical', 'Watchful', 'Meticulous',
+  // Social types (+team morale, +drama events)
+  'Charismatic', 'Witty', 'Loyal', 'Ambitious', 'Mentor',
+  // Scholarly types (+investigation, +herb_gathering)
+  'Scholarly', 'Curious', 'Analytical', 'Patient', 'Detail-oriented',
+  // Roguish types (+stealth, +ranged_combat)
+  'Cunning', 'Resourceful', 'Stealthy', 'Lucky', 'Adaptable',
+];
+
+/**
+ * Personality trait definitions with gameplay effects.
+ * Each trait: morale effect on hire, quest success modifier.
+ * Values: morale = +/- bonus to base morale (default 70).
+ *         quest_success = +/- percentage point modifier.
+ */
+export const PERSONALITY_TRAIT_TABLE = {
+  // Courageous: +morale, +combat/tracking aptitude
+  Brave:       { morale: 5,  quest_success: 2,  description: '+5 morale on hire, +2% combat quest success' },
+  Fierce:      { morale: 3,  quest_success: 3,  description: '+3 morale on hire, +3% combat quest success' },
+  Unyielding:  { morale: 8,  quest_success: 1,  description: '+8 morale on hire, +1% all quest success' },
+  Stalwart:    { morale: 6,  quest_success: 2,  description: '+6 morale on hire, +2% defense quest success' },
+  Dauntless:   { morale: 4,  quest_success: 4,  description: '+4 morale on hire, +4% high-difficulty quest success' },
+  // Cautious: stable morale, +defense
+  Cautious:    { morale: 2,  quest_success: 1,  description: '+2 morale on hire, +1% defense quest success' },
+  Prudent:     { morale: 3,  quest_success: 1,  description: '+3 morale on hire, +1% protection quest success' },
+  Methodical:  { morale: 4,  quest_success: 2,  description: '+4 morale on hire, +2% investigation quest success' },
+  Watchful:    { morale: 3,  quest_success: 1,  description: '+3 morale on hire, +1% tracking quest success' },
+  Meticulous:  { morale: 5,  quest_success: 1,  description: '+5 morale on hire, +1% herb_gathering quest success' },
+  // Social: morale effects on party
+  Charismatic: { morale: 3,  quest_success: 1,  description: '+3 morale on hire, +1% all quest success' },
+  Witty:       { morale: 5,  quest_success: 0,  description: '+5 morale on hire, no quest modifier' },
+  Loyal:       { morale: 7,  quest_success: 1,  description: '+7 morale on hire, +1% shield-type quest success' },
+  Ambitious:   { morale: -3, quest_success: 3,  description: '-3 morale on hire, +3% high-value quest success' },
+  Mentor:      { morale: 4,  quest_success: 1,  description: '+4 morale on hire, +1% aptitude-based quests' },
+  // Scholarly: +investigation, +herb_gathering
+  Scholarly:   { morale: 1,  quest_success: 2,  description: '+1 morale on hire, +2% investigation quest success' },
+  Curious:     { morale: 2,  quest_success: 2,  description: '+2 morale on hire, +2% herb_gathering quest success' },
+  Analytical:  { morale: 1,  quest_success: 2,  description: '+1 morale on hire, +2% investigation quest success' },
+  Patient:     { morale: 3,  quest_success: 1,  description: '+3 morale on hire, +1% long-duration quest success' },
+  'Detail-oriented': { morale: 2, quest_success: 2, description: '+2 morale on hire, +2% investigation quest success' },
+  // Roguish: +stealth, +ranged_combat
+  Cunning:     { morale: 0,  quest_success: 3,  description: 'No morale change, +3% stealth quest success' },
+  Resourceful: { morale: 2,  quest_success: 2,  description: '+2 morale on hire, +2% any quest success' },
+  Stealthy:    { morale: -1, quest_success: 3,  description: '-1 morale on hire, +3% stealth quest success' },
+  Lucky:       { morale: 3,  quest_success: 2,  description: '+3 morale on hire, +2% luck-dependent quest success' },
+  Adaptable:   { morale: 2,  quest_success: 2,  description: '+2 morale on hire, +2% any quest success' },
+};
+
+/**
+ * Generate a personality object with 1-3 random traits.
+ * @param {number} [count=2] — Number of traits to generate (1-3)
+ * @returns {{ traits: string[] }} Personality object
+ */
+export function generatePersonality(count = 2) {
+  const numTraits = count === 1 ? 1 : 1 + Math.floor(Math.random() * Math.min(count, 3));
+  const traits = [];
+  const pool = [...VALID_PERSONALITY_TRAITS];
+
+  for (let i = 0; i < numTraits && pool.length > 0; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    traits.push(pool.splice(idx, 1)[0]); // no duplicates
+  }
+
+  return { traits };
+}
+
 export const MIN_STAT = 1;
 export const MAX_STAT = 20;
 export const DEFAULT_MORALE = 70;
