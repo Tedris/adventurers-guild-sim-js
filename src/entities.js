@@ -17,6 +17,35 @@ export const RARITY_TIERS = ['Common', 'Uncommon', 'Rare', 'Epic'];
 export const VALID_RANKS = ['Novice', 'Journeyman', 'Veteran', 'Champion', 'Legend'];
 export const DEFAULT_WAGE = 2;
 
+// ─── Quest Templates (Phase 3-02) ───
+
+/**
+ * Hand-crafted quest templates for the quest pool.
+ * Each template defines name, difficulty, stat requirements, preferred classes,
+ * gold/XP rewards, and description.
+ * @type {Object[]}
+ */
+export const QUEST_TEMPLATES = [
+  // Easy quests (difficulty 1-2)
+  { name: 'Scout the nearby forest', difficulty: 1, requirements: { minStats: { str: 5, dex: 5, int: 5, vit: 5, lck: 5 }, preferredClasses: ['Sword', 'Bow'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 15, experience: 25 }, description: 'Reconnaissance mission in the nearby forest.' },
+  { name: 'Clear rat infestation', difficulty: 1, requirements: { minStats: { str: 4, dex: 4, int: 3, vit: 4, lck: 3 }, preferredClasses: ['Sword', 'Dagger'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 10, experience: 20 }, description: 'The town needs rats cleared from the cellar.' },
+  { name: 'Deliver messages to border village', difficulty: 2, requirements: { minStats: { str: 5, dex: 6, int: 4, vit: 5, lck: 5 }, preferredClasses: ['Bow', 'Wand'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 20, experience: 30 }, description: 'Urgent message delivery to a distant village.' },
+  { name: 'Investigate missing farmers', difficulty: 2, requirements: { minStats: { str: 6, dex: 5, int: 7, vit: 6, lck: 6 }, preferredClasses: ['Wand', 'Staff'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 25, experience: 35 }, description: 'Three farmers have vanished near the old mill. Something unnatural is afoot.' },
+  { name: 'Repair the bridge', difficulty: 2, requirements: { minStats: { str: 8, dex: 4, int: 4, vit: 7, lck: 4 }, preferredClasses: ['Shield', 'Axe'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 30, experience: 35 }, description: 'A storm destroyed the only bridge to the eastern valley. Villagers need it fixed before harvest.' },
+  { name: 'Negotiate the troll peace', difficulty: 2, requirements: { minStats: { str: 8, dex: 5, int: 10, vit: 9, lck: 7 }, preferredClasses: ['Shield', 'Wand'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 35, experience: 40 }, description: 'A troll blockades the mountain pass. Diplomacy is preferred over combat.' },
+  // Medium quests (difficulty 3-4)
+  { name: 'Hunt bandits on the highway', difficulty: 3, requirements: { minStats: { str: 8, dex: 7, int: 5, vit: 7, lck: 6 }, preferredClasses: ['Sword', 'Axe'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 40, experience: 50 }, description: 'Bandits have been plundering merchant caravans.' },
+  { name: 'Explore the abandoned mine', difficulty: 3, requirements: { minStats: { str: 7, dex: 6, int: 8, vit: 6, lck: 7 }, preferredClasses: ['Staff', 'Shield'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 45, experience: 55 }, description: 'An old mine has been emitting strange noises.' },
+  { name: 'Track the shadow wolf', difficulty: 3, requirements: { minStats: { str: 6, dex: 10, int: 6, vit: 8, lck: 8 }, preferredClasses: ['Bow', 'Dagger'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 45, experience: 50 }, description: 'A massive wolf has been killing livestock. The locals call it shadow.' },
+  { name: 'Clear the goblin camp', difficulty: 3, requirements: { minStats: { str: 9, dex: 7, int: 5, vit: 8, lck: 6 }, preferredClasses: ['Sword', 'Axe', 'Shield'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 50, experience: 55 }, description: 'A goblin camp has been raiding supply caravans on the northern road.' },
+  { name: 'Escort merchant caravan', difficulty: 4, requirements: { minStats: { str: 9, dex: 8, int: 6, vit: 9, lck: 7 }, preferredClasses: ['Shield', 'Sword'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 55, experience: 60 }, description: 'Protect a valuable merchant caravan through dangerous territory.' },
+  { name: 'Retrieve the ancient tome', difficulty: 4, requirements: { minStats: { str: 7, dex: 8, int: 12, vit: 7, lck: 9 }, preferredClasses: ['Wand', 'Staff', 'Dagger'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 60, experience: 70 }, description: 'An ancient library beneath the old keep holds a tome of forgotten magic.' },
+  // Hard quests (difficulty 5)
+  { name: 'Slay the dragon', difficulty: 5, requirements: { minStats: { str: 15, dex: 12, int: 10, vit: 14, lck: 12 }, preferredClasses: ['Sword', 'Axe', 'Mace'], minPartySize: 1, maxPartySize: 3 }, rewards: { gold: 100, experience: 120 }, description: 'A dragon has taken up residence in the mountain. Only the bravest dare attempt this.' },
+  { name: 'Infiltrate the rival guild', difficulty: 5, requirements: { minStats: { str: 10, dex: 14, int: 12, vit: 10, lck: 13 }, preferredClasses: ['Dagger', 'Bow'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 90, experience: 110 }, description: 'The rival guild has been poaching your adventurers. Infiltrate and expose them.' },
+  { name: 'Purge the haunted crypt', difficulty: 4, requirements: { minStats: { str: 10, dex: 8, int: 10, vit: 10, lck: 10 }, preferredClasses: ['Staff', 'Mace', 'Sword'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 70, experience: 80 }, description: 'Undead have risen in the family crypts of the old nobility. Send the bravest.' },
+];
+
 // ─── Name Generation (Phase 3) ───
 
 const NAME_SYLLABLES = {
