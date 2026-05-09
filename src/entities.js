@@ -155,6 +155,17 @@ export function calculateWage(adventurer) {
     }
   }
 
+  // Apply personality trait wage modifiers (Phase 3)
+  const personality = adventurer.personality || {};
+  const traits = personality.traits || [];
+  for (const traitName of traits) {
+    const trait = PERSONALITY_TRAIT_TABLE[traitName];
+    if (trait && trait.morale > 0) {
+      // Traits that boost morale also slightly increase wage (enthusiasm premium)
+      wage += Math.floor(trait.morale / 5);
+    }
+  }
+
   return wage;
 }
 
@@ -175,7 +186,26 @@ export function calculateAptitudes(adventurer) {
     Mace:   { combat: 0.8, defense: 0.7 },
   };
 
-  return classAptitudes[adventurer.class] || {};
+  const baseAptitudes = classAptitudes[adventurer.class] || {};
+
+  // Apply personality trait aptitude modifiers (Phase 3)
+  const personality = adventurer.personality || {};
+  const traits = personality.traits || [];
+  const traitAptitudes = {};
+  for (const traitName of traits) {
+    const trait = PERSONALITY_TRAIT_TABLE[traitName];
+    if (trait && trait.quest_success > 0) {
+      // Apply to a reasonable default aptitude category based on class
+      const classType = adventurer.class.toLowerCase();
+      if (classType === 'sword' || classType === 'axe') {
+        traitAptitudes.combat = (traitAptitudes.combat || 0) + trait.quest_success * 0.01;
+      } else if (classType === 'staff' || classType === 'wand') {
+        traitAptitudes.investigation = (traitAptitudes.investigation || 0) + trait.quest_success * 0.01;
+      }
+    }
+  }
+
+  return { ...baseAptitudes, ...traitAptitudes };
 }
 
 /**
@@ -208,7 +238,7 @@ const generateId = () => crypto.randomUUID();
 export function defaultAdventurer(overrides = {}) {
   return {
     id: generateId(),
-    name: overrides.name || 'Unnamed Adventurer',
+    name: overrides.name || generateName(overrides),
     class: overrides.class || VALID_CLASSES[0],
     stats: {
       str: overrides.stats?.str ?? rollStat(),
@@ -224,7 +254,7 @@ export function defaultAdventurer(overrides = {}) {
     },
     morale: Math.max(0, Math.min(100, overrides.morale ?? DEFAULT_MORALE)),
     origin: overrides.origin || VALID_ORIGINS[Math.floor(Math.random() * VALID_ORIGINS.length)],
-    personality: overrides.personality || { traits: [] },
+    personality: overrides.personality || generatePersonality(),
     level: overrides.level ?? 1,
     experience: overrides.experience ?? 0,
     rank: overrides.rank ?? 'Novice',

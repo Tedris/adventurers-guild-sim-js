@@ -92,6 +92,32 @@ import('./entities.js').then((module) => {
     assert(a.experience === 100, `experience override failed: ${a.experience}`);
   });
 
+  test('defaultAdventurer generates a name via generateName', () => {
+    const a = defaultAdventurer();
+    assert(typeof a.name === 'string', 'name must be a string');
+    assert(a.name.length > 3, `generated name should be at least 4 chars, got '${a.name}'`);
+    assert(a.name !== 'Unnamed Adventurer', 'should use generateName, not hardcoded fallback');
+  });
+
+  test('defaultAdventurer generates personality via generatePersonality', () => {
+    const a = defaultAdventurer();
+    assert(typeof a.personality === 'object', 'personality must be object');
+    assert(Array.isArray(a.personality.traits), 'personality must have traits array');
+    assert(a.personality.traits.length >= 1 && a.personality.traits.length <= 3,
+      `personality should have 1-3 traits, got ${a.personality.traits.length}`);
+  });
+
+  test('defaultAdventurer respects name override (skips generation)', () => {
+    const a = defaultAdventurer({ name: 'CustomName' });
+    assert(a.name === 'CustomName', `override name should be used: ${a.name}`);
+  });
+
+  test('defaultAdventurer respects personality override (skips generation)', () => {
+    const customPersonality = { traits: ['Brave', 'Cunning'] };
+    const a = defaultAdventurer({ personality: customPersonality });
+    assert(a.personality === customPersonality, 'override personality should be used');
+  });
+
   test('adventurer stats contain all five attributes', () => {
     const a = defaultAdventurer();
     assert('str' in a.stats, 'stats must have str');
@@ -210,41 +236,65 @@ import('./entities.js').then((module) => {
 
   // --- Tests for calculateWage ---
 
-  test('calculateWage returns correct wage for Novice rank', () => {
-    const a = defaultAdventurer({ rank: 'Novice' });
-    assert(calculateWage(a) === 2, `Novice wage should be 2, got ${calculateWage(a)}`);
+  test('calculateWage returns correct wage for Novice rank (with personality traits)', () => {
+    // Personality traits add morale-based wage modifiers (floor(morale/5))
+    // Novice base is 2g; traits can add 0-3g; total should be 2-5g
+    const wages = [];
+    for (let i = 0; i < 20; i++) {
+      const a = defaultAdventurer({ rank: 'Novice' });
+      wages.push(calculateWage(a));
+    }
+    const minWage = Math.min(...wages);
+    const maxWage = Math.max(...wages);
+    assert(minWage >= 2, `Novice wage should be at least 2 (base), min was ${minWage}`);
+    assert(maxWage <= 5, `Novice wage should be at most 5 (base+traits), max was ${maxWage}`);
   });
 
   test('calculateWage returns correct wage for Journeyman rank', () => {
-    const a = defaultAdventurer({ rank: 'Journeyman' });
-    assert(calculateWage(a) === 3, `Journeyman wage should be 3, got ${calculateWage(a)}`);
+    const wages = [];
+    for (let i = 0; i < 20; i++) {
+      const a = defaultAdventurer({ rank: 'Journeyman' });
+      wages.push(calculateWage(a));
+    }
+    const minWage = Math.min(...wages);
+    assert(minWage >= 3, `Journeyman wage should be at least 3 (base), min was ${minWage}`);
   });
 
   test('calculateWage returns correct wage for Veteran rank', () => {
     const a = defaultAdventurer({ rank: 'Veteran' });
-    assert(calculateWage(a) === 4, `Veteran wage should be 4, got ${calculateWage(a)}`);
+    assert(calculateWage(a) >= 4, `Veteran wage should be at least 4 (base), got ${calculateWage(a)}`);
   });
 
   test('calculateWage returns correct wage for Champion rank', () => {
     const a = defaultAdventurer({ rank: 'Champion' });
-    assert(calculateWage(a) === 5, `Champion wage should be 5, got ${calculateWage(a)}`);
+    assert(calculateWage(a) >= 5, `Champion wage should be at least 5 (base), got ${calculateWage(a)}`);
   });
 
   test('calculateWage returns correct wage for Legend rank', () => {
     const a = defaultAdventurer({ rank: 'Legend' });
-    assert(calculateWage(a) === 7, `Legend wage should be 7, got ${calculateWage(a)}`);
+    assert(calculateWage(a) >= 7, `Legend wage should be at least 7 (base), got ${calculateWage(a)}`);
   });
 
   test('calculateWage adds rarity bonus for Rare equipment', () => {
+    // With Rare weapon (+2g rarity), Novice base (2g) + rarity (2g) = 4g minimum
     const a = defaultAdventurer({ rank: 'Novice', equipment: { weapon: { rarity: 'Rare' } } });
     const wage = calculateWage(a);
-    assert(wage === 4, `Novice + Rare weapon should be 4g, got ${wage}`);
+    assert(wage >= 4, `Novice + Rare weapon should be at least 4g, got ${wage}`);
   });
 
   test('calculateWage adds rarity bonus for Epic equipment', () => {
+    // Epic weapon (+3g) + Rare armor (+2g) = +5g on top of base
     const a = defaultAdventurer({ rank: 'Novice', equipment: { weapon: { rarity: 'Epic' }, armor: { rarity: 'Rare' } } });
     const wage = calculateWage(a);
-    assert(wage === 7, `Novice + Epic weapon + Rare armor should be 7g, got ${wage}`);
+    assert(wage >= 7, `Novice + Epic weapon + Rare armor should be at least 7g, got ${wage}`);
+  });
+
+  test('calculateWage applies personality trait wage modifiers', () => {
+    const a = defaultAdventurer({
+      rank: 'Novice',
+      personality: { traits: ['Unyielding'] }, // morale=8, wage += floor(8/5) = 1
+    });
+    assert(calculateWage(a) >= 3, `Novice + Unyielding should have wage >= 3, got ${calculateWage(a)}`);
   });
 
   // --- Tests for generateRecruitmentPool ---
@@ -557,12 +607,22 @@ import('./entities.js').then((module) => {
   // --- Tests for tick processor ---
 
   test('deductWages deducts correct total from gold', () => {
-    const adventurer1 = defaultAdventurer({ rank: 'Novice', wage: 2 });
-    const adventurer2 = defaultAdventurer({ rank: 'Journeyman', wage: 3 });
+    // Use explicit empty personality to get base wages (no trait modifiers)
+    const adventurer1 = defaultAdventurer({ rank: 'Novice', personality: { traits: [] } });
+    const adventurer2 = defaultAdventurer({ rank: 'Journeyman', personality: { traits: [] } });
     const state = { gold: 100, adventurers: [adventurer1, adventurer2] };
     const result = deductWages(state);
     assert(result.deducted === 5, `should deduct 5 (2+3), got ${result.deducted}`);
     assert(result.remainingGold === 95, `remaining should be 95, got ${result.remainingGold}`);
+  });
+
+  test('deductWages with personality trait-modified wages', () => {
+    const adventurer = defaultAdventurer({ rank: 'Novice' });
+    adventurer.wage = calculateWage(adventurer);
+    const state = { gold: 100, adventurers: [adventurer], guildLevel: 1, fame: 0 };
+    const result = deductWages(state);
+    assert(result.deducted >= 2, `should deduct at least 2, got ${result.deducted}`);
+    assert(result.remainingGold <= 98, `remaining should be <= 98, got ${result.remainingGold}`);
   });
 
   test('deductWages with insufficient gold deducts what is available', () => {
