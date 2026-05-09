@@ -376,6 +376,86 @@ import('./store.js').then((module) => {
     assert(result === false, 'COMPLETE_QUEST rejects when no active quest');
   });
 
+  // --- Tests for EVENT_FIRED ---
+
+  test('EVENT_FIRED: appends event to state.events', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', morale: 70 }], day: 5, events: [] });
+    const result = store.dispatch({ type: 'EVENT_FIRED', payload: { eventId: 'budget-wage-demand', title: 'Wage Demands', category: 'Budget', choices: [{ label: 'Accept' }, { label: 'Refuse' }] } });
+    assert(result === true, 'EVENT_FIRED should return true');
+    const state = store.getState();
+    assert(state.events.length === 1, `events should have 1 entry, got ${state.events.length}`);
+    assert(state.events[0].eventId === 'budget-wage-demand', 'eventId should match');
+    assert(state.events[0].resolved === false, 'event should be unresolved');
+    assert(state.events[0].timestamp === 5, 'timestamp should be current day');
+  });
+
+  test('EVENT_FIRED: rejects missing eventId and title', () => {
+    const store = createStore({ gold: 100, events: [] });
+    const result = store.dispatch({ type: 'EVENT_FIRED', payload: {} });
+    assert(result === false, 'EVENT_FIRED should return false for missing required fields');
+  });
+
+  test('EVENT_FIRED: multiple events accumulate', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', morale: 70 }], day: 1, events: [] });
+    store.dispatch({ type: 'EVENT_FIRED', payload: { eventId: 'event-1', title: 'Event 1', category: 'Budget' } });
+    store.dispatch({ type: 'EVENT_FIRED', payload: { eventId: 'event-2', title: 'Event 2', category: 'Crisis' } });
+    const state = store.getState();
+    assert(state.events.length === 2, `events should have 2 entries, got ${state.events.length}`);
+    assert(state.events[0].eventId === 'event-1', 'first event should be event-1');
+    assert(state.events[1].eventId === 'event-2', 'second event should be event-2');
+  });
+
+  // --- Tests for EVENT_RESOLVED ---
+
+  test('EVENT_RESOLVED: removes resolved event from events array', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', morale: 70 }], day: 5, events: [{ eventId: 'budget-price-surge', title: 'Price Surge', resolved: false, timestamp: 5 }] });
+    const result = store.dispatch({ type: 'EVENT_RESOLVED', payload: { eventId: 'budget-price-surge', choiceIndex: 0 } });
+    assert(result === true, 'EVENT_RESOLVED should return true');
+    const state = store.getState();
+    assert(state.events.length === 0, `events should be empty after resolve, got ${state.events.length}`);
+  });
+
+  test('EVENT_RESOLVED: applies gold delta with Math.max(0) clamp', () => {
+    const store = createStore({ gold: 10, adventurers: [], day: 5, events: [{ eventId: 'budget-price-surge', title: 'Price Surge', resolved: false, timestamp: 5 }] });
+    store.dispatch({ type: 'EVENT_RESOLVED', payload: { eventId: 'budget-price-surge', choiceIndex: 0 } });
+    const state = store.getState();
+    assert(state.gold >= 0, `gold should be >= 0 after negative delta, got ${state.gold}`);
+    assert(state.gold === 0, `gold should be exactly 0 (10 + (-15) clamped), got ${state.gold}`);
+  });
+
+  test('EVENT_RESOLVED: applies morale clamping 0-100', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', morale: 1 }], day: 5, events: [{ eventId: 'drama-relationship', title: 'Drama', resolved: false, timestamp: 5 }] });
+    store.dispatch({ type: 'EVENT_RESOLVED', payload: { eventId: 'drama-relationship', choiceIndex: 2 } }); // morale -2 => 1-2 = -1, clamped to 0
+    const state = store.getState();
+    assert(state.adventurers[0].morale === 0, `morale should be clamped to 0, got ${state.adventurers[0].morale}`);
+  });
+
+  test('EVENT_RESOLVED: removes lowest-morale adventurers on departure', () => {
+    const store = createStore({ gold: 100, adventurers: [
+      { id: 'a1', name: 'Low Morale', morale: 10 },
+      { id: 'a2', name: 'Med Morale', morale: 50 },
+      { id: 'a3', name: 'High Morale', morale: 80 },
+    ], day: 5, events: [{ eventId: 'crisis-rival-poaching', title: 'Rival Poaching', resolved: false, timestamp: 5, choices: [{ label: 'Let them leave' }] }] });
+    store.dispatch({ type: 'EVENT_RESOLVED', payload: { eventId: 'crisis-rival-poaching', choiceIndex: 2 } });
+    const state = store.getState();
+    assert(state.adventurers.length === 2, `should have 2 adventurers after 1 departure, got ${state.adventurers.length}`);
+    assert(state.adventurers.find(a => a.id === 'a1') === undefined, 'lowest morale adventurer (a1) should have departed');
+  });
+
+  test('EVENT_RESOLVED: sets eventCooldowns', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', morale: 70 }], day: 10, events: [{ eventId: 'drama-festival', title: 'Festival', resolved: false, timestamp: 10 }] });
+    store.dispatch({ type: 'EVENT_RESOLVED', payload: { eventId: 'drama-festival', choiceIndex: 0 } });
+    const state = store.getState();
+    assert('eventCooldowns' in state, 'eventCooldowns should be set');
+    assert(state.eventCooldowns['drama-festival'] === 30, `cooldown should be day+20=30, got ${state.eventCooldowns['drama-festival']}`);
+  });
+
+  test('EVENT_RESOLVED: rejects invalid eventId', () => {
+    const store = createStore({ gold: 100, adventurers: [], events: [] });
+    const result = store.dispatch({ type: 'EVENT_RESOLVED', payload: {} });
+    assert(result === false, 'EVENT_RESOLVED should return false for missing eventId');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);
