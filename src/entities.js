@@ -268,7 +268,7 @@ export function defaultAdventurer(overrides = {}) {
   return {
     id: generateId(),
     name: overrides.name || generateName(overrides),
-    class: overrides.class || VALID_CLASSES[0],
+    class: overrides.class || VALID_CLASSES[Math.floor(Math.random() * VALID_CLASSES.length)],
     stats: {
       str: overrides.stats?.str ?? rollStat(),
       dex: overrides.stats?.dex ?? rollStat(),
