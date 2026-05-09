@@ -313,6 +313,69 @@ import('./store.js').then((module) => {
     assert(result === true, 'TICK should return true for valid action');
   });
 
+  // --- Tests for UPDATE_ADVENTURER ---
+
+  test('UPDATE_ADVENTURER modifies adventurer morale', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Test', morale: 70 }], recruitmentPool: [] });
+    const result = store.dispatch({ type: 'UPDATE_ADVENTURER', payload: { adventurerId: 'a1', updates: { morale: 30 } } });
+    assert(result === true, 'UPDATE_ADVENTURER returns true');
+    const state = store.getState();
+    assert(state.adventurers[0].morale === 30, `morale updated to 30, got ${state.adventurers[0].morale}`);
+  });
+
+  test('UPDATE_ADVENTURER rejects unknown adventurerId', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1' }], recruitmentPool: [] });
+    const result = store.dispatch({ type: 'UPDATE_ADVENTURER', payload: { adventurerId: 'nonexistent', updates: { morale: 0 } } });
+    assert(result === false, 'UPDATE_ADVENTURER rejects unknown ID');
+  });
+
+  test('UPDATE_ADVENTURER rejects missing updates', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1' }], recruitmentPool: [] });
+    const result = store.dispatch({ type: 'UPDATE_ADVENTURER', payload: { adventurerId: 'a1' } });
+    assert(result === false, 'UPDATE_ADVENTURER rejects missing updates');
+  });
+
+  test('UPDATE_ADVENTURER modifies multiple fields', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', morale: 70, experience: 0 }], recruitmentPool: [] });
+    const result = store.dispatch({ type: 'UPDATE_ADVENTURER', payload: { adventurerId: 'a1', updates: { morale: 50, experience: 100 } } });
+    assert(result === true, 'UPDATE_ADVENTURER returns true');
+    const state = store.getState();
+    assert(state.adventurers[0].morale === 50, 'morale updated');
+    assert(state.adventurers[0].experience === 100, 'experience updated');
+  });
+
+  // --- Tests for quest data persistence ---
+
+  test('SEND_QUEST stores quest data in activeQuest', () => {
+    const quest = { id: 'q1', name: 'Test Quest', difficulty: 2, requiredStats: {}, preferredClasses: [], rewards: { gold: 50, xp: 30 } };
+    const adventurer = { id: 'a1', class: 'Sword', str: 10, dex: 10, int: 10, vit: 10, lck: 10, morale: 70, equipment: [], rank: 'Novice', aptitudes: {} };
+    const store = createStore({ gold: 100, adventurers: [adventurer], quests: [quest], party: { id: 'p1', adventurerIds: ['a1'], synergyScore: 0, aptitudeBonus: 0 }, recruitmentPool: [] });
+    store.dispatch({ type: 'SEND_QUEST', payload: { questId: 'q1' } });
+    const state = store.getState();
+    assert(state.activeQuest !== null, 'activeQuest set');
+    assert(state.activeQuest.questData !== undefined, 'questData stored');
+    assert(state.activeQuest.questData.name === 'Test Quest', 'quest name stored');
+    assert(state.activeQuest.questData.rewards !== undefined, 'quest rewards stored');
+  });
+
+  test('COMPLETE_QUEST uses stored quest data for outcome', () => {
+    const quest = { id: 'q2', difficulty: 1, requiredStats: {}, preferredClasses: [], rewards: { gold: 100, xp: 50 } };
+    const adventurer = { id: 'a1', class: 'Sword', str: 10, dex: 10, int: 10, vit: 10, lck: 10, morale: 70, equipment: [], rank: 'Novice', aptitudes: {} };
+    const store = createStore({ gold: 0, adventurers: [adventurer], quests: [quest], party: { id: 'p1', adventurerIds: ['a1'], synergyScore: 0, aptitudeBonus: 0 }, recruitmentPool: [] });
+    store.dispatch({ type: 'SEND_QUEST', payload: { questId: 'q2' } });
+    const result = store.dispatch({ type: 'COMPLETE_QUEST', payload: { questId: 'q2' } });
+    assert(result === true, 'COMPLETE_QUEST succeeds with stored data');
+    const state = store.getState();
+    assert(state.activeQuest.status === 'complete' || state.activeQuest.status === 'failed', 'quest status set');
+    assert(state.gold >= 0, 'gold non-negative');
+  });
+
+  test('COMPLETE_QUEST rejects when no active quest', () => {
+    const store = createStore({ gold: 100, activeQuest: null, quests: [] });
+    const result = store.dispatch({ type: 'COMPLETE_QUEST', payload: { questId: 'q1' } });
+    assert(result === false, 'COMPLETE_QUEST rejects when no active quest');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);
