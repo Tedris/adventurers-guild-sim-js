@@ -51,6 +51,10 @@ import('./entities.js').then((module) => {
     checkDepartures,
     processQuestProgress,
     processTick,
+    VALID_PERSONALITY_TRAITS,
+    PERSONALITY_TRAIT_TABLE,
+    generateName,
+    generatePersonality,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -609,6 +613,80 @@ import('./entities.js').then((module) => {
     const state = { gold: 100, adventurers: [], day: 10, guildLevel: 1, fame: 0 };
     const result = processTick(state, 1);
     assert(result.day === 11, `day should advance by 1, got ${result.day}`);
+  });
+
+  // --- Tests for name generation and personality traits ---
+
+  test('VALID_PERSONALITY_TRAITS has exactly 25 entries', () => {
+    assert(VALID_PERSONALITY_TRAITS.length === 25, `expected 25 traits, got ${VALID_PERSONALITY_TRAITS.length}`);
+  });
+
+  test('PERSONALITY_TRAIT_TABLE has matching entries for all VALID_PERSONALITY_TRAITS', () => {
+    for (const trait of VALID_PERSONALITY_TRAITS) {
+      assert(trait in PERSONALITY_TRAIT_TABLE, `${trait} missing from PERSONALITY_TRAIT_TABLE`);
+    }
+  });
+
+  test('PERSONALITY_TRAIT_TABLE entries have morale, quest_success, and description', () => {
+    for (const [trait, data] of Object.entries(PERSONALITY_TRAIT_TABLE)) {
+      assert(typeof data.morale === 'number', `${trait} missing morale (number)`);
+      assert(typeof data.quest_success === 'number', `${trait} missing quest_success (number)`);
+      assert(typeof data.description === 'string', `${trait} missing description (string)`);
+    }
+  });
+
+  test('generateName returns a non-empty string', () => {
+    const name = generateName();
+    assert(typeof name === 'string', `generateName should return string, got ${typeof name}`);
+    assert(name.length > 0, 'generated name should be non-empty');
+  });
+
+  test('generateName returns string composed of syllable pool parts', () => {
+    const names = [];
+    for (let i = 0; i < 20; i++) {
+      names.push(generateName());
+    }
+    // All names should match the pattern: one start syllable + one end syllable
+    for (const name of names) {
+      assert(/^\w+$/.test(name), `name '${name}' should be composed syllables`);
+    }
+  });
+
+  test('generateName with override.name returns the given name', () => {
+    const name = generateName({ name: 'TestName' });
+    assert(name === 'TestName', `override should return 'TestName', got '${name}'`);
+  });
+
+  test('generatePersonality returns object with traits array', () => {
+    const p = generatePersonality();
+    assert(typeof p === 'object', 'should return object');
+    assert(Array.isArray(p.traits), 'should have traits array');
+  });
+
+  test('generatePersonality returns 1-3 non-duplicate traits', () => {
+    const results = [];
+    for (let i = 0; i < 50; i++) {
+      const p = generatePersonality();
+      assert(p.traits.length >= 1 && p.traits.length <= 3,
+        `trait count should be 1-3, got ${p.traits.length}`);
+      // Check no duplicates
+      const unique = new Set(p.traits);
+      assert(unique.size === p.traits.length, `traits should have no duplicates: [${p.traits.join(', ')}]`);
+      // Check all traits are in VALID_PERSONALITY_TRAITS
+      for (const t of p.traits) {
+        assert(VALID_PERSONALITY_TRAITS.includes(t), `trait '${t}' not in VALID_PERSONALITY_TRAITS`);
+      }
+    }
+  });
+
+  test('generatePersonality respects count parameter', () => {
+    // count=1 should return 1 trait
+    const p1 = generatePersonality(1);
+    assert(p1.traits.length === 1, `expected 1 trait, got ${p1.traits.length}`);
+
+    // count=3 should return up to 3 traits
+    const p3 = generatePersonality(3);
+    assert(p3.traits.length >= 1 && p3.traits.length <= 3, `expected 1-3 traits, got ${p3.traits.length}`);
   });
 
   // Print summary
