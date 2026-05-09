@@ -910,6 +910,98 @@ export const EVENT_TEMPLATES = [
   },
 ];
 
+// ─── Event Pool & Selection (Phase 3) ───
+
+/**
+ * Build a weighted event pool from EVENT_TEMPLATES.
+ * Each event appears in the pool `weight` times for weighted random selection.
+ * @returns {Object[]} Weighted event pool
+ */
+export function generateEventPool() {
+  const pool = [];
+  for (const template of EVENT_TEMPLATES) {
+    for (let i = 0; i < template.weight; i++) {
+      pool.push(template);
+    }
+  }
+  return pool;
+}
+
+/**
+ * Select the next available event for the current game state.
+ * Filters out events within their cooldown period.
+ * Returns null if no events are available.
+ * @param {Object} state — Current game state
+ * @returns {Object|null} Selected event template or null
+ */
+export function selectNextEvent(state) {
+  const pool = generateEventPool();
+  const cooldowns = state.eventCooldowns || {};
+  const currentTick = state.day || 0;
+
+  // Filter out events in cooldown
+  const available = pool.filter(template => {
+    const cooldownEnd = cooldowns[template.id] || 0;
+    return currentTick >= cooldownEnd;
+  });
+
+  if (available.length === 0) return null;
+
+  // Weighted random selection
+  const totalWeight = available.reduce((sum, t) => sum + t.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (const template of available) {
+    roll -= template.weight;
+    if (roll <= 0) return template;
+  }
+
+  return available[available.length - 1];
+}
+
+/**
+ * Resolve an event by applying the chosen effect.
+ * Returns a delta object to be merged into state by the store reducer.
+ * Also returns { eventId, resolvedAt } for cooldown tracking.
+ * @param {Object} state — Current game state
+ * @param {string} eventId — ID of the event to resolve
+ * @param {number} choiceIndex — Index of the chosen effect (0-based)
+ * @returns {{ delta: Object, eventId: string, resolvedAt: number, moraleAdjustment: number }}
+ */
+export function resolveEvent(state, eventId, choiceIndex) {
+  const template = EVENT_TEMPLATES.find(t => t.id === eventId);
+  if (!template) {
+    return { delta: {}, eventId, resolvedAt: state.day || 0, moraleAdjustment: 0 };
+  }
+
+  const choice = template.choices[choiceIndex];
+  if (!choice) {
+    return { delta: {}, eventId, resolvedAt: state.day || 0, moraleAdjustment: 0 };
+  }
+
+  // Apply the effect function
+  const delta = choice.effect(state);
+
+  // Handle special effects that modify adventurer arrays
+  let moraleAdjustment = delta.moraleAdjustment || 0;
+  let adventurerChanges = {};
+
+  if (delta.departureCount && delta.departureCount > 0) {
+    // Will be handled by store reducer — just signal it
+    adventurerChanges = { departureCount: delta.departureCount };
+  }
+
+  if (delta.retirementTriggered) {
+    adventurerChanges = { ...adventurerChanges, retirementTriggered: true };
+  }
+
+  return {
+    delta: { ...delta, ...adventurerChanges },
+    eventId,
+    resolvedAt: state.day || 0,
+    moraleAdjustment,
+  };
+}
+
 // ─── Tick Processor ───
 
 /**
