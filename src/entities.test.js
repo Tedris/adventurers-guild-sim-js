@@ -55,6 +55,7 @@ import('./entities.js').then((module) => {
     PERSONALITY_TRAIT_TABLE,
     generateName,
     generatePersonality,
+    QUEST_TEMPLATES,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -747,6 +748,88 @@ import('./entities.js').then((module) => {
     // count=3 should return up to 3 traits
     const p3 = generatePersonality(3);
     assert(p3.traits.length >= 1 && p3.traits.length <= 3, `expected 1-3 traits, got ${p3.traits.length}`);
+  });
+
+  // --- Tests for QUEST_TEMPLATES (Phase 3-02) ---
+
+  test('QUEST_TEMPLATES is exported as an array', () => {
+    assert(Array.isArray(QUEST_TEMPLATES), 'QUEST_TEMPLATES must be an array');
+  });
+
+  test('QUEST_TEMPLATES has at least 12 entries', () => {
+    assert(QUEST_TEMPLATES.length >= 12, `QUEST_TEMPLATES should have >= 12 entries, got ${QUEST_TEMPLATES.length}`);
+  });
+
+  test('QUEST_TEMPLATES has at most 15 entries', () => {
+    assert(QUEST_TEMPLATES.length <= 15, `QUEST_TEMPLATES should have <= 15 entries, got ${QUEST_TEMPLATES.length}`);
+  });
+
+  test('QUEST_TEMPLATES contains all 8 original template names', () => {
+    const originalNames = [
+      'Scout the nearby forest',
+      'Clear rat infestation',
+      'Deliver messages to border village',
+      'Hunt bandits on the highway',
+      'Explore the abandoned mine',
+      'Escort merchant caravan',
+      'Slay the dragon',
+      'Infiltrate the rival guild',
+    ];
+    for (const name of originalNames) {
+      const found = QUEST_TEMPLATES.some(t => t.name === name);
+      assert(found, `QUEST_TEMPLATES must contain "${name}"`);
+    }
+  });
+
+  test('QUEST_TEMPLATES entries have required fields', () => {
+    for (const template of QUEST_TEMPLATES) {
+      assert(typeof template.name === 'string', `template must have name string, got ${typeof template.name}`);
+      assert(typeof template.difficulty === 'number', `template must have difficulty number, got ${typeof template.difficulty}`);
+      assert(typeof template.requirements === 'object', `template must have requirements object`);
+      assert(typeof template.rewards === 'object', `template must have rewards object`);
+      assert(typeof template.description === 'string', `template must have description string`);
+      assert(VALID_DIFFICULTIES.includes(template.difficulty), `difficulty ${template.difficulty} must be valid`);
+    }
+  });
+
+  test('QUEST_TEMPLATES difficulty distribution covers 1-5', () => {
+    const difficulties = new Set(QUEST_TEMPLATES.map(t => t.difficulty));
+    for (const d of [1, 2, 3, 4, 5]) {
+      assert(difficulties.has(d), `QUEST_TEMPLATES must include difficulty ${d}`);
+    }
+  });
+
+  test('QUEST_TEMPLATES entries have minStats object', () => {
+    for (const template of QUEST_TEMPLATES) {
+      assert(typeof template.requirements.minStats === 'object', `template "${template.name}" must have minStats`);
+      assert('str' in template.requirements.minStats, `template "${template.name}" must have str`);
+      assert('dex' in template.requirements.minStats, `template "${template.name}" must have dex`);
+      assert('int' in template.requirements.minStats, `template "${template.name}" must have int`);
+      assert('vit' in template.requirements.minStats, `template "${template.name}" must have vit`);
+      assert('lck' in template.requirements.minStats, `template "${template.name}" must have lck`);
+    }
+  });
+
+  test('QUEST_TEMPLATES entries have preferredClasses array', () => {
+    for (const template of QUEST_TEMPLATES) {
+      assert(Array.isArray(template.requirements.preferredClasses), `template "${template.name}" must have preferredClasses array`);
+    }
+  });
+
+  test('QUEST_TEMPLATES entries have gold and experience rewards', () => {
+    for (const template of QUEST_TEMPLATES) {
+      assert(typeof template.rewards.gold === 'number', `template "${template.name}" must have gold number`);
+      assert(typeof template.rewards.experience === 'number', `template "${template.name}" must have experience number`);
+      assert(template.rewards.gold > 0, `template "${template.name}" gold must be positive`);
+      assert(template.rewards.experience > 0, `template "${template.name}" experience must be positive`);
+    }
+  });
+
+  test('QUEST_TEMPLATES entries have party size constraints', () => {
+    for (const template of QUEST_TEMPLATES) {
+      assert(typeof template.requirements.minPartySize === 'number', `template "${template.name}" must have minPartySize`);
+      assert(typeof template.requirements.maxPartySize === 'number', `template "${template.name}" must have maxPartySize`);
+    }
   });
 
   // Print summary
