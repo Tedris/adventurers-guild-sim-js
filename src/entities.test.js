@@ -56,6 +56,7 @@ import('./entities.js').then((module) => {
     generateName,
     generatePersonality,
     QUEST_TEMPLATES,
+    perturbQuest,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -830,6 +831,186 @@ import('./entities.js').then((module) => {
       assert(typeof template.requirements.minPartySize === 'number', `template "${template.name}" must have minPartySize`);
       assert(typeof template.requirements.maxPartySize === 'number', `template "${template.name}" must have maxPartySize`);
     }
+  });
+
+  // --- Tests for perturbQuest (Phase 3-02) ---
+
+  test('perturbQuest returns an object with all quest fields', () => {
+    const t = QUEST_TEMPLATES[0];
+    const q = perturbQuest(t);
+    assert(typeof q.id === 'string', 'perturbed quest must have id');
+    assert(typeof q.name === 'string', 'perturbed quest must have name');
+    assert(typeof q.difficulty === 'number', 'perturbed quest must have difficulty');
+    assert(typeof q.requirements === 'object', 'perturbed quest must have requirements');
+    assert(typeof q.rewards === 'object', 'perturbed quest must have rewards');
+    assert(typeof q.description === 'string', 'perturbed quest must have description');
+  });
+
+  test('perturbQuest preserves template name and difficulty', () => {
+    for (const t of QUEST_TEMPLATES) {
+      const q = perturbQuest(t);
+      assert(q.name === t.name, `name should match template: ${t.name}`);
+      assert(q.difficulty === t.difficulty, `difficulty should match template: ${t.name}`);
+    }
+  });
+
+  test('perturbQuest preserves preferredClasses from template', () => {
+    for (const t of QUEST_TEMPLATES) {
+      const q = perturbQuest(t);
+      assert(Array.isArray(q.requirements.preferredClasses), `preferredClasses should be array: ${t.name}`);
+      assert(q.requirements.preferredClasses.length === t.requirements.preferredClasses.length, `preferredClasses length should match: ${t.name}`);
+      for (let i = 0; i < t.requirements.preferredClasses.length; i++) {
+        assert(q.requirements.preferredClasses[i] === t.requirements.preferredClasses[i], `preferredClasses[${i}] should match: ${t.name}`);
+      }
+    }
+  });
+
+  test('perturbQuest preserves minPartySize and maxPartySize', () => {
+    for (const t of QUEST_TEMPLATES) {
+      const q = perturbQuest(t);
+      assert(q.requirements.minPartySize === t.requirements.minPartySize, `minPartySize should match: ${t.name}`);
+      assert(q.requirements.maxPartySize === t.requirements.maxPartySize, `maxPartySize should match: ${t.name}`);
+    }
+  });
+
+  test('perturbQuest perturbs gold within ±10% of template base', () => {
+    for (const t of QUEST_TEMPLATES) {
+      const base = t.rewards.gold;
+      const results = [];
+      for (let i = 0; i < 20; i++) {
+        results.push(perturbQuest(t).rewards.gold);
+      }
+      for (const gold of results) {
+        assert(gold >= Math.floor(base * 0.9), `gold ${gold} below 90% of base ${base}`);
+        assert(gold <= Math.ceil(base * 1.1), `gold ${gold} above 110% of base ${base}`);
+      }
+    }
+  });
+
+  test('perturbQuest perturbs experience within ±10% of template base', () => {
+    for (const t of QUEST_TEMPLATES) {
+      const base = t.rewards.experience;
+      const results = [];
+      for (let i = 0; i < 20; i++) {
+        results.push(perturbQuest(t).rewards.experience);
+      }
+      for (const xp of results) {
+        assert(xp >= Math.floor(base * 0.9), `xp ${xp} below 90% of base ${base}`);
+        assert(xp <= Math.ceil(base * 1.1), `xp ${xp} above 110% of base ${base}`);
+      }
+    }
+  });
+
+  test('perturbQuest perturbs stat values within ±2 of template base', () => {
+    for (const t of QUEST_TEMPLATES) {
+      const baseStats = t.requirements.minStats;
+      const results = [];
+      for (let i = 0; i < 20; i++) {
+        results.push(perturbQuest(t).requirements.minStats);
+      }
+      for (const perturbed of results) {
+        for (const [stat, val] of Object.entries(baseStats)) {
+          assert(perturbed[stat] >= val - 2, `${stat} ${perturbed[stat]} below base ${val} - 2`);
+          assert(perturbed[stat] <= val + 2, `${stat} ${perturbed[stat]} above base ${val} + 2`);
+        }
+      }
+    }
+  });
+
+  test('perturbQuest never produces stat below 1', () => {
+    for (const t of QUEST_TEMPLATES) {
+      const baseStats = t.requirements.minStats;
+      for (const [stat, val] of Object.entries(baseStats)) {
+        if (val <= 3) {
+          // If base is low, perturbation could push below 1
+          for (let i = 0; i < 20; i++) {
+            const result = perturbQuest(t).requirements.minStats;
+            assert(result[stat] >= 1, `${stat} should never be below 1, got ${result[stat]}`);
+          }
+        }
+      }
+    }
+  });
+
+  test('perturbQuest never produces gold below 5', () => {
+    for (const t of QUEST_TEMPLATES) {
+      for (let i = 0; i < 20; i++) {
+        const result = perturbQuest(t).rewards;
+        assert(result.gold >= 5, `gold should never be below 5, got ${result.gold}`);
+      }
+    }
+  });
+
+  test('perturbQuest never produces experience below 5', () => {
+    for (const t of QUEST_TEMPLATES) {
+      for (let i = 0; i < 20; i++) {
+        const result = perturbQuest(t).rewards;
+        assert(result.experience >= 5, `experience should never be below 5, got ${result.experience}`);
+      }
+    }
+  });
+
+  test('perturbQuest does not mutate original template', () => {
+    const t = QUEST_TEMPLATES[0];
+    const originalGold = t.rewards.gold;
+    const originalXP = t.rewards.experience;
+    const originalStats = { ...t.requirements.minStats };
+    for (let i = 0; i < 50; i++) {
+      perturbQuest(t);
+    }
+    assert(t.rewards.gold === originalGold, 'template gold should not change');
+    assert(t.rewards.experience === originalXP, 'template experience should not change');
+    assert(t.requirements.minStats.str === originalStats.str, 'template str should not change');
+  });
+
+  // --- Tests for updated generateQuestPool (Phase 3-02) ---
+
+  test('generateQuestPool returns correct number of quests', () => {
+    for (const n of [1, 2, 3, 5, 10]) {
+      const pool = generateQuestPool(n);
+      assert(pool.length === Math.min(n, QUEST_TEMPLATES.length), `pool should have ${n} quests, got ${pool.length}`);
+    }
+  });
+
+  test('generateQuestPool returns distinct quests (no duplicates)', () => {
+    const pool = generateQuestPool(5);
+    const ids = pool.map(q => q.id);
+    const unique = new Set(ids);
+    assert(unique.size === ids.length, 'all quest IDs should be unique in pool');
+  });
+
+  test('generateQuestPool(5) returns 5 distinct quests with perturbed rewards', () => {
+    for (let run = 0; run < 5; run++) {
+      const pool = generateQuestPool(5);
+      assert(pool.length === 5, `pool should have 5 quests, got ${pool.length}`);
+      const ids = pool.map(q => q.id);
+      assert(new Set(ids).size === 5, 'all 5 quests should have unique IDs');
+      // Each quest should have perturbed (not identical) rewards
+      const golds = pool.map(q => q.rewards.gold);
+      const xps = pool.map(q => q.rewards.experience);
+      // Not all golds should be the same (perturbation creates variety)
+      const uniqueGolds = new Set(golds).size;
+      assert(uniqueGolds > 0, 'should have at least some gold variation');
+    }
+  });
+
+  test('generateQuestPool quests match defaultQuest shape', () => {
+    const pool = generateQuestPool(3);
+    for (const q of pool) {
+      assert(typeof q.id === 'string', 'must have id');
+      assert(typeof q.name === 'string', 'must have name');
+      assert(typeof q.difficulty === 'number', 'must have difficulty');
+      assert(typeof q.requirements === 'object', 'must have requirements');
+      assert(typeof q.requirements.minStats === 'object', 'must have minStats');
+      assert(Array.isArray(q.requirements.preferredClasses), 'must have preferredClasses');
+      assert(typeof q.rewards === 'object', 'must have rewards');
+      assert(typeof q.description === 'string', 'must have description');
+    }
+  });
+
+  test('generateQuestPool respects QUEST_TEMPLATES count limit', () => {
+    const pool = generateQuestPool(100);
+    assert(pool.length === QUEST_TEMPLATES.length, `pool should have ${QUEST_TEMPLATES.length} quests when requested 100`);
   });
 
   // Print summary

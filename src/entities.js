@@ -557,31 +557,54 @@ export function calculateQuestOutcome(adventurers, quest, success) {
 }
 
 /**
- * Generate a pool of quest templates.
+ * Apply procedural variation to a quest template.
+ * Perturbs gold (±10%), experience (±10%), and stat requirements (±2).
+ * @param {Object} template — Quest template definition
+ * @returns {Object} Perturbed quest with unique ID
+ */
+export function perturbQuest(template) {
+  const goldMultiplier = 1 + (Math.random() * 0.2 - 0.1); // ±10%
+  const xpMultiplier = 1 + (Math.random() * 0.2 - 0.1);   // ±10%
+  const minStats = {};
+  const reqs = template.requirements.minStats || {};
+  for (const [stat, value] of Object.entries(reqs)) {
+    minStats[stat] = Math.max(1, value + Math.floor(Math.random() * 5) - 2); // ±2
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    name: template.name,
+    difficulty: template.difficulty,
+    requirements: {
+      minStats,
+      preferredClasses: template.requirements.preferredClasses || [],
+      minPartySize: template.requirements.minPartySize || 2,
+      maxPartySize: template.requirements.maxPartySize || 3,
+    },
+    rewards: {
+      gold: Math.max(5, Math.round(template.rewards.gold * goldMultiplier)),
+      experience: Math.max(5, Math.round(template.rewards.experience * xpMultiplier)),
+    },
+    description: template.description,
+  };
+}
+
+/**
+  * Generate a pool of quest templates.
  * @param {number} [count=3] — Number of quests to generate
  * @returns {Object[]} Array of quest templates
  */
 export function generateQuestPool(count = 3) {
-  const templates = [
-    // Easy quests (difficulty 1-2)
-    { name: 'Scout the nearby forest', difficulty: 1, requirements: { minStats: { str: 5, dex: 5, int: 5, vit: 5, lck: 5 }, preferredClasses: ['Sword', 'Bow'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 15, experience: 25 }, description: 'Reconnaissance mission in the nearby forest.' },
-    { name: 'Clear rat infestation', difficulty: 1, requirements: { minStats: { str: 4, dex: 4, int: 3, vit: 4, lck: 3 }, preferredClasses: ['Sword', 'Dagger'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 10, experience: 20 }, description: 'The town needs rats cleared from the cellar.' },
-    { name: 'Deliver messages to border village', difficulty: 2, requirements: { minStats: { str: 5, dex: 6, int: 4, vit: 5, lck: 5 }, preferredClasses: ['Bow', 'Wand'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 20, experience: 30 }, description: 'Urgent message delivery to a distant village.' },
-    // Medium quests (difficulty 3-4)
-    { name: 'Hunt bandits on the highway', difficulty: 3, requirements: { minStats: { str: 8, dex: 7, int: 5, vit: 7, lck: 6 }, preferredClasses: ['Sword', 'Axe'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 40, experience: 50 }, description: 'Bandits have been plundering merchant caravans.' },
-    { name: 'Explore the abandoned mine', difficulty: 3, requirements: { minStats: { str: 7, dex: 6, int: 8, vit: 6, lck: 7 }, preferredClasses: ['Staff', 'Shield'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 45, experience: 55 }, description: 'An old mine has been emitting strange noises.' },
-    { name: 'Escort merchant caravan', difficulty: 4, requirements: { minStats: { str: 9, dex: 8, int: 6, vit: 9, lck: 7 }, preferredClasses: ['Shield', 'Sword'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 55, experience: 60 }, description: 'Protect a valuable merchant caravan through dangerous territory.' },
-    // Hard quests (difficulty 5)
-    { name: 'Slay the dragon', difficulty: 5, requirements: { minStats: { str: 15, dex: 12, int: 10, vit: 14, lck: 12 }, preferredClasses: ['Sword', 'Axe', 'Mace'], minPartySize: 1, maxPartySize: 3 }, rewards: { gold: 100, experience: 120 }, description: 'A dragon has taken up residence in the mountain. Only the bravest dare attempt this.' },
-    { name: 'Infiltrate the rival guild', difficulty: 5, requirements: { minStats: { str: 10, dex: 14, int: 12, vit: 10, lck: 13 }, preferredClasses: ['Dagger', 'Bow'], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 90, experience: 110 }, description: 'The rival guild has been poaching your adventurers. Infiltrate and expose them.' },
-  ];
-
-  // Select 'count' quests, cycling through difficulty tiers
   const selected = [];
-  for (let i = 0; i < count; i++) {
-    const template = templates[i % templates.length];
-    selected.push({ ...template, id: crypto.randomUUID() });
+  const available = [...QUEST_TEMPLATES];
+
+  // Select 'count' quests, preferring to avoid repeats within a pool
+  for (let i = 0; i < count && available.length > 0; i++) {
+    const idx = Math.floor(Math.random() * available.length);
+    const template = available.splice(idx, 1)[0];
+    selected.push(perturbQuest(template));
   }
+
   return selected;
 }
 
