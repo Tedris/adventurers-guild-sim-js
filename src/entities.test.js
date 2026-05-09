@@ -59,6 +59,9 @@ import('./entities.js').then((module) => {
     perturbQuest,
     EVENT_TEMPLATES,
     VALID_EVENT_CATEGORIES,
+    generateEventPool,
+    selectNextEvent,
+    resolveEvent,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -1121,6 +1124,155 @@ import('./entities.js').then((module) => {
         assert(typeof result === 'object' && result !== null, `effect should return object for "${template.title}": ${choice.label}`);
       }
     }
+  });
+
+  // --- Tests for generateEventPool (Phase 3-03) ---
+
+  test('generateEventPool returns an array', () => {
+    assert(Array.isArray(generateEventPool()), 'generateEventPool must return an array');
+  });
+
+  test('generateEventPool returns 27 entries (sum of all weights)', () => {
+    const pool = generateEventPool();
+    assert(pool.length === 27, `expected 27 entries, got ${pool.length}`);
+  });
+
+  test('generateEventPool contains correct number of Budget events (9)', () => {
+    const pool = generateEventPool();
+    const budget = pool.filter(e => e.category === 'Budget');
+    assert(budget.length === 9, `expected 9 Budget entries, got ${budget.length}`);
+  });
+
+  test('generateEventPool contains correct number of Crisis events (9)', () => {
+    const pool = generateEventPool();
+    const crisis = pool.filter(e => e.category === 'Crisis');
+    assert(crisis.length === 9, `expected 9 Crisis entries, got ${crisis.length}`);
+  });
+
+  test('generateEventPool contains correct number of Drama events (9)', () => {
+    const pool = generateEventPool();
+    const drama = pool.filter(e => e.category === 'Drama');
+    assert(drama.length === 9, `expected 9 Drama entries, got ${drama.length}`);
+  });
+
+  test('generateEventPool entries match EVENT_TEMPLATES structure', () => {
+    const pool = generateEventPool();
+    const templateIds = new Set(EVENT_TEMPLATES.map(t => t.id));
+    for (const entry of pool) {
+      assert(templateIds.has(entry.id), `pool entry "${entry.id}" should match a template`);
+    }
+  });
+
+  // --- Tests for selectNextEvent (Phase 3-03) ---
+
+  test('selectNextEvent returns an event template or null', () => {
+    const state = { day: 1, eventCooldowns: {} };
+    const result = selectNextEvent(state);
+    assert(result === null || typeof result.id === 'string', 'selectNextEvent should return event or null');
+  });
+
+  test('selectNextEvent returns null when all events are in cooldown', () => {
+    const state = {
+      day: 1,
+      eventCooldowns: {},
+    };
+    // Set all events to cooldown future
+    const cooldowns = {};
+    for (const t of EVENT_TEMPLATES) {
+      cooldowns[t.id] = 100;
+    }
+    state.eventCooldowns = cooldowns;
+    const result = selectNextEvent(state);
+    assert(result === null, `expected null when all events in cooldown, got "${result?.id}"`);
+  });
+
+  test('selectNextEvent returns an event when no cooldowns', () => {
+    const state = { day: 10, eventCooldowns: {} };
+    const result = selectNextEvent(state);
+    assert(result !== null, 'should return an event when no cooldowns');
+    assert(EVENT_TEMPLATES.some(t => t.id === result.id), 'returned event should be a known template');
+  });
+
+  test('selectNextEvent filters out cooldown events', () => {
+    const state = {
+      day: 5,
+      eventCooldowns: { 'budget-wage-demand': 10 },
+    };
+    // wage-demand is in cooldown (cooldown ends at tick 10, current tick is 5)
+    for (let i = 0; i < 20; i++) {
+      const result = selectNextEvent(state);
+      assert(result !== null, 'should return non-null event');
+      assert(result.id !== 'budget-wage-demand', 'should not return cooldown event');
+    }
+  });
+
+  test('selectNextEvent returns event after cooldown expires', () => {
+    const state = {
+      day: 25,
+      eventCooldowns: { 'budget-wage-demand': 20 },
+    };
+    // After 100 trials, should occasionally return budget-wage-demand
+    let found = false;
+    for (let i = 0; i < 100; i++) {
+      const result = selectNextEvent(state);
+      if (result && result.id === 'budget-wage-demand') { found = true; break; }
+    }
+    assert(found, 'should eventually return event after cooldown expires');
+  });
+
+  // --- Tests for resolveEvent (Phase 3-03) ---
+
+  test('resolveEvent returns delta object with eventId, resolvedAt, moraleAdjustment', () => {
+    const state = { day: 5, gold: 100 };
+    const result = resolveEvent(state, 'budget-wage-demand', 0);
+    assert(typeof result.delta === 'object', 'result must have delta object');
+    assert(typeof result.eventId === 'string', 'result must have eventId');
+    assert(typeof result.resolvedAt === 'number', 'result must have resolvedAt');
+    assert(typeof result.moraleAdjustment === 'number', 'result must have moraleAdjustment');
+  });
+
+  test('resolveEvent returns valid delta for each event category', () => {
+    const state = { day: 5, gold: 100 };
+    const categories = ['Budget', 'Crisis', 'Drama'];
+    for (const cat of categories) {
+      const event = EVENT_TEMPLATES.find(e => e.category === cat);
+      const result = resolveEvent(state, event.id, 0);
+      assert(result.delta !== undefined, `delta should exist for ${cat} event`);
+      assert(result.eventId === event.id, `eventId should match`);
+    }
+  });
+
+  test('resolveEvent handles invalid eventId gracefully', () => {
+    const state = { day: 5, gold: 100 };
+    const result = resolveEvent(state, 'nonexistent-event', 0);
+    assert(result.delta && Object.keys(result.delta).length === 0, 'invalid eventId should return empty delta');
+    assert(result.eventId === 'nonexistent-event', 'eventId should be passed through');
+    assert(typeof result.resolvedAt === 'number', 'resolvedAt should be set');
+  });
+
+  test('resolveEvent handles invalid choiceIndex gracefully', () => {
+    const state = { day: 5, gold: 100 };
+    const result = resolveEvent(state, 'budget-wage-demand', 99);
+    assert(result.delta && Object.keys(result.delta).length === 0, 'invalid choiceIndex should return empty delta');
+    assert(result.eventId === 'budget-wage-demand', 'eventId should be passed through');
+  });
+
+  test('resolveEvent gold delta is correct for budget-price-surge choice 0', () => {
+    const state = { day: 5, gold: 100 };
+    const result = resolveEvent(state, 'budget-price-surge', 0);
+    assert(result.delta.gold === -15, `delta gold should be -15, got ${result.delta.gold}`);
+  });
+
+  test('resolveEvent moraleAdjustment propagates through delta', () => {
+    const state = { day: 5, gold: 100 };
+    const result = resolveEvent(state, 'budget-wage-demand', 2); // Refuse (morale -5)
+    assert(result.moraleAdjustment === -5, `moraleAdjustment should be -5, got ${result.moraleAdjustment}`);
+  });
+
+  test('resolveEvent returns resolvedAt equal to state.day', () => {
+    const state = { day: 42, gold: 100 };
+    const result = resolveEvent(state, 'drama-festival', 1);
+    assert(result.resolvedAt === 42, `resolvedAt should be 42, got ${result.resolvedAt}`);
   });
 
   // Print summary
