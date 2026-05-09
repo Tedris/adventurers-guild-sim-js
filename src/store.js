@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, processTick } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, processTick, resolveEvent } from './entities.js';
 
 /**
  * Creates a reactive state store.
@@ -255,6 +255,96 @@ export function createStore(initialState, validators = {}) {
 
         const newState = processTick(currentState, tickCount);
         return newState;
+      }
+      case 'EVENT_FIRED': {
+        const { eventId, title, description, category, choices } = action.payload;
+
+        // Validate event exists
+        if (!eventId || !title) return currentState;
+
+        const events = currentState.events || [];
+        const newEvent = {
+          eventId,
+          title,
+          description,
+          category,
+          choices: choices ? choices.map(c => ({ label: c.label, index: choices.indexOf(c) })) : [],
+          timestamp: currentState.day || 0,
+          resolved: false,
+        };
+
+        return {
+          ...currentState,
+          events: [...events, newEvent],
+        };
+      }
+      case 'EVENT_RESOLVED': {
+        const { eventId, choiceIndex } = action.payload;
+
+        if (!eventId && eventId !== 0) return currentState;
+
+        // Resolve the event using the entity function
+        const resolution = resolveEvent(currentState, eventId, choiceIndex);
+
+        if (!resolution.delta || Object.keys(resolution.delta).length === 0) {
+          return currentState;
+        }
+
+        // Apply gold change
+        let newGold = currentState.gold;
+        if (resolution.delta.gold) {
+          newGold = Math.max(0, (currentState.gold ?? 0) + resolution.delta.gold);
+        }
+
+        // Apply morale adjustment (if a single number, apply to all; if an array, apply per-adventurer)
+        let updatedAdventurers = currentState.adventurers;
+        if (resolution.delta.moraleAdjustment) {
+          const adj = resolution.delta.moraleAdjustment;
+          updatedAdventurers = currentState.adventurers.map(a => ({
+            ...a,
+            morale: Math.max(0, Math.min(100, a.morale + (typeof adj === 'number' ? adj : 0))),
+          }));
+        }
+
+        // Handle departure count (adventurers leave due to event)
+        let departureCount = resolution.delta.departureCount || 0;
+        if (departureCount > 0 && updatedAdventurers.length > 0) {
+          // Remove adventurers with lowest morale first
+          const sorted = [...updatedAdventurers].sort((a, b) => a.morale - b.morale);
+          for (let i = 0; i < departureCount && sorted[i]; i++) {
+            const departedId = sorted[i].id;
+            updatedAdventurers = updatedAdventurers.filter(a => a.id !== departedId);
+          }
+          departureCount -= updatedAdventurers.length < sorted.length ? Math.min(departureCount, sorted.length - updatedAdventurers.length) : 0;
+        }
+
+        // Handle retirement trigger
+        if (resolution.delta.retirementTriggered) {
+          // Remove the oldest adventurer (veteran retiring)
+          const oldest = [...updatedAdventurers].sort((a, b) => b.level - a.level || b.experience - a.experience)[0];
+          if (oldest) {
+            updatedAdventurers = updatedAdventurers.filter(a => a.id !== oldest.id);
+          }
+        }
+
+        // Build cooldowns: mark this event as unavailable for EVENT_COOLDOWN_TICKS
+        const cooldowns = { ...(currentState.eventCooldowns || {}) };
+        cooldowns[eventId] = (currentState.day || 0) + 20; // 20 ticks cooldown
+
+        // Merge any other delta fields into state
+        const { gold, moraleAdjustment, departureCount: depCount, retirementTriggered, ...restDelta } = resolution.delta;
+
+        return {
+          ...currentState,
+          gold: newGold,
+          adventurers: updatedAdventurers,
+          events: (currentState.events || []).filter(e => e.eventId !== eventId || e.resolved),
+          eventCooldowns: cooldowns,
+          // Spread remaining delta fields (fameDelta, reputation, favorDebt, questRisk, etc.)
+          ...restDelta,
+          // Apply fame delta
+          ...(resolution.delta.fameDelta ? { fame: (currentState.fame || 0) + resolution.delta.fameDelta } : {}),
+        };
       }
       default:
         return currentState;
