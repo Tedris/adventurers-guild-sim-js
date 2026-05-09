@@ -64,6 +64,8 @@ import('./entities.js').then((module) => {
     resolveEvent,
     gameDefaults,
     validateGame,
+    OFFICE_LEVEL_THRESHOLDS,
+    calculateOfficeLevel,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -1332,6 +1334,118 @@ import('./entities.js').then((module) => {
     const state = { adventurers: [], quests: [], party: { id: 'p1', adventurerIds: [] } };
     const result = validateGame(state);
     assert(result.valid === true, `validateGame should accept state without events (backward compat)`);
+  });
+
+  // --- Tests for office level calculation (Phase 3-05) ---
+
+  test('OFFICE_LEVEL_THRESHOLDS is exported as an array with 5 entries', () => {
+    assert(Array.isArray(OFFICE_LEVEL_THRESHOLDS), 'OFFICE_LEVEL_THRESHOLDS must be an array');
+    assert(OFFICE_LEVEL_THRESHOLDS.length === 5, `expected 5 thresholds, got ${OFFICE_LEVEL_THRESHOLDS.length}`);
+  });
+
+  test('OFFICE_LEVEL_THRESHOLDS entries have level, quests, and roster fields', () => {
+    for (const t of OFFICE_LEVEL_THRESHOLDS) {
+      assert(typeof t.level === 'number', `threshold must have level number`);
+      assert(typeof t.quests === 'number', `threshold must have quests number`);
+      assert(typeof t.roster === 'number', `threshold must have roster number`);
+    }
+  });
+
+  test('OFFICE_LEVEL_THRESHOLDS levels are 1 through 5', () => {
+    const levels = OFFICE_LEVEL_THRESHOLDS.map(t => t.level);
+    assert(levels[0] === 1, 'first level should be 1');
+    assert(levels[1] === 2, 'second level should be 2');
+    assert(levels[2] === 3, 'third level should be 3');
+    assert(levels[3] === 4, 'fourth level should be 4');
+    assert(levels[4] === 5, 'fifth level should be 5');
+  });
+
+  test('calculateOfficeLevel returns level 1 with no quests and no adventurers', () => {
+    const state = { questCount: 0, adventurers: [], officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.level === 1, `expected level 1, got ${result.level}`);
+    assert(result.label === 'Shack', `expected label 'Shack', got '${result.label}'`);
+  });
+
+  test('calculateOfficeLevel returns level 2 with 5 quests and 3 adventurers', () => {
+    const state = {
+      questCount: 5,
+      adventurers: [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }],
+      officeLevel: 1,
+    };
+    const result = calculateOfficeLevel(state);
+    assert(result.level === 2, `expected level 2, got ${result.level}`);
+    assert(result.label === 'Hovel', `expected label 'Hovel', got '${result.label}'`);
+  });
+
+  test('calculateOfficeLevel returns level 3 with 15 quests and 6 adventurers', () => {
+    const adventurers = Array.from({ length: 6 }, (_, i) => ({ id: `a${i}` }));
+    const state = { questCount: 15, adventurers, officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.level === 3, `expected level 3, got ${result.level}`);
+    assert(result.label === 'Guild Hall', `expected label 'Guild Hall', got '${result.label}'`);
+  });
+
+  test('calculateOfficeLevel returns level 4 with 30 quests and 10 adventurers', () => {
+    const adventurers = Array.from({ length: 10 }, (_, i) => ({ id: `a${i}` }));
+    const state = { questCount: 30, adventurers, officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.level === 4, `expected level 4, got ${result.level}`);
+    assert(result.label === 'Fortress', `expected label 'Fortress', got '${result.label}'`);
+  });
+
+  test('calculateOfficeLevel returns level 5 with 50 quests and 15 adventurers', () => {
+    const adventurers = Array.from({ length: 15 }, (_, i) => ({ id: `a${i}` }));
+    const state = { questCount: 50, adventurers, officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.level === 5, `expected level 5, got ${result.level}`);
+    assert(result.label === 'Citadel', `expected label 'Citadel', got '${result.label}'`);
+  });
+
+  test('calculateOfficeLevel returns correct nextLevel', () => {
+    const state = { questCount: 0, adventurers: [], officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.nextLevel === 2, `expected nextLevel 2, got ${result.nextLevel}`);
+  });
+
+  test('calculateOfficeLevel returns null nextLevel at max level', () => {
+    const adventurers = Array.from({ length: 15 }, (_, i) => ({ id: `a${i}` }));
+    const state = { questCount: 50, adventurers, officeLevel: 5 };
+    const result = calculateOfficeLevel(state);
+    assert(result.nextLevel === null, `expected nextLevel null at max, got ${result.nextLevel}`);
+  });
+
+  test('calculateOfficeLevel progress is between 0 and 1', () => {
+    const state = { questCount: 2, adventurers: [{ id: 'a1' }], officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.progress >= 0 && result.progress <= 1, `progress should be 0-1, got ${result.progress}`);
+  });
+
+  test('calculateOfficeLevel progress is 1 at max level', () => {
+    const adventurers = Array.from({ length: 15 }, (_, i) => ({ id: `a${i}` }));
+    const state = { questCount: 50, adventurers, officeLevel: 5 };
+    const result = calculateOfficeLevel(state);
+    assert(result.progress === 1, `progress should be 1 at max level, got ${result.progress}`);
+  });
+
+  test('calculateOfficeLevel is a pure function (does not mutate input state)', () => {
+    const adventurers = [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }];
+    const state = { questCount: 5, adventurers, officeLevel: 1 };
+    const stateCopy = JSON.parse(JSON.stringify(state));
+    calculateOfficeLevel(state);
+    assert(JSON.stringify(state) === JSON.stringify(stateCopy), 'state should not be mutated');
+  });
+
+  test('calculateOfficeLevel handles missing questCount as 0', () => {
+    const state = { adventurers: [], officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.level === 1, `expected level 1 with no questCount, got ${result.level}`);
+  });
+
+  test('calculateOfficeLevel handles undefined adventurers as empty array', () => {
+    const state = { questCount: 10, officeLevel: 1 };
+    const result = calculateOfficeLevel(state);
+    assert(result.level === 1, `expected level 1 with no adventurers, got ${result.level}`);
   });
 
   // Print summary
