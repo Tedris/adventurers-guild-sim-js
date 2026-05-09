@@ -62,6 +62,8 @@ import('./entities.js').then((module) => {
     generateEventPool,
     selectNextEvent,
     resolveEvent,
+    gameDefaults,
+    validateGame,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -1273,6 +1275,63 @@ import('./entities.js').then((module) => {
     const state = { day: 42, gold: 100 };
     const result = resolveEvent(state, 'drama-festival', 1);
     assert(result.resolvedAt === 42, `resolvedAt should be 42, got ${result.resolvedAt}`);
+  });
+
+  // --- Tests for gameDefaults event system fields ---
+
+  test('gameDefaults includes events: []', () => {
+    const defaults = gameDefaults();
+    assert(Array.isArray(defaults.events), `events should be an array, got ${typeof defaults.events}`);
+    assert(defaults.events.length === 0, `events should be empty, got ${defaults.events.length}`);
+  });
+
+  test('gameDefaults includes eventCooldowns: {}', () => {
+    const defaults = gameDefaults();
+    assert(typeof defaults.eventCooldowns === 'object' && !Array.isArray(defaults.eventCooldowns), `eventCooldowns should be an object, got ${typeof defaults.eventCooldowns}`);
+    assert(Object.keys(defaults.eventCooldowns).length === 0, `eventCooldowns should be empty`);
+  });
+
+  test('gameDefaults includes wageMultiplier: 1', () => {
+    const defaults = gameDefaults();
+    assert(defaults.wageMultiplier === 1, `wageMultiplier should be 1, got ${defaults.wageMultiplier}`);
+  });
+
+  test('gameDefaults includes questRisk: 0', () => {
+    const defaults = gameDefaults();
+    assert(defaults.questRisk === 0, `questRisk should be 0, got ${defaults.questRisk}`);
+  });
+
+  test('gameDefaults includes reputation: 0', () => {
+    const defaults = gameDefaults();
+    assert(defaults.reputation === 0, `reputation should be 0, got ${defaults.reputation}`);
+  });
+
+  test('gameDefaults includes favorDebt: 0', () => {
+    const defaults = gameDefaults();
+    assert(defaults.favorDebt === 0, `favorDebt should be 0, got ${defaults.favorDebt}`);
+  });
+
+  // --- Tests for validateGame events check ---
+
+  test('validateGame accepts state with events array', () => {
+    const state = { adventurers: [], quests: [], party: { id: 'p1', adventurerIds: [] } };
+    state.events = [];
+    const result = validateGame(state);
+    assert(result.valid === true, `validateGame should accept events array, reason: ${result.reason}`);
+  });
+
+  test('validateGame rejects state with non-array events', () => {
+    const state = { adventurers: [], quests: [], party: { id: 'p1', adventurerIds: [] } };
+    state.events = 'not-an-array';
+    const result = validateGame(state);
+    assert(result.valid === false, `validateGame should reject non-array events`);
+    assert(result.reason === 'events must be an array', `reason should be specific, got: ${result.reason}`);
+  });
+
+  test('validateGame accepts state without events field (backward compat)', () => {
+    const state = { adventurers: [], quests: [], party: { id: 'p1', adventurerIds: [] } };
+    const result = validateGame(state);
+    assert(result.valid === true, `validateGame should accept state without events (backward compat)`);
   });
 
   // Print summary
