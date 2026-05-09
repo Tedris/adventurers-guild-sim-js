@@ -57,6 +57,8 @@ import('./entities.js').then((module) => {
     generatePersonality,
     QUEST_TEMPLATES,
     perturbQuest,
+    EVENT_TEMPLATES,
+    VALID_EVENT_CATEGORIES,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -1011,6 +1013,114 @@ import('./entities.js').then((module) => {
   test('generateQuestPool respects QUEST_TEMPLATES count limit', () => {
     const pool = generateQuestPool(100);
     assert(pool.length === QUEST_TEMPLATES.length, `pool should have ${QUEST_TEMPLATES.length} quests when requested 100`);
+  });
+
+  // --- Tests for EVENT_TEMPLATES (Phase 3-03) ---
+
+  test('VALID_EVENT_CATEGORIES is an array with 3 categories', () => {
+    assert(Array.isArray(VALID_EVENT_CATEGORIES), 'VALID_EVENT_CATEGORIES must be an array');
+    assert(VALID_EVENT_CATEGORIES.length === 3, `expected 3 categories, got ${VALID_EVENT_CATEGORIES.length}`);
+  });
+
+  test('VALID_EVENT_CATEGORIES contains Budget, Crisis, and Drama', () => {
+    assert(VALID_EVENT_CATEGORIES.includes('Budget'), 'must include Budget');
+    assert(VALID_EVENT_CATEGORIES.includes('Crisis'), 'must include Crisis');
+    assert(VALID_EVENT_CATEGORIES.includes('Drama'), 'must include Drama');
+  });
+
+  test('EVENT_TEMPLATES is an array with 12 entries', () => {
+    assert(Array.isArray(EVENT_TEMPLATES), 'EVENT_TEMPLATES must be an array');
+    assert(EVENT_TEMPLATES.length === 12, `expected 12 events, got ${EVENT_TEMPLATES.length}`);
+  });
+
+  test('EVENT_TEMPLATES has 4 Budget events', () => {
+    const budgetEvents = EVENT_TEMPLATES.filter(e => e.category === 'Budget');
+    assert(budgetEvents.length === 4, `expected 4 Budget events, got ${budgetEvents.length}`);
+  });
+
+  test('EVENT_TEMPLATES has 4 Crisis events', () => {
+    const crisisEvents = EVENT_TEMPLATES.filter(e => e.category === 'Crisis');
+    assert(crisisEvents.length === 4, `expected 4 Crisis events, got ${crisisEvents.length}`);
+  });
+
+  test('EVENT_TEMPLATES has 4 Drama events', () => {
+    const dramaEvents = EVENT_TEMPLATES.filter(e => e.category === 'Drama');
+    assert(dramaEvents.length === 4, `expected 4 Drama events, got ${dramaEvents.length}`);
+  });
+
+  test('EVENT_TEMPLATES entries have required fields', () => {
+    for (const template of EVENT_TEMPLATES) {
+      assert(typeof template.id === 'string', `event must have id string, got ${typeof template.id}`);
+      assert(VALID_EVENT_CATEGORIES.includes(template.category), `event category must be valid: ${template.category}`);
+      assert(typeof template.weight === 'number', `event must have weight number, got ${typeof template.weight}`);
+      assert(typeof template.title === 'string', `event must have title string, got ${typeof template.title}`);
+      assert(typeof template.description === 'string', `event must have description string`);
+      assert(Array.isArray(template.choices), `event must have choices array`);
+    }
+  });
+
+  test('EVENT_TEMPLATES entries have 2-3 choices each', () => {
+    for (const template of EVENT_TEMPLATES) {
+      assert(template.choices.length >= 2 && template.choices.length <= 3,
+        `event "${template.title}" should have 2-3 choices, got ${template.choices.length}`);
+    }
+  });
+
+  test('EVENT_TEMPLATES choices have label and effect function', () => {
+    for (const template of EVENT_TEMPLATES) {
+      for (const choice of template.choices) {
+        assert(typeof choice.label === 'string', `choice label must be string in "${template.title}"`);
+        assert(typeof choice.effect === 'function', `choice effect must be function in "${template.title}"`);
+      }
+    }
+  });
+
+  test('EVENT_TEMPLATES weights sum to 27 (balanced: 9 per category)', () => {
+    const budgetWeight = EVENT_TEMPLATES.filter(e => e.category === 'Budget').reduce((s, e) => s + e.weight, 0);
+    const crisisWeight = EVENT_TEMPLATES.filter(e => e.category === 'Crisis').reduce((s, e) => s + e.weight, 0);
+    const dramaWeight = EVENT_TEMPLATES.filter(e => e.category === 'Drama').reduce((s, e) => s + e.weight, 0);
+    assert(budgetWeight === 9, `Budget weight should be 9, got ${budgetWeight}`);
+    assert(crisisWeight === 9, `Crisis weight should be 9, got ${crisisWeight}`);
+    assert(dramaWeight === 9, `Drama weight should be 9, got ${dramaWeight}`);
+    const totalWeight = budgetWeight + crisisWeight + dramaWeight;
+    assert(totalWeight === 27, `total weight should be 27, got ${totalWeight}`);
+  });
+
+  test('EVENT_TEMPLATES events have unique IDs', () => {
+    const ids = EVENT_TEMPLATES.map(e => e.id);
+    const unique = new Set(ids);
+    assert(unique.size === ids.length, 'all event IDs should be unique');
+  });
+
+  test('Budget events reference wage or gold mechanics', () => {
+    const budgetEvents = EVENT_TEMPLATES.filter(e => e.category === 'Budget');
+    for (const e of budgetEvents) {
+      assert(typeof e.id === 'string' && e.id.startsWith('budget-'), `Budget event should have "budget-" prefix: ${e.id}`);
+    }
+  });
+
+  test('Crisis events reference crisis mechanics', () => {
+    const crisisEvents = EVENT_TEMPLATES.filter(e => e.category === 'Crisis');
+    for (const e of crisisEvents) {
+      assert(typeof e.id === 'string' && e.id.startsWith('crisis-'), `Crisis event should have "crisis-" prefix: ${e.id}`);
+    }
+  });
+
+  test('Drama events reference drama mechanics', () => {
+    const dramaEvents = EVENT_TEMPLATES.filter(e => e.category === 'Drama');
+    for (const e of dramaEvents) {
+      assert(typeof e.id === 'string' && e.id.startsWith('drama-'), `Drama event should have "drama-" prefix: ${e.id}`);
+    }
+  });
+
+  test('EVENT_TEMPLATES effect functions are callable and return objects', () => {
+    const testState = { gold: 100, morale: 70 };
+    for (const template of EVENT_TEMPLATES) {
+      for (const choice of template.choices) {
+        const result = choice.effect(testState);
+        assert(typeof result === 'object' && result !== null, `effect should return object for "${template.title}": ${choice.label}`);
+      }
+    }
   });
 
   // Print summary
