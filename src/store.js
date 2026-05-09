@@ -122,6 +122,27 @@ export function createStore(initialState, validators = {}) {
           },
         };
       }
+       case 'UPDATE_ADVENTURER': {
+         const { adventurerId, updates } = action.payload;
+
+         if (!adventurerId || !updates || typeof updates !== 'object') {
+          console.warn('[Store] UPDATE_ADVENTURER rejected: missing adventurerId or updates');
+          return currentState;
+        }
+
+        const adventurer = currentState.adventurers.find(a => a.id === adventurerId);
+        if (!adventurer) {
+          console.warn(`[Store] UPDATE_ADVENTURER rejected: adventurer ${adventurerId} not found`);
+          return currentState;
+        }
+
+        return {
+          ...currentState,
+          adventurers: currentState.adventurers.map(a =>
+            a.id === adventurerId ? { ...a, ...updates } : a
+          ),
+        };
+      }
       case 'SEND_QUEST': {
         const { questId, partyId } = action.payload;
 
@@ -142,8 +163,10 @@ export function createStore(initialState, validators = {}) {
           ...currentState,
           activeQuest: {
             questId,
+            questData: quest,
             partyId: partyId || currentState.party.id,
             status: 'active',
+            tickCount: 0,
             startTime: Date.now(),
           },
           quests: currentState.quests.filter(q => q.id !== questId),
@@ -158,7 +181,8 @@ export function createStore(initialState, validators = {}) {
           return currentState;
         }
 
-        const quest = currentState.quests.find(q => q.id === questId) || { id: questId };
+        // Use stored quest data from activeQuest, fallback to quests array
+        const quest = currentState.activeQuest.questData || currentState.quests.find(q => q.id === questId) || { id: questId };
         const partyAdventurers = currentState.adventurers.filter(a =>
           (currentState.party?.adventurerIds || []).includes(a.id)
         );
