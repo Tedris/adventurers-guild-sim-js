@@ -1151,6 +1151,81 @@ export function processTick(state, tickCount = 1) {
   return newState;
 }
 
+// ─── Office Visual Progression (Phase 3-05) ───
+
+/**
+ * Office level thresholds based on quest completions and roster size.
+ * Each level requires BOTH conditions to be met:
+ * - Minimum quest completions
+ * - Minimum roster size
+ *
+ * Level progression:
+ * 1 -> 2: 5 quests, 3 adventurers
+ * 2 -> 3: 15 quests, 6 adventurers
+ * 3 -> 4: 30 quests, 10 adventurers
+ * 4 -> 5: 50 quests, 15 adventurers
+ */
+export const OFFICE_LEVEL_THRESHOLDS = [
+  { level: 1, quests: 0, roster: 0 },
+  { level: 2, quests: 5, roster: 3 },
+  { level: 3, quests: 15, roster: 6 },
+  { level: 4, quests: 30, roster: 10 },
+  { level: 5, quests: 50, roster: 15 },
+];
+
+/**
+ * Calculate the office level based on quest completions and roster size.
+ * Returns the highest level for which BOTH conditions are met.
+ * @param {Object} state — Current game state
+ * @returns {{ level: number, nextLevel: number, progress: number, label: string }}
+ */
+export function calculateOfficeLevel(state) {
+  const questCount = state.questCount || 0;
+  const adventurerCount = (state.adventurers || []).length;
+  const currentLevel = state.officeLevel || 1;
+
+  let calculatedLevel = 1;
+  for (const threshold of OFFICE_LEVEL_THRESHOLDS) {
+    if (questCount >= threshold.quests && adventurerCount >= threshold.roster) {
+      calculatedLevel = threshold.level;
+    }
+  }
+
+  // Clamp to valid range
+  calculatedLevel = Math.max(1, Math.min(calculatedLevel, OFFICE_LEVEL_THRESHOLDS.length));
+
+  // Find next level threshold for progress calculation
+  const currentThreshold = OFFICE_LEVEL_THRESHOLDS.find(t => t.level === Math.min(calculatedLevel, OFFICE_LEVEL_THRESHOLDS.length));
+  const nextThreshold = OFFICE_LEVEL_THRESHOLDS.find(t => t.level === calculatedLevel + 1);
+
+  // Calculate progress toward next level (0-1)
+  let progress = 1;
+  if (nextThreshold) {
+    const questsNeeded = nextThreshold.quests - currentThreshold.quests;
+    const rosterNeeded = nextThreshold.roster - currentThreshold.roster;
+
+    // Weighted average of quest progress and roster progress
+    const questProgress = questsNeeded > 0
+      ? Math.min(1, (questCount - currentThreshold.quests) / questsNeeded)
+      : 1;
+    const rosterProgress = rosterNeeded > 0
+      ? Math.min(1, (adventurerCount - currentThreshold.roster) / rosterNeeded)
+      : 1;
+
+    progress = (questProgress + rosterProgress) / 2;
+  }
+
+  const labels = ['', 'Shack', 'Hovel', 'Guild Hall', 'Fortress', 'Citadel'];
+  const levelIndex = Math.min(calculatedLevel, labels.length - 1);
+
+  return {
+    level: calculatedLevel,
+    nextLevel: calculatedLevel < OFFICE_LEVEL_THRESHOLDS.length ? calculatedLevel + 1 : null,
+    progress: Math.round(progress * 100) / 100,
+    label: labels[levelIndex] || 'Citadel',
+  };
+}
+
 // ─── Game Defaults ───
 
 /**
