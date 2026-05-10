@@ -6,6 +6,7 @@
 import { createStore } from './store.js';
 import { initStore, loadState, enableAutoSave } from './save-load.js';
 import { gameDefaults, validateGame } from './entities.js';
+import { renderCard } from './render.js';
 
 // ─── Validation ───
 
@@ -20,20 +21,161 @@ function validateGameShape(state) {
   return { valid: true };
 }
 
-// ─── Console Renderer (Phase 1) ───
+// ─── DOM Renderer (Phase 4) ───
 
-// Phase 1: Console render for verification.
-// TODO: Replace with DOM-based renderer in Phase 4 (src/render.js)
+/**
+ * DOM-based renderer — clears #game-content and renders cards based on state.
+ * Called on every store dispatch for full re-render (D-07).
+ * @param {Object} state - Current game state
+ */
 function render(state) {
-  console.log('\n=== Game State ===');
-  console.log(`Day: ${state.day} | Gold: ${state.gold} | Fame: ${state.fame}`);
-  console.log(`Adventurers: ${state.adventurers.length}`);
-  console.log(`Quests: ${state.quests.length}`);
-  console.log(`Party: ${state.party?.adventurerIds?.length || 0} members`);
-  if (state.activeQuest) {
-    console.log(`Active Quest: ${state.activeQuest.name || 'unnamed'}`);
+  const container = document.getElementById('game-content');
+  if (!container) return; // DOM not ready yet
+
+  // Clear existing content
+  container.innerHTML = '';
+
+  // Render based on current active view
+  const currentView = state._currentView || 'dashboard';
+
+  // Dashboard view: show overview cards
+  if (currentView === 'dashboard') {
+    renderDashboardView(container, state);
   }
-  console.log('=================\n');
+  // Roster view: show adventurer cards
+  else if (currentView === 'roster') {
+    renderRosterView(container, state);
+  }
+  // Quest Board view: show quest cards
+  else if (currentView === 'quests') {
+    renderQuestBoardView(container, state);
+  }
+  // Events view: show event cards
+  else if (currentView === 'events') {
+    renderEventsView(container, state);
+  }
+  // Upgrades view: placeholder (Phase 5)
+  else if (currentView === 'upgrades') {
+    renderUpgradesView(container, state);
+  }
+  // Default: show a simple placeholder
+  else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'card';
+    placeholder.textContent = `View: ${currentView} — Day ${state.day}`;
+    container.appendChild(placeholder);
+  }
+}
+
+/**
+ * Render dashboard view cards.
+ */
+function renderDashboardView(container, state) {
+  // Show active quest if any
+  if (state.activeQuest) {
+    const questCard = renderCard('quest', state.activeQuest.questData || state.activeQuest, state);
+    if (questCard) container.appendChild(questCard);
+  }
+
+  // Show recent events
+  const events = state.events || [];
+  const recentEvents = events.filter(e => !e.resolved).slice(-3).reverse();
+  for (const event of recentEvents) {
+    const eventCard = renderCard('event', event, state);
+    if (eventCard) container.appendChild(eventCard);
+  }
+
+  // Show adventurers count card if no active quest or events
+  if (recentEvents.length === 0 && !state.activeQuest) {
+    const summary = document.createElement('div');
+    summary.className = 'card';
+    summary.style.gridColumn = '1 / -1';
+    summary.style.textAlign = 'center';
+    summary.style.padding = '32px';
+    summary.innerHTML = `
+      <h3 style="margin-bottom: 8px;">Guild Dashboard</h3>
+      <p>Day <strong>${state.day}</strong> | Gold: <strong>${state.gold}</strong> | Fame: <strong>${state.fame}</strong></p>
+      <p>Adventurers: <strong>${(state.adventurers || []).length}</strong> | Quests available: <strong>${(state.quests || []).length}</strong></p>
+    `;
+    container.appendChild(summary);
+  }
+}
+
+/**
+ * Render roster view — adventurer cards for all rostered adventurers.
+ */
+function renderRosterView(container, state) {
+  const adventurers = state.adventurers || [];
+  if (adventurers.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card';
+    empty.style.gridColumn = '1 / -1';
+    empty.style.textAlign = 'center';
+    empty.style.padding = '32px';
+    empty.textContent = 'No adventurers yet. Hire from the recruitment pool!';
+    container.appendChild(empty);
+  } else {
+    for (const adventurer of adventurers) {
+      const card = renderCard('adventurer', adventurer, state);
+      if (card) container.appendChild(card);
+    }
+  }
+}
+
+/**
+ * Render quest board view — available quest cards.
+ */
+function renderQuestBoardView(container, state) {
+  const quests = state.quests || [];
+  if (quests.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card';
+    empty.style.gridColumn = '1 / -1';
+    empty.style.textAlign = 'center';
+    empty.style.padding = '32px';
+    empty.textContent = 'No quests available. Check back later!';
+    container.appendChild(empty);
+  } else {
+    for (const quest of quests) {
+      const card = renderCard('quest', quest, state);
+      if (card) container.appendChild(card);
+    }
+  }
+}
+
+/**
+ * Render events view — unresolved event cards.
+ */
+function renderEventsView(container, state) {
+  const events = state.events || [];
+  const unresolved = events.filter(e => !e.resolved);
+  if (unresolved.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card';
+    empty.style.gridColumn = '1 / -1';
+    empty.style.textAlign = 'center';
+    empty.style.padding = '32px';
+    empty.textContent = 'No active events. All clear!';
+    container.appendChild(empty);
+  } else {
+    for (const event of unresolved) {
+      const card = renderCard('event', event, state);
+      if (card) container.appendChild(card);
+    }
+  }
+}
+
+/**
+ * Render upgrades view — placeholder for Phase 5.
+ */
+function renderUpgradesView(container, state) {
+  const placeholder = document.createElement('div');
+  placeholder.className = 'card';
+  placeholder.style.gridColumn = '1 / -1';
+  placeholder.style.textAlign = 'center';
+  placeholder.style.padding = '32px';
+  placeholder.textContent = 'Upgrades — Coming in a future update!';
+  container.appendChild(placeholder);
 }
 
 // ─── Initialization ───
