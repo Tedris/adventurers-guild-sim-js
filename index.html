@@ -29,10 +29,102 @@
 
     <!-- Main content area: empty grid, ready for cards -->
     <main id="game-content">
-      <!-- adventurer-card-template -->
-      <!-- quest-card-template -->
+      <!-- Cards rendered here by render.js -->
     </main>
   </div>
+
+  <!-- ═══ Card Template Definitions ═══ -->
+
+  <!-- Adventurer Card Template -->
+  <template id="adventurer-card-template">
+    <div class="card card-adventurer">
+      <div class="card-header">
+        <div class="adventurer-info">
+          <span class="class-icon" data-class-icon></span>
+          <span class="adventurer-name" data-name></span>
+        </div>
+        <div class="morale-bar-container">
+          <div class="morale-bar" data-morale-bar style="width: 0%"></div>
+          <span class="morale-value" data-morale>70</span>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <span class="stat" data-stat="str">STR: 0</span>
+        <span class="stat" data-stat="dex">DEX: 0</span>
+        <span class="stat" data-stat="int">INT: 0</span>
+        <span class="stat" data-stat="vit">VIT: 0</span>
+        <span class="stat" data-stat="lck">LCK: 0</span>
+      </div>
+      <div class="equipment-row">
+        <span class="equip-slot" data-equip="weapon">⚔️ <span data-rarity="weapon" class="rarity-indicator"></span></span>
+        <span class="equip-slot" data-equip="armor">🛡️ <span data-rarity="armor" class="rarity-indicator"></span></span>
+        <span class="equip-slot" data-equip="accessory">💍 <span data-rarity="accessory" class="rarity-indicator"></span></span>
+      </div>
+      <div class="card-footer">
+        <span class="rank-badge" data-rank>Novice</span>
+        <span class="origin-badge" data-origin>Town-born</span>
+        <span class="wage-display" data-wage>⛃ 2/day</span>
+      </div>
+    </div>
+  </template>
+
+  <!-- Quest Card Template -->
+  <template id="quest-card-template">
+    <div class="card card-quest">
+      <div class="card-header">
+        <span class="quest-name" data-name>Quest Name</span>
+        <span class="difficulty-stars" data-difficulty>★★★☆☆</span>
+      </div>
+      <p class="quest-description" data-description>A quest description.</p>
+      <div class="quest-requirements">
+        <h4>Requirements</h4>
+        <div class="req-stats-grid" data-req-stats>
+          <span class="req-stat" data-req-stat="str">STR: 5</span>
+          <span class="req-stat" data-req-stat="dex">DEX: 5</span>
+          <span class="req-stat" data-req-stat="int">INT: 5</span>
+          <span class="req-stat" data-req-stat="vit">VIT: 5</span>
+          <span class="req-stat" data-req-stat="lck">LCK: 5</span>
+        </div>
+        <ul class="preferred-classes" data-classes></ul>
+      </div>
+      <div class="quest-rewards">
+        <h4>Rewards</h4>
+        <span class="reward-gold" data-gold>⛃ 10</span>
+        <span class="reward-xp" data-experience>✦ 20 XP</span>
+      </div>
+      <div class="quest-actions">
+        <button class="btn-send-party" data-action="send-party" disabled>Send Party</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Event Card Template -->
+  <template id="event-card-template">
+    <div class="card card-event">
+      <div class="card-header">
+        <span class="event-title" data-title>Event Title</span>
+        <span class="category-badge" data-category>Crisis</span>
+      </div>
+      <p class="event-description" data-description>Event description.</p>
+      <div class="event-choices" data-choices></div>
+      <div class="event-footer">
+        <span class="event-timestamp" data-timestamp>Day 1</span>
+      </div>
+    </div>
+  </template>
+
+  <!-- Modal Overlay Template -->
+  <template id="modal-overlay-template">
+    <div class="modal-backdrop" data-modal="true">
+      <div class="modal-content">
+        <p class="modal-message" data-message></p>
+        <div class="modal-actions">
+          <button class="modal-confirm">Confirm</button>
+          <button class="modal-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </template>
 
   <script src="dist/app.js"></script>
 </body>
