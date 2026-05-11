@@ -643,3 +643,61 @@ body {
 .btn-retire:hover {
   background: #8b5a33;
 }
+
+/* ===== Upgrade System (Phase 5) ===== */
+
+.upgrade-card {
+  margin-bottom: 12px;
+}
+
+.upgrade-body {
+  padding: 8px 0;
+}
+
+.upgrade-desc {
+  margin: 0 0 8px 0;
+  font-size: 0.9em;
+  color: #ccc;
+}
+
+.upgrade-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}
+
+.upgrade-cost {
+  color: #f0c040;
+}
+
+.upgrade-effects {
+  color: #aaa;
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.btn-upgrade {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 0.95em;
+}
+
+.btn-upgrade:hover {
+  background: #1976d2;
+}
+
+.btn-disabled {
+  background: #555;
+  color: #999;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: not-allowed;
+  width: 100%;
+}

@@ -187,15 +187,28 @@ export function createStore(initialState, validators = {}) {
           (currentState.party?.adventurerIds || []).includes(a.id)
         );
 
-        // Calculate success
+        // Calculate success with equipment bonus from upgrades
         const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
-        const succeeded = Math.random() * 100 < successRate;
+        const equipmentBonus = currentState.equipmentBonus || 0;
+        const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
+        const succeeded = Math.random() * 100 < successRateWithBonus;
 
         // Calculate outcome
         const outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
 
         // Apply results
         const newGold = Math.max(0, (currentState.gold ?? 0) + outcome.gold);
+
+        // Calculate fame gain with office upgrade multiplier
+        // Fame gain based on quest completions and roster size (detailed calculation in Plan 05-03)
+        const questCount = currentState.questCount || 0;
+        const adventurerCount = (currentState.adventurers || []).length;
+        const officeLevel = currentState.officeLevel || 1;
+        let fameGain = questCount * 2 + adventurerCount * 3 + (officeLevel - 1) * 5;
+        const fameMultiplier = currentState.fameMultiplier || 1;
+        const actualFameGain = Math.floor(fameGain * fameMultiplier);
+        const newFame = (currentState.fame || 0) + actualFameGain;
+
         const updatedAdventurers = currentState.adventurers.map(a => {
           let newMorale = a.morale;
           if (!succeeded) {
@@ -212,6 +225,8 @@ export function createStore(initialState, validators = {}) {
           ...currentState,
           gold: newGold,
           adventurers: updatedAdventurers,
+          fame: newFame,
+          questCount: (currentState.questCount || 0) + 1,
           activeQuest: {
             ...currentState.activeQuest,
             status: succeeded ? 'complete' : 'failed',
@@ -243,7 +258,10 @@ export function createStore(initialState, validators = {}) {
           upgrades: newUpgrades,
           // Apply upgrade effects
           ...(upgradeType === 'equipment' ? { equipmentBonus: (currentState.equipmentBonus || 0) + 0.1 } : {}),
-          ...(upgradeType === 'office' ? { fameMultiplier: (currentState.fameMultiplier || 1) + 0.05 } : {}),
+          ...(upgradeType === 'office' ? {
+            fameMultiplier: (currentState.fameMultiplier || 1) + 0.05,
+            officeVisualBonus: (currentState.officeVisualBonus || 0) + 1,
+          } : {}),
         };
       }
       case 'RETIRE': {

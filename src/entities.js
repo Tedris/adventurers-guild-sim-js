@@ -640,6 +640,41 @@ const UPGRADE_DESCRIPTIONS = {
 };
 
 /**
+ * Upgrade effects table — maps upgrade type and level to quest outcome improvements.
+ * @type {Object<string, { perLevel: Object, description: string }>}
+ */
+export const UPGRADE_EFFECTS = {
+  office: {
+    perLevel: { fameMultiplier: 0.05, officeVisualBonus: 1 },
+    description: 'Increases fame gain and office visual level progression.',
+  },
+  equipment: {
+    perLevel: { questSuccessBonus: 0.10 },
+    description: 'Improves quest success rate by 10% per level.',
+  },
+  job_postings: {
+    perLevel: { recruitQualityBonus: 1 },
+    description: 'Improves recruitment pool quality, generating higher-stat adventurers.',
+  },
+};
+
+/**
+ * Get the effect values for an upgrade at a given level.
+ * @param {string} upgradeType — 'office', 'equipment', or 'job_postings'
+ * @param {number} level — Current upgrade level
+ * @returns {Object} Effect values scaled by level
+ */
+export function getUpgradeEffect(upgradeType, level) {
+  const effect = UPGRADE_EFFECTS[upgradeType];
+  if (!effect) return {};
+  const result = {};
+  for (const [key, value] of Object.entries(effect.perLevel)) {
+    result[key] = value * (level || 0);
+  }
+  return result;
+}
+
+/**
  * Calculate scaled wage for adventurers based on guild level and fame.
  * @param {Object[]} adventurers — Party adventurers
  * @param {number} guildLevel — Current guild level
@@ -1328,10 +1363,14 @@ export function calculateOfficeLevel(state) {
   const questCount = state.questCount || 0;
   const adventurerCount = (state.adventurers || []).length;
   const currentLevel = state.officeLevel || 1;
+  const officeVisualBonus = state.officeVisualBonus || 0;
+
+  // Apply office upgrade bonus to effective quest count
+  const effectiveQuestCount = questCount + officeVisualBonus;
 
   let calculatedLevel = 1;
   for (const threshold of OFFICE_LEVEL_THRESHOLDS) {
-    if (questCount >= threshold.quests && adventurerCount >= threshold.roster) {
+    if (effectiveQuestCount >= threshold.quests && adventurerCount >= threshold.roster) {
       calculatedLevel = threshold.level;
     }
   }
@@ -1351,7 +1390,7 @@ export function calculateOfficeLevel(state) {
 
     // Weighted average of quest progress and roster progress
     const questProgress = questsNeeded > 0
-      ? Math.min(1, (questCount - currentThreshold.quests) / questsNeeded)
+      ? Math.min(1, (effectiveQuestCount - currentThreshold.quests) / questsNeeded)
       : 1;
     const rosterProgress = rosterNeeded > 0
       ? Math.min(1, (adventurerCount - currentThreshold.roster) / rosterNeeded)
@@ -1401,6 +1440,10 @@ export function gameDefaults() {
     favorDebt: 0,
     // Legacy perk system (Phase 5)
     legacyPerks: [],
+    // Upgrade system (Phase 5)
+    equipmentBonus: 0,
+    fameMultiplier: 1,
+    officeVisualBonus: 0,
   };
 }
 
