@@ -456,6 +456,43 @@ import('./store.js').then((module) => {
     assert(result === false, 'EVENT_RESOLVED should return false for missing eventId');
   });
 
+  // --- Tests for RETIRE action (Phase 5) ---
+
+  test('RETIRE: removes adventurer from roster', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Veteran', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {}, wage: 4 }], day: 10, legacyPerks: [] });
+    const result = store.dispatch({ type: 'RETIRE', payload: { adventurerId: 'a1' } });
+    assert(result === true, 'RETIRE should return true for valid adventurer');
+    const state = store.getState();
+    assert(state.adventurers.length === 0, `roster should be empty, got ${state.adventurers.length}`);
+  });
+
+  test('RETIRE: generates and stores legacy perk', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Veteran', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {}, wage: 4 }], day: 10, legacyPerks: [] });
+    store.dispatch({ type: 'RETIRE', payload: { adventurerId: 'a1' } });
+    const state = store.getState();
+    assert(Array.isArray(state.legacyPerks), 'legacyPerks should be an array');
+    assert(state.legacyPerks.length === 1, `should have 1 legacy perk, got ${state.legacyPerks.length}`);
+    assert(typeof state.legacyPerks[0].id === 'string', 'perk should have id');
+    assert(typeof state.legacyPerks[0].name === 'string', 'perk should have name');
+    assert(typeof state.legacyPerks[0].effects === 'object', 'perk should have effects');
+  });
+
+  test('RETIRE: rejects non-existent adventurer', () => {
+    const store = createStore({ gold: 100, adventurers: [], day: 10, legacyPerks: [] });
+    const result = store.dispatch({ type: 'RETIRE', payload: { adventurerId: 'nonexistent' } });
+    assert(result === false, 'RETIRE should return false for non-existent adventurer');
+  });
+
+  test('RETIRE: preserves other state fields', () => {
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Test', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {}, wage: 4 }], day: 10, fame: 25, questCount: 5, legacyPerks: [] });
+    store.dispatch({ type: 'RETIRE', payload: { adventurerId: 'a1' } });
+    const state = store.getState();
+    assert(state.gold === 100, 'gold should be preserved');
+    assert(state.day === 10, 'day should be preserved');
+    assert(state.fame === 25, 'fame should be preserved');
+    assert(state.questCount === 5, 'questCount should be preserved');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);

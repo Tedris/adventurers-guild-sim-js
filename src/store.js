@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, processTick, resolveEvent } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, processTick, resolveEvent, generateLegacyPerk } from './entities.js';
 
 /**
  * Creates a reactive state store.
@@ -246,6 +246,24 @@ export function createStore(initialState, validators = {}) {
           ...(upgradeType === 'office' ? { fameMultiplier: (currentState.fameMultiplier || 1) + 0.05 } : {}),
         };
       }
+      case 'RETIRE': {
+        const { adventurerId } = action.payload;
+        const adventurer = currentState.adventurers.find(a => a.id === adventurerId);
+        if (!adventurer) {
+          console.warn(`[Store] RETIRE rejected: adventurer ${adventurerId} not found`);
+          return currentState;
+        }
+
+        const legacyPerk = generateLegacyPerk(adventurer, currentState.day);
+        const newPerks = [...(currentState.legacyPerks || []), legacyPerk];
+
+        return {
+          ...currentState,
+          adventurers: currentState.adventurers.filter(a => a.id !== adventurerId),
+          legacyPerks: newPerks,
+          lastRetirement: { adventurerId, perk: legacyPerk },
+        };
+      }
       case 'TICK': {
         const tickCount = action.payload?.tickCount ?? 1;
         if (!Number.isInteger(tickCount) || tickCount <= 0) {
@@ -320,10 +338,14 @@ export function createStore(initialState, validators = {}) {
 
         // Handle retirement trigger
         if (resolution.delta.retirementTriggered) {
-          // Remove the oldest adventurer (veteran retiring)
           const oldest = [...updatedAdventurers].sort((a, b) => b.level - a.level || b.experience - a.experience)[0];
           if (oldest) {
+            const legacyPerk = generateLegacyPerk(oldest, currentState.day);
+            const newPerks = [...(currentState.legacyPerks || []), legacyPerk];
             updatedAdventurers = updatedAdventurers.filter(a => a.id !== oldest.id);
+            // Pass legacyPerk through delta for state merge
+            resolution.delta._retirementPerk = legacyPerk;
+            resolution.delta._newPerks = newPerks;
           }
         }
 
@@ -332,7 +354,7 @@ export function createStore(initialState, validators = {}) {
         cooldowns[eventId] = (currentState.day || 0) + 20; // 20 ticks cooldown
 
         // Merge any other delta fields into state
-        const { gold, moraleAdjustment, departureCount: depCount, retirementTriggered, ...restDelta } = resolution.delta;
+        const { gold, moraleAdjustment, departureCount: depCount, retirementTriggered, _retirementPerk, _newPerks, ...restDelta } = resolution.delta;
 
         return {
           ...currentState,
@@ -340,9 +362,10 @@ export function createStore(initialState, validators = {}) {
           adventurers: updatedAdventurers,
           events: (currentState.events || []).filter(e => e.eventId !== eventId || e.resolved),
           eventCooldowns: cooldowns,
-          // Spread remaining delta fields (fameDelta, reputation, favorDebt, questRisk, etc.)
+          // Merge remaining delta fields (fameDelta, reputation, favorDebt, questRisk, etc.)
           ...restDelta,
-          // Apply fame delta
+          // Apply legacy perks from retirement
+          ...(_newPerks ? { legacyPerks: _newPerks } : {}),
           ...(resolution.delta.fameDelta ? { fame: (currentState.fame || 0) + resolution.delta.fameDelta } : {}),
         };
       }

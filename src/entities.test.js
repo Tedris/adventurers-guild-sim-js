@@ -66,6 +66,9 @@ import('./entities.js').then((module) => {
     validateGame,
     OFFICE_LEVEL_THRESHOLDS,
     calculateOfficeLevel,
+    LEGACY_PERKS,
+    generateLegacyPerk,
+    applyLegacyPerks,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -1446,6 +1449,123 @@ import('./entities.js').then((module) => {
     const state = { questCount: 10, officeLevel: 1 };
     const result = calculateOfficeLevel(state);
     assert(result.level === 1, `expected level 1 with no adventurers, got ${result.level}`);
+  });
+
+  // --- Tests for Legacy Perk System (Phase 5) ---
+
+  test('LEGACY_PERKS is exported as an array with 8 entries', () => {
+    assert(Array.isArray(LEGACY_PERKS), 'LEGACY_PERKS must be an array');
+    assert(LEGACY_PERKS.length === 8, `expected 8 perks, got ${LEGACY_PERKS.length}`);
+  });
+
+  test('LEGACY_PERKS entries have required fields', () => {
+    for (const perk of LEGACY_PERKS) {
+      assert(typeof perk.id === 'string', `perk must have id string, got ${typeof perk.id}`);
+      assert(typeof perk.name === 'string', `perk must have name string`);
+      assert(typeof perk.description === 'string', `perk must have description string`);
+      assert(typeof perk.effects === 'object', `perk must have effects object`);
+      assert(Array.isArray(perk.allowedClasses), `perk must have allowedClasses array`);
+      assert(typeof perk.minRank === 'string', `perk must have minRank string`);
+    }
+  });
+
+  test('generateLegacyPerk returns perk with required fields', () => {
+    const adventurer = defaultAdventurer({ rank: 'Veteran', class: 'Sword', level: 5 });
+    const perk = generateLegacyPerk(adventurer, 10);
+    assert(typeof perk.id === 'string', 'perk must have id');
+    assert(typeof perk.name === 'string', 'perk must have name');
+    assert(typeof perk.description === 'string', 'perk must have description');
+    assert(typeof perk.effects === 'object', 'perk must have effects');
+    assert(typeof perk.appliedAt === 'number', 'perk must have appliedAt');
+  });
+
+  test('generateLegacyPerk filters by class', () => {
+    // Bow class adventurer should not get Shield perks
+    const adventurer = defaultAdventurer({ rank: 'Veteran', class: 'Bow' });
+    const templateIds = [];
+    for (let i = 0; i < 50; i++) {
+      const perk = generateLegacyPerk(adventurer, i);
+      templateIds.push(perk.templateId);
+    }
+    // All generated perks should be for Bow-compatible classes
+    for (const tid of templateIds) {
+      const perk = LEGACY_PERKS.find(p => p.id === tid);
+      assert(perk, `perk ${tid} not found in LEGACY_PERKS`);
+      assert(perk.allowedClasses.includes('Bow'), `perk ${tid} should include Bow class`);
+    }
+  });
+
+  test('generateLegacyPerk filters by rank', () => {
+    // Journeyman Sword adventurer gets Journeyman+ perks only
+    const journeyman = defaultAdventurer({ rank: 'Journeyman', class: 'Sword' });
+    const templateIds = [];
+    for (let i = 0; i < 50; i++) {
+      const perk = generateLegacyPerk(journeyman, i);
+      templateIds.push(perk.templateId);
+    }
+    for (const tid of templateIds) {
+      const perk = LEGACY_PERKS.find(p => p.id === tid);
+      assert(perk, `perk ${tid} not found in LEGACY_PERKS`);
+      const rankIdx = VALID_RANKS.indexOf(journeyman.rank);
+      const minRankIdx = VALID_RANKS.indexOf(perk.minRank);
+      assert(rankIdx >= minRankIdx, `Journeyman should not get perk ${tid} (requires ${perk.minRank})`);
+    }
+  });
+
+  test('generateLegacyPerk falls back to first perk when no class matches', () => {
+    // UnknownClass with Novice rank has no matching perks at all
+    const adventurer = defaultAdventurer({ rank: 'Novice', class: 'UnknownClass' });
+    const perk = generateLegacyPerk(adventurer, 0);
+    assert(perk.templateId === LEGACY_PERKS[0].id, `should fallback to first perk, got ${perk.templateId}`);
+  });
+
+  test('applyLegacyPerks adds stat bonuses', () => {
+    const adventurer = defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } });
+    const perks = [
+      { id: 'iron-will', effects: { vit: 5 } },
+      { id: 'sharp-eye', effects: { dex: 5 } },
+    ];
+    const result = applyLegacyPerks(adventurer, perks);
+    assert(result.stats.str === 10, 'str should be unchanged');
+    assert(result.stats.dex === 15, `dex should be 15 (10+5), got ${result.stats.dex}`);
+    assert(result.stats.int === 10, 'int should be unchanged');
+    assert(result.stats.vit === 15, `vit should be 15 (10+5), got ${result.stats.vit}`);
+    assert(result.stats.lck === 10, 'lck should be unchanged');
+  });
+
+  test('applyLegacyPerks handles empty array', () => {
+    const adventurer = defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } });
+    const result = applyLegacyPerks(adventurer, []);
+    assert(result.stats.str === 10, 'stats should be unchanged');
+    assert(result.stats.dex === 10, 'stats should be unchanged');
+  });
+
+  test('defaultAdventurer with legacyPerks applies bonuses', () => {
+    const perks = [{ id: 'iron-will', effects: { vit: 5 } }];
+    const adventurer = defaultAdventurer({ stats: { vit: 10 }, legacyPerks: perks });
+    assert(adventurer.stats.vit === 15, `vit should be 15 (10+5), got ${adventurer.stats.vit}`);
+  });
+
+  test('defaultAdventurer without legacyPerks is unmodified', () => {
+    const adventurer = defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, legacyPerks: [] });
+    assert(adventurer.stats.str === 10, 'str should be unchanged');
+    assert(adventurer.stats.dex === 10, 'dex should be unchanged');
+  });
+
+  test('gameDefaults includes legacyPerks: []', () => {
+    const defaults = gameDefaults();
+    assert(Array.isArray(defaults.legacyPerks), 'legacyPerks should be an array');
+    assert(defaults.legacyPerks.length === 0, 'legacyPerks should be empty');
+  });
+
+  test('generateLegacyPerk generates unique IDs', () => {
+    const adventurer = defaultAdventurer({ rank: 'Veteran', class: 'Sword', level: 5 });
+    const ids = new Set();
+    for (let i = 0; i < 100; i++) {
+      const perk = generateLegacyPerk(adventurer, i);
+      ids.add(perk.id);
+    }
+    assert(ids.size === 100, `should generate 100 unique IDs, got ${ids.size}`);
   });
 
   // Print summary

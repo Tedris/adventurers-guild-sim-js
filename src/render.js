@@ -388,6 +388,25 @@ function renderRoster(state) {
     const card = renderCard('adventurer', adventurer, state);
     if (card) {
       card.classList.add('roster-card');
+
+      // Retirement button for Level 5+ adventurers
+      if (adventurer.level >= 5) {
+        const retireBtn = document.createElement('button');
+        retireBtn.className = 'btn-retire';
+        retireBtn.textContent = 'Retire';
+        retireBtn.addEventListener('click', () => {
+          showConfirmModal(
+            `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
+            () => {
+              if (window.__guildStore) {
+                window.__guildStore.dispatch({ type: 'RETIRE', payload: { adventurerId: adventurer.id } });
+              }
+            }
+          );
+        });
+        card.appendChild(retireBtn);
+      }
+
       container.appendChild(card);
     }
   }

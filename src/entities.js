@@ -265,7 +265,7 @@ const generateId = () => crypto.randomUUID();
  * @returns {Object} Adventurer entity
  */
 export function defaultAdventurer(overrides = {}) {
-  return {
+  let adventurer = {
     id: generateId(),
     name: overrides.name || generateName(overrides),
     class: overrides.class || VALID_CLASSES[Math.floor(Math.random() * VALID_CLASSES.length)],
@@ -290,6 +290,13 @@ export function defaultAdventurer(overrides = {}) {
     aptitudes: overrides.aptitudes ?? {},
     wage: overrides.wage ?? 0,
   };
+
+  // Apply legacy perks if provided
+  if (overrides.legacyPerks && Array.isArray(overrides.legacyPerks) && overrides.legacyPerks.length > 0) {
+    adventurer = applyLegacyPerks(adventurer, overrides.legacyPerks);
+  }
+
+  return adventurer;
 }
 
 // ─── Quest ───
@@ -910,6 +917,144 @@ export const EVENT_TEMPLATES = [
   },
 ];
 
+// ─── Legacy Perk System (Phase 5) ───
+
+/**
+ * Legacy perk definitions awarded when an adventurer retires.
+ * Each perk has class eligibility and minimum rank requirements.
+ * @type {Object[]}
+ */
+export const LEGACY_PERKS = [
+  {
+    id: 'iron-will',
+    name: 'Iron Will',
+    description: 'A veteran\'s unyielding spirit strengthens new recruits.',
+    effects: { vit: 5 },
+    allowedClasses: ['Shield', 'Axe', 'Sword', 'Mace'],
+    minRank: 'Veteran',
+  },
+  {
+    id: 'sharp-eye',
+    name: 'Sharp Eye',
+    description: 'Years of scouting sharpen perception for the next generation.',
+    effects: { dex: 5 },
+    allowedClasses: ['Bow', 'Dagger'],
+    minRank: 'Journeyman',
+  },
+  {
+    id: 'battle-scars',
+    name: 'Battle Scars',
+    description: 'Hard-won combat experience hardens new adventurers.',
+    effects: { str: 3, vit: 2 },
+    allowedClasses: ['Sword', 'Axe'],
+    minRank: 'Journeyman',
+  },
+  {
+    id: 'arcane-legacy',
+    name: 'Arcane Legacy',
+    description: 'Ancient magical knowledge passes to worthy successors.',
+    effects: { int: 5 },
+    allowedClasses: ['Wand', 'Staff'],
+    minRank: 'Veteran',
+  },
+  {
+    id: 'steadfast-shield',
+    name: 'Steadfast Shield',
+    description: 'The unwavering defense of a shield-bearer strengthens allies.',
+    effects: { vit: 4, str: 2 },
+    allowedClasses: ['Shield'],
+    minRank: 'Veteran',
+  },
+  {
+    id: 'swift-strike',
+    name: 'Swift Strike',
+    description: 'Lightning-fast reflexes echo through the guild.',
+    effects: { dex: 6 },
+    allowedClasses: ['Dagger'],
+    minRank: 'Veteran',
+  },
+  {
+    id: 'legendary-wisdom',
+    name: 'Legendary Wisdom',
+    description: 'Centuries of knowledge crystallize into lasting insight.',
+    effects: { int: 8, lck: 2 },
+    allowedClasses: ['Wand', 'Staff', 'Sword', 'Bow', 'Shield', 'Dagger', 'Axe', 'Mace'],
+    minRank: 'Champion',
+  },
+  {
+    id: 'veterans-insight',
+    name: "Veteran's Insight",
+    description: 'A master\'s complete knowledge base elevates all aspects of adventuring.',
+    effects: { str: 4, dex: 4, int: 4, vit: 4, lck: 4 },
+    allowedClasses: ['Sword', 'Wand', 'Bow', 'Shield', 'Staff', 'Dagger', 'Axe', 'Mace'],
+    minRank: 'Legend',
+  },
+];
+
+/**
+ * Generate a legacy perk for a retiring adventurer.
+ * Filters perks by class eligibility and rank, then picks randomly.
+ * @param {Object} adventurer — The retiring adventurer
+ * @param {number} [day=0] — Current game day (for perk metadata)
+ * @returns {Object} Generated legacy perk with unique ID
+ */
+export function generateLegacyPerk(adventurer, day = 0) {
+  const { class: adventurerClass, rank } = adventurer;
+  const rankIndex = VALID_RANKS.indexOf(rank);
+
+  // First pass: filter by both class and rank
+  const eligible = LEGACY_PERKS.filter(perk => {
+    if (!perk.allowedClasses.includes(adventurerClass)) return false;
+    const minRankIndex = VALID_RANKS.indexOf(perk.minRank);
+    if (rankIndex < minRankIndex) return false;
+    return true;
+  });
+
+  // Second pass: if no class matches, try rank-only filter
+  let pool = eligible;
+  if (pool.length === 0) {
+    const byRank = LEGACY_PERKS.filter(perk => {
+      const minRankIndex = VALID_RANKS.indexOf(perk.minRank);
+      if (rankIndex < minRankIndex) return false;
+      return true;
+    });
+    pool = byRank.length > 0 ? byRank : [LEGACY_PERKS[0]];
+  }
+
+  const selected = pool[Math.floor(Math.random() * pool.length)];
+
+  return {
+    id: generateId(),
+    templateId: selected.id,
+    name: selected.name,
+    description: selected.description,
+    effects: { ...selected.effects },
+    appliedAt: day,
+  };
+}
+
+/**
+ * Apply legacy perks to an adventurer's stats.
+ * @param {Object} adventurer — The adventurer to apply perks to
+ * @param {Object[]} legacyPerks — Array of legacy perk objects
+ * @returns {Object} Modified adventurer with applied stat bonuses
+ */
+export function applyLegacyPerks(adventurer, legacyPerks) {
+  if (!legacyPerks || legacyPerks.length === 0) return adventurer;
+
+  const adapted = { ...adventurer, stats: { ...adventurer.stats } };
+
+  for (const perk of legacyPerks) {
+    if (perk.effects) {
+      for (const [stat, value] of Object.entries(perk.effects)) {
+        adapted.stats[stat] = (adapted.stats[stat] || 0) + value;
+      }
+    }
+  }
+
+  return adapted;
+}
+
 // ─── Event Pool & Selection (Phase 3) ───
 
 /**
@@ -1254,6 +1399,8 @@ export function gameDefaults() {
     questRisk: 0,
     reputation: 0,
     favorDebt: 0,
+    // Legacy perk system (Phase 5)
+    legacyPerks: [],
   };
 }
 
