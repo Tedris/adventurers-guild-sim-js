@@ -7,7 +7,7 @@
 // Threat mitigation T-04-01: Game data is inserted via textContent/setAttribute,
 // never innerHTML. Only trusted template structures are parsed from HTML.
 
-import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel } from './entities.js';
+import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect } from './entities.js';
 
 // ─── Public API ────────────────────────────────────────
 
@@ -480,10 +480,81 @@ function renderUpgrades(state) {
   if (!container) return;
   container.innerHTML = '';
 
-  const placeholder = document.createElement('div');
-  placeholder.className = 'card empty-state';
-  placeholder.textContent = 'Upgrades coming soon — Phase 5 system in development.';
-  container.appendChild(placeholder);
+  const upgrades = getAvailableUpgrades(state);
+  const gold = state.gold ?? 0;
+
+  if (upgrades.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card empty-state';
+    empty.textContent = 'No upgrades available yet. Complete more quests to earn gold!';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const upgrade of upgrades) {
+    const card = document.createElement('div');
+    card.className = 'card upgrade-card';
+
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    header.innerHTML = `<span>${upgrade.name}</span>`;
+    card.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'upgrade-body';
+    body.innerHTML = `
+      <p class="upgrade-desc">${upgrade.description}</p>
+      <div class="upgrade-stats">
+        <span>Current Level: <strong>${upgrade.currentLevel}</strong></span>
+        <span>Next Cost: <strong class="upgrade-cost">⛃ ${upgrade.nextCost}</strong></span>
+      </div>
+    `;
+    card.appendChild(body);
+
+    // Effects preview
+    if (upgrade.currentLevel > 0) {
+      const effects = getUpgradeEffect(upgrade.type, upgrade.currentLevel);
+      const effectsEl = document.createElement('div');
+      effectsEl.className = 'upgrade-effects';
+      effectsEl.innerHTML = `<small>Current Effects: ${formatUpgradeEffects(effects)}</small>`;
+      card.appendChild(effectsEl);
+    }
+
+    // Upgrade button
+    const btn = document.createElement('button');
+    btn.className = gold < upgrade.nextCost ? 'btn-disabled' : 'btn-upgrade';
+    btn.textContent = gold < upgrade.nextCost ? 'Insufficient Gold' : `Upgrade (⛃ ${upgrade.nextCost})`;
+    btn.disabled = gold < upgrade.nextCost;
+    btn.addEventListener('click', () => {
+      showConfirmModal(
+        `Spend ⛃ ${upgrade.nextCost} gold to upgrade ${upgrade.name} to Level ${upgrade.currentLevel + 1}?`,
+        () => {
+          if (window.__guildStore) {
+            window.__guildStore.dispatch({
+              type: 'UPGRADE_GUILD',
+              payload: { upgradeType: upgrade.type, gold: upgrade.nextCost }
+            });
+          }
+        }
+      );
+    });
+    card.appendChild(btn);
+
+    container.appendChild(card);
+  }
+}
+
+/**
+ * Format upgrade effects for display.
+ * @param {Object} effects - Effect key-value pairs
+ * @returns {string} Formatted effects string
+ */
+function formatUpgradeEffects(effects) {
+  const parts = [];
+  if (effects.fameMultiplier) parts.push(`+${(effects.fameMultiplier * 100).toFixed(0)}% fame`);
+  if (effects.questSuccessBonus) parts.push(`+${(effects.questSuccessBonus * 100).toFixed(0)}% quest success`);
+  if (effects.recruitQualityBonus) parts.push(`+${effects.recruitQualityBonus} quality`);
+  return parts.join(', ') || 'None';
 }
 
 /**
