@@ -119,3 +119,509 @@ body {
   box-shadow: var(--card-shadow);
   color: var(--color-text);
 }
+
+/* ===== Responsive Layout — Mobile (≤480px) ===== */
+
+@media (max-width: 480px) {
+  /* D-04: Compact header */
+  #game-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 12px;
+  }
+
+  #game-header h1 {
+    font-size: 1.1rem; /* D-03 */
+  }
+
+  #header-stats {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  #header-stats span {
+    font-size: 0.8rem; /* D-03 */
+  }
+
+  /* D-02: Horizontal scroll nav tabs */
+  #game-nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 2px;
+    padding: 4px 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  #game-nav::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+
+  .nav-tab {
+    flex: 0 0 auto;
+    min-width: 70px;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  /* D-01: Single column card stack */
+  #game-content {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  /* D-05: Full card content, taller cards */
+  .card {
+    padding: 12px;
+  }
+
+  /* Touch targets ≥ 44px (D-01) */
+  .nav-tab,
+  .modal-confirm,
+  .modal-cancel,
+  .modal-choice-btn,
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ===== Adventurer Card Variant ===== */
+
+.roster-card {
+  position: relative;
+}
+
+.roster-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.roster-card .card-header h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.roster-card .class-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.roster-card .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.roster-card .stat-item {
+  text-align: center;
+}
+
+.roster-card .stat-label {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.roster-card .stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.roster-card .morale-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.roster-card .morale-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s, background-color 0.3s;
+}
+
+.roster-card .equipment-row {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 0.8rem;
+}
+
+.roster-card .equipment-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.roster-card .rarity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.roster-card .card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.roster-card .rank-badge,
+.roster-card .origin-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ===== Quest Card Variant ===== */
+
+.quest-card {
+  border-left: 3px solid var(--color-accent);
+}
+
+.quest-card .quest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.quest-card .quest-header h3 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.quest-card .difficulty-stars {
+  color: #ffd700;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+}
+
+.quest-card .quest-description {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 8px 0;
+  font-style: italic;
+}
+
+.quest-card .quest-requirements {
+  margin: 8px 0;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.quest-card .quest-requirements h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.quest-card .quest-requirements .stat-reqs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quest-card .quest-requirements .stat-req {
+  font-size: 0.75rem;
+}
+
+.quest-card .quest-requirements .stat-req .label {
+  color: var(--color-text-muted);
+}
+
+.quest-card .quest-requirements .preferred-classes {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.quest-card .quest-requirements .class-tag {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  background: rgba(233, 69, 96, 0.2);
+  color: var(--color-accent);
+}
+
+.quest-card .quest-rewards {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+  font-size: 0.85rem;
+}
+
+.quest-card .quest-rewards .gold-reward {
+  color: #ffd700;
+}
+
+.quest-card .quest-rewards .xp-reward {
+  color: var(--color-text-muted);
+}
+
+.quest-card .quest-action {
+  margin-top: 8px;
+}
+
+.quest-card .quest-action button {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quest-card .quest-action button:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ===== Event Card Variant ===== */
+
+.event-card {
+  border-left: 3px solid #ff9800;
+}
+
+.event-card.resolved-event {
+  opacity: 0.6;
+  border-left-color: #4caf50;
+}
+
+.event-card .event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.event-card .event-header h3 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.event-card .category-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.event-card .category-badge.Budget { background: rgba(233, 69, 96, 0.3); color: #e94560; }
+.event-card .category-badge.Crisis { background: rgba(255, 152, 0, 0.3); color: #ff9800; }
+.event-card .category-badge.Drama { background: rgba(156, 39, 176, 0.3); color: #9c27b0; }
+
+.event-card .event-description {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 8px 0;
+}
+
+.event-card .event-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.event-card .choice-btn {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.event-card .choice-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ===== Modal Overlay Styles ===== */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border-radius: var(--card-radius);
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content h3 {
+  margin-bottom: 12px;
+  color: var(--color-text);
+}
+
+.modal-message {
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-confirm,
+.modal-cancel {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-confirm {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.modal-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+}
+
+.modal-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.modal-choice-btn {
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.modal-choice-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ===== Dashboard Card Variants ===== */
+
+.office-card,
+.party-status-card {
+  border-left: 3px solid #4caf50;
+}
+
+.party-status-card {
+  border-left-color: #2196f3;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 4px;
+  transition: width 0.3s ease-out;
+}
+
+.progress-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.party-members {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.party-members li {
+  font-size: 0.85rem;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.party-synergy {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ===== Empty State ===== */
+
+.empty-state {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ===== Active Quest Highlight ===== */
+
+.active-quest-card {
+  border-left: 3px solid #ffd700;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.15);
+}
