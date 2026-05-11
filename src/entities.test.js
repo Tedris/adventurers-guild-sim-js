@@ -73,6 +73,10 @@ import('./entities.js').then((module) => {
     calculateFameGain,
     getFameLevel,
     getFameGatedQuestPool,
+    CLASS_EVOLUTIONS,
+    evolveClass,
+    getEvolutionStatus,
+    evolveAdventurer,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -1630,6 +1634,88 @@ import('./entities.js').then((module) => {
     for (const q of quests50) {
       assert(q.difficulty <= 3, `fame 50 should allow up to difficulty 3, got ${q.difficulty}`);
     }
+  });
+
+  // ─── Class Evolution Tests ───
+
+  test('evolveClass returns null when no matching evolution', () => {
+    const adventurer = defaultAdventurer({ class: 'Sword', equipment: { weapon: null, armor: null, accessory: null } });
+    const result = evolveClass(adventurer);
+    assert(result.evolved === false, 'should not evolve without matching equipment');
+    assert(result.newClass === null, 'newClass should be null');
+  });
+
+  test('evolveClass returns evolution for Sword + Wand', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Sword',
+      rank: 'Journeyman',
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+    });
+    const result = evolveClass(adventurer);
+    assert(result.evolved === true, 'should evolve with Sword + Wand');
+    assert(result.newClass === 'Sword Mage', `expected Sword Mage, got ${result.newClass}`);
+  });
+
+  test('evolveClass respects rank requirement', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Sword',
+      rank: 'Novice',
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+    });
+    const result = evolveClass(adventurer);
+    assert(result.evolved === false, 'Novice should not be able to evolve to Sword Mage (requires Journeyman)');
+  });
+
+  test('evolveClass returns correct aptitudes for evolved class', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Sword',
+      rank: 'Journeyman',
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+    });
+    const result = evolveClass(adventurer);
+    assert(result.newAptitudes.combat === 0.95, 'Sword Mage should have 0.95 combat');
+    assert(result.newAptitudes.investigation === 0.5, 'Sword Mage should have 0.5 investigation');
+  });
+
+  test('getEvolutionStatus returns matching evolutions', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Sword',
+      rank: 'Journeyman',
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+    });
+    const status = getEvolutionStatus(adventurer);
+    assert(status.matching.length > 0, 'should have matching evolutions');
+    assert(status.canEvolve === true, 'should be able to evolve');
+  });
+
+  test('getEvolutionStatus returns unmet evolutions with missing items', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Axe',
+      rank: 'Veteran',
+      equipment: { weapon: { name: 'Axe' }, armor: null, accessory: null },
+    });
+    const status = getEvolutionStatus(adventurer);
+    const berserker = status.unmet.find(e => e.result === 'Berserker Guardian');
+    assert(berserker !== undefined, 'should have Berserker Guardian as unmet');
+    assert(berserker.missing.length > 0, 'should have missing items listed');
+  });
+
+  test('evolveAdventurer returns unchanged adventurer when no evolution', () => {
+    const adventurer = defaultAdventurer({ class: 'Sword' });
+    const result = evolveAdventurer(adventurer);
+    assert(result.class === 'Sword', 'class should remain Sword');
+  });
+
+  test('evolveAdventurer returns evolved adventurer with new class and aptitudes', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Sword',
+      rank: 'Journeyman',
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+    });
+    const result = evolveAdventurer(adventurer);
+    assert(result.class === 'Sword Mage', `expected Sword Mage, got ${result.class}`);
+    assert(result.evolved === true, 'should be marked as evolved');
+    assert(result.aptitudes.combat > 0, 'should have combat aptitude');
   });
 
   // Print summary

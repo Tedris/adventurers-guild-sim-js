@@ -289,6 +289,8 @@ export function defaultAdventurer(overrides = {}) {
     rank: overrides.rank ?? 'Novice',
     aptitudes: overrides.aptitudes ?? {},
     wage: overrides.wage ?? 0,
+    evolved: overrides.evolved ?? false,
+    evolutionDate: overrides.evolutionDate ?? null,
   };
 
   // Apply legacy perks if provided
@@ -1407,6 +1409,164 @@ export function calculateOfficeLevel(state) {
     nextLevel: calculatedLevel < OFFICE_LEVEL_THRESHOLDS.length ? calculatedLevel + 1 : null,
     progress: Math.round(progress * 100) / 100,
     label: labels[levelIndex] || 'Citadel',
+  };
+}
+
+// ─── Class Evolution (Phase 5) ───
+
+/**
+ * Class evolution rules — equipment combinations that trigger class evolution.
+ * @type {Object[]}
+ */
+export const CLASS_EVOLUTIONS = [
+  {
+    requires: { weapon: 'Sword', accessory: 'Wand' },
+    result: 'Sword Mage',
+    description: 'A warrior who channels arcane energy through their blade.',
+    aptitudes: { combat: 0.95, investigation: 0.5, protection: 0.4 },
+    minRank: 'Journeyman',
+  },
+  {
+    requires: { weapon: 'Bow', accessory: 'Staff' },
+    result: 'Wind Dancer',
+    description: 'A ranged fighter who commands natural forces.',
+    aptitudes: { tracking: 0.95, ranged_combat: 0.9, herb_gathering: 0.3 },
+    minRank: 'Journeyman',
+  },
+  {
+    requires: { weapon: 'Axe', accessory: 'Shield' },
+    result: 'Berserker Guardian',
+    description: 'A frontline fighter combining brute force with defense.',
+    aptitudes: { combat: 0.9, defense: 0.85, protection: 0.7 },
+    minRank: 'Veteran',
+  },
+  {
+    requires: { weapon: 'Dagger', accessory: 'Wand' },
+    result: 'Shadowweaver',
+    description: 'A stealth operative who cloaks strikes in magic.',
+    aptitudes: { stealth: 0.95, assassination: 0.85, investigation: 0.4 },
+    minRank: 'Journeyman',
+  },
+  {
+    requires: { weapon: 'Mace', accessory: 'Staff' },
+    result: 'Holy Avenger',
+    description: 'A divine warrior who smites with radiant power.',
+    aptitudes: { combat: 0.85, defense: 0.7, investigation: 0.3 },
+    minRank: 'Veteran',
+  },
+  {
+    requires: { weapon: 'Sword', armor: 'Shield' },
+    result: 'Paladin',
+    description: 'A noble defender who fights with honor and strength.',
+    aptitudes: { combat: 0.85, defense: 0.85, protection: 0.8 },
+    minRank: 'Veteran',
+  },
+  {
+    requires: { weapon: 'Bow', armor: 'Shield' },
+    result: 'Ranger Captain',
+    description: 'A master tracker who leads from the frontlines.',
+    aptitudes: { tracking: 0.9, ranged_combat: 0.85, defense: 0.5 },
+    minRank: 'Journeyman',
+  },
+  {
+    requires: { weapon: 'Axe', accessory: 'Wand' },
+    result: 'Storm Reaver',
+    description: 'A thunderous warrior who channels storms through their axe.',
+    aptitudes: { combat: 0.9, ranged_combat: 0.4, stealth: 0.3 },
+    minRank: 'Champion',
+  },
+];
+
+/**
+ * Check if an adventurer can evolve their class based on equipment.
+ * @param {Object} adventurer — The adventurer to check
+ * @returns {{ evolved: boolean, newClass: string|null, newAptitudes: Object|null, description: string|null }}
+ */
+export function evolveClass(adventurer) {
+  const equipment = adventurer.equipment || {};
+  const currentClass = adventurer.class;
+
+  for (const evolution of CLASS_EVOLUTIONS) {
+    const { weapon: reqWeapon, armor: reqArmor, accessory: reqAccessory } = evolution.requires;
+
+    const hasWeapon = reqWeapon ? equipment.weapon?.name === reqWeapon : true;
+    const hasArmor = reqArmor ? equipment.armor?.name === reqArmor : true;
+    const hasAccessory = reqAccessory ? equipment.accessory?.name === reqAccessory : true;
+
+    if (hasWeapon && hasArmor && hasAccessory) {
+      // Check rank requirement
+      const rankIndex = VALID_RANKS.indexOf(adventurer.rank || 'Novice');
+      const minRankIndex = VALID_RANKS.indexOf(evolution.minRank || 'Novice');
+      if (rankIndex < minRankIndex) continue;
+
+      return {
+        evolved: true,
+        newClass: evolution.result,
+        newAptitudes: evolution.aptitudes,
+        description: evolution.description,
+      };
+    }
+  }
+
+  return { evolved: false, newClass: null };
+}
+
+/**
+ * Get evolution status for an adventurer — shows matching and unmet evolutions.
+ * @param {Object} adventurer — The adventurer to check
+ * @returns {{ matching: Object[], unmet: Object[], canEvolve: boolean }}
+ */
+export function getEvolutionStatus(adventurer) {
+  const equipment = adventurer.equipment || {};
+  const possible = CLASS_EVOLUTIONS.filter(e => {
+    const rankIndex = VALID_RANKS.indexOf(adventurer.rank || 'Novice');
+    const minRankIndex = VALID_RANKS.indexOf(e.minRank || 'Novice');
+    return rankIndex >= minRankIndex;
+  });
+
+  const matching = [];
+  const unmet = [];
+
+  for (const evolution of possible) {
+    const { weapon: reqWeapon, armor: reqArmor, accessory: reqAccessory } = evolution.requires;
+    const equipped = {
+      weapon: equipment.weapon?.name,
+      armor: equipment.armor?.name,
+      accessory: equipment.accessory?.name,
+    };
+
+    const metRequirements = Object.entries(evolution.requires).every(([slot, cls]) => {
+      return equipped[slot] === cls;
+    });
+
+    if (metRequirements) {
+      matching.push(evolution);
+    } else {
+      unmet.push({
+        ...evolution,
+        missing: Object.entries(evolution.requires).filter(([slot, cls]) => equipped[slot] !== cls),
+      });
+    }
+  }
+
+  return { matching, unmet, canEvolve: matching.length > 0 };
+}
+
+/**
+ * Evolve an adventurer's class if evolution conditions are met.
+ * @param {Object} adventurer — The adventurer to evolve
+ * @returns {Object} Evolved adventurer with new class and aptitudes
+ */
+export function evolveAdventurer(adventurer) {
+  const result = evolveClass(adventurer);
+  if (!result.evolved) return { ...adventurer };
+
+  return {
+    ...adventurer,
+    class: result.newClass,
+    aptitudes: { ...calculateAptitudes({ ...adventurer, class: result.newClass }), ...result.newAptitudes },
+    evolved: true,
+    evolutionDate: Date.now(),
   };
 }
 
