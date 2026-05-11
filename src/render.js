@@ -7,7 +7,7 @@
 // Threat mitigation T-04-01: Game data is inserted via textContent/setAttribute,
 // never innerHTML. Only trusted template structures are parsed from HTML.
 
-import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect } from './entities.js';
+import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect, getFameGatedQuestPool } from './entities.js';
 
 // ─── Public API ────────────────────────────────────────
 
@@ -342,6 +342,11 @@ function renderDashboard(state) {
   const officeCard = createOfficeCard(officeLevel);
   container.appendChild(officeCard);
 
+  // Fame card
+  const fameLevel = getFameLevel(state.fame || 0);
+  const fameCard = createFameCard(fameLevel);
+  container.appendChild(fameCard);
+
   // Active quest card (if any)
   if (state.activeQuest && state.activeQuest.status === 'active') {
     const questCard = renderCard('quest', state.activeQuest.questData, state);
@@ -421,7 +426,8 @@ function renderQuestBoard(state) {
   if (!container) return;
   container.innerHTML = '';
 
-  const { quests } = state;
+  // Use fame-gated quest pool
+  const quests = getFameGatedQuestPool(state, 3);
   if (quests.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'card empty-state';
@@ -571,6 +577,25 @@ function createOfficeCard(levelData) {
       <div class="progress-fill" style="width: ${levelData.progress * 100}%"></div>
     </div>
     <span class="progress-label">Level ${levelData.level}</span>
+  `;
+  return card;
+}
+
+/**
+ * Create a fame level card element.
+ * @param {Object} fameData - Fame level data from getFameLevel()
+ * @returns {HTMLElement}
+ */
+function createFameCard(fameData) {
+  const card = document.createElement('div');
+  card.className = 'card fame-card';
+  card.innerHTML = `
+    <h3>Fame: ${fameData.currentFame}</h3>
+    <span class="fame-tier">${fameData.name}</span>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: ${fameData.progress * 100}%"></div>
+    </div>
+    <span class="progress-label">${fameData.nextLevel ? `Next: ${fameData.nextLevel}` : 'Max Fame'}</span>
   `;
   return card;
 }

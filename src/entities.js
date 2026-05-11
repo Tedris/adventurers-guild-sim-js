@@ -1410,6 +1410,81 @@ export function calculateOfficeLevel(state) {
   };
 }
 
+// ─── Fame Engine (Phase 5) ───
+
+/**
+ * Fame level tiers — progression from unknown guild to legendary.
+ * @type {Object[]}
+ */
+export const FAME_LEVELS = [
+  { min: 0,   name: 'Unknown Guild',   bonus: 0,     description: 'A little-known operation.' },
+  { min: 10,  name: 'Local Guild',     bonus: 0.05,  description: 'Known in the local area.' },
+  { min: 30,  name: 'Regional Guild',  bonus: 0.10,  description: 'Recognized across the region.' },
+  { min: 60,  name: 'Renowned Guild',  bonus: 0.15,  description: 'Famous adventurers seek you out.' },
+  { min: 100, name: 'Legendary Guild', bonus: 0.20,  description: 'Your name echoes through the realm.' },
+];
+
+/**
+ * Calculate fame gain from current game state.
+ * Based on quest completions, roster size, office level, and fame multiplier.
+ * @param {Object} state — Current game state
+ * @returns {number} Fame points to award
+ */
+export function calculateFameGain(state) {
+  let fameGain = 0;
+  const questCount = state.questCount || 0;
+  fameGain += questCount * 2;
+  const adventurerCount = (state.adventurers || []).length;
+  fameGain += adventurerCount * 3;
+  const officeLevel = state.officeLevel || 1;
+  fameGain += (officeLevel - 1) * 5;
+  const fameMultiplier = state.fameMultiplier || 1;
+  return Math.floor(fameGain * fameMultiplier);
+}
+
+/**
+ * Get the fame level tier for a given fame value.
+ * @param {number} fame — Current fame value
+ * @returns {{ level: Object, currentFame: number, progress: number, nextLevel: string|null }}
+ */
+export function getFameLevel(fame) {
+  let level = FAME_LEVELS[0];
+  for (const tier of FAME_LEVELS) {
+    if (fame >= tier.min) level = tier;
+  }
+  const levelIndex = FAME_LEVELS.indexOf(level);
+  const nextTier = FAME_LEVELS[levelIndex + 1];
+  const progress = nextTier
+    ? (fame - level.min) / (nextTier.min - level.min)
+    : 1;
+  return {
+    ...level,
+    currentFame: fame,
+    progress: Math.min(1, Math.max(0, progress)),
+    nextLevel: nextTier?.name || null,
+  };
+}
+
+/**
+ * Get fame-gated quest pool — filters quests by fame-based difficulty cap.
+ * @param {Object} state — Current game state
+ * @param {number} [count=3] — Number of quests to return
+ * @returns {Object[]} Array of available quests
+ */
+export function getFameGatedQuestPool(state, count = 3) {
+  const fame = state.fame || 0;
+  const maxDifficulty = Math.min(5, 1 + Math.floor(fame / 25));
+  const available = QUEST_TEMPLATES.filter(q => q.difficulty <= maxDifficulty);
+  // Perturb and select random quests
+  const selected = [];
+  const pool = available.map(perturbQuest);
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    selected.push(pool.splice(idx, 1)[0]);
+  }
+  return selected;
+}
+
 // ─── Game Defaults ───
 
 /**

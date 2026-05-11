@@ -69,6 +69,10 @@ import('./entities.js').then((module) => {
     LEGACY_PERKS,
     generateLegacyPerk,
     applyLegacyPerks,
+    FAME_LEVELS,
+    calculateFameGain,
+    getFameLevel,
+    getFameGatedQuestPool,
   } = module;
 
   // --- Tests for defaultAdventurer ---
@@ -1566,6 +1570,66 @@ import('./entities.js').then((module) => {
       ids.add(perk.id);
     }
     assert(ids.size === 100, `should generate 100 unique IDs, got ${ids.size}`);
+  });
+
+  // ─── Fame Engine Tests ───
+
+  test('calculateFameGain includes quest count bonus', () => {
+    const state = { questCount: 10, adventurers: [], officeLevel: 1, fameMultiplier: 1 };
+    const gain = calculateFameGain(state);
+    assert(gain === 20, `quest count bonus: expected 20, got ${gain}`);
+  });
+
+  test('calculateFameGain includes roster size bonus', () => {
+    const state = { questCount: 0, adventurers: [{ id: '1' }, { id: '2' }, { id: '3' }], officeLevel: 1, fameMultiplier: 1 };
+    const gain = calculateFameGain(state);
+    assert(gain === 9, `roster bonus: expected 9, got ${gain}`);
+  });
+
+  test('calculateFameGain includes office level bonus', () => {
+    const state = { questCount: 0, adventurers: [], officeLevel: 3, fameMultiplier: 1 };
+    const gain = calculateFameGain(state);
+    assert(gain === 10, `office bonus: expected 10, got ${gain}`);
+  });
+
+  test('calculateFameGain applies fameMultiplier', () => {
+    const state = { questCount: 10, adventurers: [], officeLevel: 1, fameMultiplier: 1.1 };
+    const gain = calculateFameGain(state);
+    assert(gain === 22, `with multiplier: expected 22, got ${gain}`);
+  });
+
+  test('getFameLevel returns correct tier for Unknown Guild', () => {
+    const result = getFameLevel(0);
+    assert(result.name === 'Unknown Guild', `expected Unknown Guild, got ${result.name}`);
+    assert(result.progress === 0, `progress should be 0, got ${result.progress}`);
+  });
+
+  test('getFameLevel returns correct tier for Local Guild', () => {
+    const result = getFameLevel(15);
+    assert(result.name === 'Local Guild', `expected Local Guild, got ${result.name}`);
+    assert(result.progress > 0, `progress should be > 0, got ${result.progress}`);
+  });
+
+  test('getFameLevel returns max tier when above all thresholds', () => {
+    const result = getFameLevel(150);
+    assert(result.name === 'Legendary Guild', `expected Legendary Guild, got ${result.name}`);
+    assert(result.progress === 1, `progress should be 1, got ${result.progress}`);
+    assert(result.nextLevel === null, `nextLevel should be null, got ${result.nextLevel}`);
+  });
+
+  test('getFameGatedQuestPool filters by fame difficulty cap', () => {
+    const state0 = { fame: 0 };
+    const quests0 = getFameGatedQuestPool(state0, 3);
+    assert(quests0.length <= 3, 'should return at most 3 quests');
+    for (const q of quests0) {
+      assert(q.difficulty <= 1, `fame 0 should only allow difficulty 1, got ${q.difficulty}`);
+    }
+
+    const state50 = { fame: 50 };
+    const quests50 = getFameGatedQuestPool(state50, 3);
+    for (const q of quests50) {
+      assert(q.difficulty <= 3, `fame 50 should allow up to difficulty 3, got ${q.difficulty}`);
+    }
   });
 
   // Print summary

@@ -701,3 +701,17 @@ body {
   cursor: not-allowed;
   width: 100%;
 }
+
+/* ===== Fame Card (Phase 5) ===== */
+
+.fame-card {
+  margin-bottom: 12px;
+}
+
+.fame-tier {
+  display: block;
+  color: #f0c040;
+  font-weight: bold;
+  font-size: 0.9em;
+  margin-bottom: 4px;
+}

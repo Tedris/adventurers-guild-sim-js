@@ -5,7 +5,7 @@
 
 import { createStore } from './store.js';
 import { initStore, loadState, enableAutoSave } from './save-load.js';
-import { gameDefaults, validateGame } from './entities.js';
+import { gameDefaults, validateGame, getFameLevel } from './entities.js';
 import { renderCard, renderView } from './render.js';
 
 // ─── Validation ───
@@ -42,7 +42,11 @@ function updateHeaderStats(state) {
 
   if (dayDisplay) dayDisplay.textContent = `Day: ${state.day}`;
   if (goldDisplay) goldDisplay.textContent = `Gold: ${state.gold}`;
-  if (fameDisplay) fameDisplay.textContent = `Fame: ${state.fame}`;
+  if (fameDisplay) {
+    const fameLevel = getFameLevel(state.fame || 0);
+    fameDisplay.textContent = `Fame: ${state.fame} (${fameLevel.name})`;
+    fameDisplay.title = `Fame Level: ${fameLevel.name} — ${fameLevel.progress > 0.99 ? 'Max' : `${(fameLevel.progress * 100).toFixed(0)}% to ${fameLevel.nextLevel || 'Max'}`}`;
+  }
 }
 
 /**
@@ -75,6 +79,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Step 3: Create store with entity defaults
   const store = createStore(initialState, {});
+
+  // Expose store globally for UI components to dispatch actions
+  window.__guildStore = store;
 
   // Step 4: Enable auto-save FIRST (before any dispatch)
   // This ensures MERGE_STATE dispatch triggers persistence (T-05-03 mitigation)
