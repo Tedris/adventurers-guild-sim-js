@@ -715,3 +715,33 @@ body {
   font-size: 0.9em;
   margin-bottom: 4px;
 }
+
+/* ===== Evolution System (Phase 5) ===== */
+
+.btn-evolve {
+  background: linear-gradient(135deg, #f0c040, #e8a020);
+  color: #1a1a2e;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+  width: 100%;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.btn-evolve:hover {
+  background: linear-gradient(135deg, #f8d060, #f0b030);
+}
+
+.evolution-hint {
+  color: #888;
+  font-size: 0.75em;
+  margin-top: 4px;
+}
+
+.evolved-class {
+  color: #f0c040;
+  font-weight: bold;
+}

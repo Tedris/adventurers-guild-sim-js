@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, processTick, resolveEvent, generateLegacyPerk } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, evolveClass, evolveAdventurer, processTick, resolveEvent, generateLegacyPerk } from './entities.js';
 
 /**
  * Creates a reactive state store.
@@ -122,27 +122,42 @@ export function createStore(initialState, validators = {}) {
           },
         };
       }
-       case 'UPDATE_ADVENTURER': {
-         const { adventurerId, updates } = action.payload;
+      case 'UPDATE_ADVENTURER': {
+          const { adventurerId, updates } = action.payload;
 
-         if (!adventurerId || !updates || typeof updates !== 'object') {
-          console.warn('[Store] UPDATE_ADVENTURER rejected: missing adventurerId or updates');
-          return currentState;
-        }
+          if (!adventurerId || !updates || typeof updates !== 'object') {
+           console.warn('[Store] UPDATE_ADVENTURER rejected: missing adventurerId or updates');
+           return currentState;
+         }
 
-        const adventurer = currentState.adventurers.find(a => a.id === adventurerId);
-        if (!adventurer) {
-          console.warn(`[Store] UPDATE_ADVENTURER rejected: adventurer ${adventurerId} not found`);
-          return currentState;
-        }
+         const adventurer = currentState.adventurers.find(a => a.id === adventurerId);
+         if (!adventurer) {
+           console.warn(`[Store] UPDATE_ADVENTURER rejected: adventurer ${adventurerId} not found`);
+           return currentState;
+         }
 
-        return {
-          ...currentState,
-          adventurers: currentState.adventurers.map(a =>
-            a.id === adventurerId ? { ...a, ...updates } : a
-          ),
-        };
-      }
+         const updatedAdventurer = { ...adventurer, ...updates };
+
+         // Check for class evolution after equipment changes
+         let evolvedAdventurer = updatedAdventurer;
+         let evolutionTriggered = false;
+         if (updates.equipment || updates.weapon || updates.armor || updates.accessory) {
+           const evolution = evolveClass(updatedAdventurer);
+           if (evolution.evolved) {
+             evolvedAdventurer = evolveAdventurer(updatedAdventurer);
+             evolutionTriggered = true;
+           }
+         }
+
+         return {
+           ...currentState,
+           adventurers: currentState.adventurers.map(a =>
+             a.id === adventurerId ? evolvedAdventurer : a
+           ),
+           // Signal evolution for UI notification
+           ...(evolutionTriggered ? { lastEvolution: { adventurerId, class: evolvedAdventurer.class } } : {}),
+         };
+       }
       case 'SEND_QUEST': {
         const { questId, partyId } = action.payload;
 
@@ -278,6 +293,31 @@ export function createStore(initialState, validators = {}) {
           lastRetirement: { adventurerId, perk: legacyPerk },
         };
       }
+      case 'EVOLVE_CLASS': {
+        const { adventurerId } = action.payload;
+        const adventurer = currentState.adventurers.find(a => a.id === adventurerId);
+        if (!adventurer) {
+          console.warn(`[Store] EVOLVE_CLASS rejected: adventurer ${adventurerId} not found`);
+          return currentState;
+        }
+
+        const evolution = evolveClass(adventurer);
+        if (!evolution.evolved) {
+          console.warn(`[Store] EVOLVE_CLASS rejected: no evolution available for ${adventurerId}`);
+          return currentState;
+        }
+
+        const evolvedAdventurer = evolveAdventurer(adventurer);
+        return {
+          ...currentState,
+          adventurers: currentState.adventurers.map(a =>
+            a.id === adventurerId ? evolvedAdventurer : a
+          ),
+          lastEvolution: { adventurerId, class: evolution.newClass },
+        };
+      }
+      case 'CLEAR_EVOLUTION':
+        return { ...currentState, lastEvolution: null };
       case 'TICK': {
         const tickCount = action.payload?.tickCount ?? 1;
         if (!Number.isInteger(tickCount) || tickCount <= 0) {

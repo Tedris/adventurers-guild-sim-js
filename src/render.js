@@ -7,7 +7,7 @@
 // Threat mitigation T-04-01: Game data is inserted via textContent/setAttribute,
 // never innerHTML. Only trusted template structures are parsed from HTML.
 
-import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect, getFameGatedQuestPool } from './entities.js';
+import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect, getFameGatedQuestPool, getEvolutionStatus, evolveAdventurer } from './entities.js';
 
 // ─── Public API ────────────────────────────────────────
 
@@ -125,6 +125,59 @@ export function renderAdventurerCard(adventurer, state) {
   const wageEl = frag.querySelector('[data-wage]');
   if (wageEl) {
     wageEl.textContent = `⛃ ${(adventurer.wage ?? 0)}/day`;
+  }
+
+  // Evolution section
+  const evolution = getEvolutionStatus(adventurer);
+  if (evolution.matching.length > 0) {
+    const evolveBtn = document.createElement('button');
+    evolveBtn.className = 'btn-evolve';
+    evolveBtn.textContent = 'Evolve Class!';
+    evolveBtn.addEventListener('click', () => {
+      showConfirmModal(
+        `Evolve ${adventurer.name} to ${evolution.matching[0].result}? This will permanently change their class.`,
+        () => {
+          if (window.__guildStore) {
+            window.__guildStore.dispatch({
+              type: 'EVOLVE_CLASS',
+              payload: { adventurerId: adventurer.id }
+            });
+          }
+        }
+      );
+    });
+    // Insert before the card footer if it exists
+    const footer = frag.querySelector('.card-footer');
+    if (footer) {
+      footer.before(evolveBtn);
+    } else {
+      frag.appendChild(evolveBtn);
+    }
+  } else if (evolution.unmet.length > 0) {
+    // Show evolution progress hint
+    const progressEl = document.createElement('div');
+    progressEl.className = 'evolution-hint';
+    const equipment = adventurer.equipment || {};
+    const missing = evolution.unmet.slice(0, 2).map(e =>
+      `${e.result}: ${e.missing.map(([slot, cls]) => `${slot}: ${equipment[slot]?.name || 'None'} (need ${cls})`).join(', ')}`
+    ).join(' | ');
+    progressEl.textContent = `Evolution possible with: ${missing}`;
+    progressEl.style.cssText = 'font-size: 0.75em; color: #888; margin-top: 4px;';
+    const footer = frag.querySelector('.card-footer');
+    if (footer) {
+      footer.before(progressEl);
+    } else {
+      frag.appendChild(progressEl);
+    }
+  }
+
+  // Visual indicator for evolved adventurers
+  if (adventurer.evolved) {
+    const classIconEl2 = frag.querySelector('[data-class-icon]');
+    if (classIconEl2) {
+      classIconEl2.style.border = '2px solid #f0c040';
+      classIconEl2.style.boxShadow = '0 0 8px rgba(240, 192, 64, 0.5)';
+    }
   }
 
   return frag;
