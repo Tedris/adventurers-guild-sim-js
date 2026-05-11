@@ -509,3 +509,111 @@ function createPartyStatusCard(state) {
   `;
   return card;
 }
+
+// ─── Modal Overlay (Phase 4-03) ─────────────────────────
+
+/**
+ * Show a confirmation modal with message and callback buttons.
+ * @param {string} message - Confirmation message
+ * @param {Function} onConfirm - Callback when confirm clicked
+ * @param {Function} [onCancel] - Callback when cancel clicked (optional)
+ * @returns {void}
+ */
+export function showConfirmModal(message, onConfirm, onCancel = null) {
+  const container = document.getElementById('modal-overlay-container');
+  if (!container) return;
+
+  const template = document.getElementById('modal-overlay-template');
+  if (!template) return;
+
+  const clone = document.importNode(template.content, true);
+  const messageEl = clone.querySelector('.modal-message');
+  const confirmBtn = clone.querySelector('.modal-confirm');
+  const cancelBtn = clone.querySelector('.modal-cancel');
+
+  if (messageEl) messageEl.textContent = message;
+  if (confirmBtn) confirmBtn.addEventListener('click', () => {
+    hideModal();
+    if (onConfirm) onConfirm();
+  });
+  if (cancelBtn && onCancel) {
+    cancelBtn.addEventListener('click', () => {
+      hideModal();
+      onCancel();
+    });
+  }
+
+  container.appendChild(clone);
+  // Focus management for accessibility
+  if (confirmBtn) confirmBtn.focus();
+}
+
+/**
+ * Show an event resolution modal with event data and choice buttons.
+ * @param {Object} event - Event object with title, description, choices
+ * @returns {void}
+ */
+/**
+ * @param {Object} [storeLike] - Optional store-like object with dispatch() method
+ *   for dispatching EVENT_RESOLVED. If not provided, choice buttons still work
+ *   but won't dispatch (caller should handle dispatch separately).
+ */
+export function showEventModal(event, storeLike = null) {
+  const container = document.getElementById('modal-overlay-container');
+  if (!container) return;
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop';
+  modal.setAttribute('data-modal', 'true');
+
+  const content = document.createElement('div');
+  content.className = 'modal-content';
+
+  const title = document.createElement('h3');
+  title.textContent = event.title;
+  content.appendChild(title);
+
+  const desc = document.createElement('p');
+  desc.className = 'modal-message';
+  desc.textContent = event.description;
+  content.appendChild(desc);
+
+  const choices = document.createElement('div');
+  choices.className = 'modal-choices';
+
+  if (event.choices) {
+    event.choices.forEach((choice, index) => {
+      const btn = document.createElement('button');
+      btn.className = 'modal-choice-btn';
+      btn.textContent = choice.label;
+      btn.addEventListener('click', () => {
+        hideModal();
+        if (storeLike && choice.effect) {
+          // Dispatch event resolution through store
+          storeLike.dispatch({
+            type: 'EVENT_RESOLVED',
+            payload: { eventId: event.eventId, choiceIndex: index }
+          });
+        }
+      });
+      choices.appendChild(btn);
+    });
+  }
+
+  content.appendChild(choices);
+  modal.appendChild(content);
+  container.appendChild(modal);
+
+  // Focus first choice button
+  if (choices.firstChild) choices.firstChild.focus();
+}
+
+/**
+ * Hide the modal overlay.
+ * @returns {void}
+ */
+export function hideModal() {
+  const container = document.getElementById('modal-overlay-container');
+  if (!container) return;
+  container.innerHTML = '';
+}
