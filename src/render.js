@@ -7,7 +7,7 @@
 // Threat mitigation T-04-01: Game data is inserted via textContent/setAttribute,
 // never innerHTML. Only trusted template structures are parsed from HTML.
 
-import { VALID_CLASSES, RARITY_TIERS } from './entities.js';
+import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel } from './entities.js';
 
 // ─── Public API ────────────────────────────────────────
 
@@ -308,4 +308,204 @@ export function getMoraleBarColor(morale) {
  */
 export function getDifficultyStars(difficulty) {
   return '★'.repeat(difficulty) + '☆'.repeat(5 - difficulty);
+}
+
+// ─── View Manager (Phase 4-02) ─────────────────────────
+
+/**
+ * Dispatch rendering to the correct view based on tab name.
+ * @param {string} viewName - View identifier: 'dashboard', 'roster', 'quests', 'events', 'upgrades'
+ * @param {Object} state - Current game state
+ */
+export function renderView(viewName, state) {
+  switch (viewName) {
+    case 'dashboard': return renderDashboard(state);
+    case 'roster': return renderRoster(state);
+    case 'quests': return renderQuestBoard(state);
+    case 'events': return renderEvents(state);
+    case 'upgrades': return renderUpgrades(state);
+    default: return renderDashboard(state);
+  }
+}
+
+/**
+ * Dashboard view — overview cards (office level, active quest, party status, recent events).
+ * @param {Object} state - Current game state
+ */
+function renderDashboard(state) {
+  const container = document.getElementById('game-content');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Office level card
+  const officeLevel = calculateOfficeLevel(state);
+  const officeCard = createOfficeCard(officeLevel);
+  container.appendChild(officeCard);
+
+  // Active quest card (if any)
+  if (state.activeQuest && state.activeQuest.status === 'active') {
+    const questCard = renderCard('quest', state.activeQuest.questData, state);
+    if (questCard) {
+      questCard.classList.add('active-quest-card');
+      container.appendChild(questCard);
+    }
+  }
+
+  // Party status card
+  const partyCard = createPartyStatusCard(state);
+  container.appendChild(partyCard);
+
+  // Recent events summary (last 3 unresolved events)
+  const events = state.events || [];
+  if (events.length > 0) {
+    const recentEvents = events.filter(e => !e.resolved).slice(-3).reverse();
+    for (const event of recentEvents) {
+      const eventCard = renderCard('event', event, state);
+      if (eventCard) container.appendChild(eventCard);
+    }
+  }
+}
+
+/**
+ * Roster view — adventurer cards for all rostered adventurers.
+ * @param {Object} state - Current game state
+ */
+function renderRoster(state) {
+  const container = document.getElementById('game-content');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const { adventurers } = state;
+  if (adventurers.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card empty-state';
+    empty.textContent = 'No adventurers — hire from the pool!';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const adventurer of adventurers) {
+    const card = renderCard('adventurer', adventurer, state);
+    if (card) {
+      card.classList.add('roster-card');
+      container.appendChild(card);
+    }
+  }
+}
+
+/**
+ * Quest Board view — available quest cards.
+ * @param {Object} state - Current game state
+ */
+function renderQuestBoard(state) {
+  const container = document.getElementById('game-content');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const { quests } = state;
+  if (quests.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card empty-state';
+    empty.textContent = 'No quests available — check back later!';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const quest of quests) {
+    const card = renderCard('quest', quest, state);
+    if (card) {
+      card.classList.add('quest-card');
+      container.appendChild(card);
+    }
+  }
+}
+
+/**
+ * Events view — unresolved events first, then resolved events.
+ * @param {Object} state - Current game state
+ */
+function renderEvents(state) {
+  const container = document.getElementById('game-content');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const { events } = state;
+  const unresolved = events.filter(e => !e.resolved);
+  const resolved = events.filter(e => e.resolved);
+  const allEvents = [...unresolved, ...resolved];
+
+  if (allEvents.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card empty-state';
+    empty.textContent = 'No events yet — keep adventuring!';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const event of allEvents) {
+    const card = renderCard('event', event, state);
+    if (card) {
+      card.classList.add('event-card');
+      if (event.resolved) card.classList.add('resolved-event');
+      container.appendChild(card);
+    }
+  }
+}
+
+/**
+ * Upgrades view — placeholder for Phase 5.
+ * @param {Object} state - Current game state
+ */
+function renderUpgrades(state) {
+  const container = document.getElementById('game-content');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const placeholder = document.createElement('div');
+  placeholder.className = 'card empty-state';
+  placeholder.textContent = 'Upgrades coming soon — Phase 5 system in development.';
+  container.appendChild(placeholder);
+}
+
+/**
+ * Create an office level card element.
+ * @param {Object} levelData - Office level data from calculateOfficeLevel()
+ * @returns {HTMLElement}
+ */
+function createOfficeCard(levelData) {
+  const card = document.createElement('div');
+  card.className = 'card office-card';
+  card.innerHTML = `
+    <h3>Office: ${levelData.label}</h3>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: ${levelData.progress * 100}%"></div>
+    </div>
+    <span class="progress-label">Level ${levelData.level}</span>
+  `;
+  return card;
+}
+
+/**
+ * Create a party status card for the dashboard.
+ * @param {Object} state - Current game state
+ * @returns {HTMLElement}
+ */
+function createPartyStatusCard(state) {
+  const party = state.party || {};
+  const adventurerIds = party.adventurerIds || [];
+  const adventurers = state.adventurers.filter(a => adventurerIds.includes(a.id));
+  const synergyScore = party.synergyScore || 0;
+
+  const card = document.createElement('div');
+  card.className = 'card party-status-card';
+  card.innerHTML = `
+    <h3>Party (${adventurerIds.length})</h3>
+    ${adventurerIds.length > 0 ? `
+      <div class="party-synergy">Synergy: ${synergyScore.toFixed(1)}</div>
+      <ul class="party-members">
+        ${adventurers.map(a => `<li>${a.name} (${a.class})</li>`).join('')}
+      </ul>
+    ` : '<p class="empty-hint">No party selected</p>'}
+  `;
+  return card;
 }
