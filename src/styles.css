@@ -625,3 +625,21 @@ body {
   border-left: 3px solid #ffd700;
   box-shadow: 0 2px 8px rgba(255, 215, 0, 0.15);
 }
+
+/* ===== Retirement Button ===== */
+
+.btn-retire {
+  background: #6b4423;
+  color: #f0e6d3;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.btn-retire:hover {
+  background: #8b5a33;
+}
