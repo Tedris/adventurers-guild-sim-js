@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, processTick, resolveEvent, generateLegacyPerk } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, processTick, resolveEvent, generateLegacyPerk } from './entities.js';
 
 /**
  * Creates a reactive state store.
@@ -200,11 +200,7 @@ export function createStore(initialState, validators = {}) {
         const newGold = Math.max(0, (currentState.gold ?? 0) + outcome.gold);
 
         // Calculate fame gain with office upgrade multiplier
-        // Fame gain based on quest completions and roster size (detailed calculation in Plan 05-03)
-        const questCount = currentState.questCount || 0;
-        const adventurerCount = (currentState.adventurers || []).length;
-        const officeLevel = currentState.officeLevel || 1;
-        let fameGain = questCount * 2 + adventurerCount * 3 + (officeLevel - 1) * 5;
+        const fameGain = calculateFameGain(currentState);
         const fameMultiplier = currentState.fameMultiplier || 1;
         const actualFameGain = Math.floor(fameGain * fameMultiplier);
         const newFame = (currentState.fame || 0) + actualFameGain;
