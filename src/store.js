@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, evolveClass, evolveAdventurer, processTick, resolveEvent, generateLegacyPerk } from './entities.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, evolveClass, evolveAdventurer, processTick, resolveEvent, generateLegacyPerk, generateRecruitmentPool, MAX_PARTY_SIZE, FAME_MILESTONE_ARRIVALS, generateMilestoneArrivals, generateId } from './entities/index.js';
 
 /**
  * Creates a reactive state store.
@@ -22,6 +22,14 @@ export function createStore(initialState, validators = {}) {
         return { ...currentState, gold: (currentState.gold ?? 0) + action.payload };
       case 'MERGE_STATE':
         return structuredClone(action.payload);
+      case 'CLEAR_NOTIFICATION': {
+        const { notificationId } = action.payload;
+        if (!notificationId) return currentState;
+        const notifications = (currentState.notifications || []).filter(n => n.id !== notificationId);
+        return { ...currentState, notifications };
+      }
+      case 'CLEAR_ALL_NOTIFICATIONS':
+        return { ...currentState, notifications: [] };
       case 'HIRE': {
         const adventurerId = action.payload.adventurerId;
         const poolIndex = currentState.recruitmentPool.findIndex(a => a.id === adventurerId);
@@ -41,19 +49,28 @@ export function createStore(initialState, validators = {}) {
         const count = action.payload.count ?? 1;
         if (!Number.isInteger(count) || count <= 0) return currentState;
 
-        // This will be populated by the caller with pool entries
-        const newPoolEntries = action.payload.adventurers || [];
+        const newPoolEntries = generateRecruitmentPool(count, currentState);
         return {
           ...currentState,
           recruitmentPool: [...currentState.recruitmentPool, ...newPoolEntries],
         };
       }
+      case 'RESTOCK_QUESTS': {
+        const newQuests = action.payload.quests || [];
+        return {
+          ...currentState,
+          quests: newQuests,
+        };
+      }
       case 'ASSIGN_PARTY': {
         const { partyId, adventurerIds, quest } = action.payload;
-        // Validate party size
-        const partyValidation = validateParty(adventurerIds, quest);
-        if (!partyValidation.valid) {
-          console.warn(`[Store] ASSIGN_PARTY rejected: ${partyValidation.reason}`);
+        // Validate party size (minimum only enforced when a quest is specified)
+        if (quest && quest.requirements?.minPartySize && adventurerIds.length < quest.requirements.minPartySize) {
+          console.warn(`[Store] ASSIGN_PARTY rejected: Party too small: ${adventurerIds.length} < ${quest.requirements.minPartySize}`);
+          return currentState;
+        }
+        if (adventurerIds.length > MAX_PARTY_SIZE) {
+          console.warn(`[Store] ASSIGN_PARTY rejected: Party too large: ${adventurerIds.length} > ${MAX_PARTY_SIZE}`);
           return currentState;
         }
 
@@ -168,9 +185,31 @@ export function createStore(initialState, validators = {}) {
           return currentState;
         }
 
-        // Validate party exists
+        // Validate party exists and meets quest requirements
         if (!currentState.party || !currentState.party.adventurerIds || currentState.party.adventurerIds.length === 0) {
           console.warn('[Store] SEND_QUEST rejected: no valid party');
+          return currentState;
+        }
+
+        const partyAdventurers = currentState.adventurers.filter(a =>
+          currentState.party.adventurerIds.includes(a.id)
+        );
+        const minSize = quest.requirements?.minPartySize;
+        const anySingleMeetsStats = partyAdventurers.some(a => {
+          const reqStats = quest.requirements?.minStats || {};
+          for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+            if ((reqStats[stat] ?? 0) > 0 && (a[stat] ?? 0) < reqStats[stat]) {
+              return false;
+            }
+          }
+          return true;
+        });
+        const effectiveMinSize = anySingleMeetsStats ? 1 : (minSize ?? 1);
+        if (effectiveMinSize && currentState.party.adventurerIds.length < effectiveMinSize) {
+          const reason = anySingleMeetsStats
+            ? `Party too small for quest (1 adventurer qualifies): ${currentState.party.adventurerIds.length} < ${effectiveMinSize}`
+            : `Party too small for quest: ${currentState.party.adventurerIds.length} < ${minSize}`;
+          console.warn(`[Store] SEND_QUEST rejected: ${reason}`);
           return currentState;
         }
 
@@ -184,6 +223,7 @@ export function createStore(initialState, validators = {}) {
             tickCount: 0,
             startTime: Date.now(),
           },
+          questTickCount: 0,
           quests: currentState.quests.filter(q => q.id !== questId),
         };
       }
@@ -232,12 +272,48 @@ export function createStore(initialState, validators = {}) {
           };
         });
 
+        // Check for fame milestone arrivals
+        const milestonesReached = currentState.fameMilestonesReached || [];
+        const milestoneArrivals = [];
+        const newMilestones = [...milestonesReached];
+        for (const milestone of FAME_MILESTONE_ARRIVALS) {
+          if (newFame >= milestone.fame && !milestonesReached.includes(milestone.fame)) {
+            const arrivals = generateMilestoneArrivals(currentState, milestone.fame);
+            milestoneArrivals.push(...arrivals);
+            newMilestones.push(milestone.fame);
+          }
+        }
+
+        const newAdventurers = [...updatedAdventurers, ...milestoneArrivals];
+        const newPartyAdventurerIds = newFame >= 10 && currentState.party.adventurerIds.length < 2
+          ? [...currentState.party.adventurerIds, ...(milestoneArrivals.slice(0, 1).map(a => a.id))]
+          : milestoneArrivals.length > 0 && currentState.party.adventurerIds.length < 2
+            ? [...currentState.party.adventurerIds, milestoneArrivals[0].id]
+            : currentState.party.adventurerIds;
+
+        // Build notification for milestone arrivals
+        let notifications = [...(currentState.notifications || [])];
+        if (milestoneArrivals.length > 0) {
+          const arrivalNames = milestoneArrivals.map(a => a.name).join(', ');
+          notifications.push({
+            id: generateId(),
+            message: `A new adventurer has arrived at your guild: ${arrivalNames}!`,
+            timestamp: Date.now(),
+          });
+        }
+
         return {
           ...currentState,
           gold: newGold,
-          adventurers: updatedAdventurers,
+          adventurers: newAdventurers,
+          party: {
+            ...currentState.party,
+            adventurerIds: newPartyAdventurerIds,
+          },
           fame: newFame,
           questCount: (currentState.questCount || 0) + 1,
+          fameMilestonesReached: newMilestones,
+          notifications,
           activeQuest: {
             ...currentState.activeQuest,
             status: succeeded ? 'complete' : 'failed',
@@ -325,8 +401,75 @@ export function createStore(initialState, validators = {}) {
           return currentState;
         }
 
-        const newState = processTick(currentState, tickCount);
-        return newState;
+        const tickResult = processTick(currentState, tickCount);
+
+        // Check if active quest completed and calculate rewards
+        const activeQuest = tickResult.activeQuest;
+        if (activeQuest && activeQuest.status === 'complete') {
+          const quest = activeQuest.questData || currentState.quests.find(q => q.id === activeQuest.questId);
+          const partyAdventurers = currentState.adventurers.filter(a =>
+            (currentState.party?.adventurerIds || []).includes(a.id)
+          );
+          const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
+          const equipmentBonus = tickResult.equipmentBonus || 0;
+          const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
+          const succeeded = Math.random() * 100 < successRateWithBonus;
+          const outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
+          const newGold = Math.max(0, (tickResult.gold ?? 0) + outcome.gold);
+          const fameGain = calculateFameGain(tickResult);
+          const fameMultiplier = tickResult.fameMultiplier || 1;
+          const actualFameGain = Math.floor(fameGain * fameMultiplier);
+          const newFame = (tickResult.fame || 0) + actualFameGain;
+          // Check for fame milestone arrivals
+          const milestonesReached = tickResult.fameMilestonesReached || [];
+          const milestoneArrivals = [];
+          const newMilestones = [...milestonesReached];
+          for (const milestone of FAME_MILESTONE_ARRIVALS) {
+            if (newFame >= milestone.fame && !milestonesReached.includes(milestone.fame)) {
+              const arrivals = generateMilestoneArrivals(tickResult, milestone.fame);
+              milestoneArrivals.push(...arrivals);
+              newMilestones.push(milestone.fame);
+            }
+          }
+
+          const allAdventurers = [...updatedAdventurers, ...milestoneArrivals];
+          const newPartyAdventurerIds = newFame >= 10 && tickResult.party.adventurerIds.length < 2
+            ? [...tickResult.party.adventurerIds, ...(milestoneArrivals.slice(0, 1).map(a => a.id))]
+            : milestoneArrivals.length > 0 && tickResult.party.adventurerIds.length < 2
+              ? [...tickResult.party.adventurerIds, milestoneArrivals[0].id]
+              : tickResult.party.adventurerIds;
+
+          let tickNotifications = [...(tickResult.notifications || [])];
+          if (milestoneArrivals.length > 0) {
+            const arrivalNames = milestoneArrivals.map(a => a.name).join(', ');
+            tickNotifications.push({
+              id: generateId(),
+              message: `A new adventurer has arrived at your guild: ${arrivalNames}!`,
+              timestamp: Date.now(),
+            });
+          }
+
+          return {
+            ...tickResult,
+            gold: newGold,
+            adventurers: allAdventurers,
+            party: {
+              ...tickResult.party,
+              adventurerIds: newPartyAdventurerIds,
+            },
+            fame: newFame,
+            questCount: (tickResult.questCount || 0) + 1,
+            fameMilestonesReached: newMilestones,
+            notifications: tickNotifications,
+            activeQuest: {
+              ...tickResult.activeQuest,
+              status: succeeded ? 'complete' : 'failed',
+              result: outcome,
+            },
+          };
+        }
+
+        return tickResult;
       }
       case 'EVENT_FIRED': {
         const { eventId, title, description, category, choices } = action.payload;

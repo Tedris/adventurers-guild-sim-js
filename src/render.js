@@ -7,7 +7,7 @@
 // Threat mitigation T-04-01: Game data is inserted via textContent/setAttribute,
 // never innerHTML. Only trusted template structures are parsed from HTML.
 
-import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect, getFameGatedQuestPool, getEvolutionStatus, evolveAdventurer } from './entities.js';
+import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect, getFameGatedQuestPool, getFameLevel, getEvolutionStatus, evolveAdventurer, generateRecruitmentPool, generateQuestPool, getAvailableUpgrades } from './entities/index.js';
 
 // ─── Public API ────────────────────────────────────────
 
@@ -16,12 +16,13 @@ import { VALID_CLASSES, RARITY_TIERS, calculateOfficeLevel, getUpgradeEffect, ge
  * @param {string} type - Card type: 'adventurer', 'quest', or 'event'
  * @param {Object} data - Card data object
  * @param {Object} state - Current game state (for party lookup, etc.)
+ * @param {string} [context] - Render context (e.g., 'board', 'dashboard')
  * @returns {DocumentFragment|null} Populated card element, or null on error
  */
-export function renderCard(type, data, state) {
+export function renderCard(type, data, state, context) {
   switch (type) {
     case 'adventurer': return renderAdventurerCard(data, state);
-    case 'quest': return renderQuestCard(data, state);
+    case 'quest': return renderQuestCard(data, state, context);
     case 'event': return renderEventCard(data, state);
     default:
       console.warn(`[render] Unknown card type: ${type}`);
@@ -43,7 +44,8 @@ function createCardElement(templateId) {
     return null;
   }
   // D-06: Use document.importNode to clone template content
-  return document.importNode(template.content, true);
+  const frag = document.importNode(template.content, true);
+  return frag.firstElementChild;
 }
 
 // ─── Adventurer Card Renderer ──────────────────────────
@@ -61,6 +63,17 @@ export function renderAdventurerCard(adventurer, state) {
   // Name
   const nameEl = frag.querySelector('[data-name]');
   if (nameEl) nameEl.textContent = adventurer.name || 'Unnamed';
+
+  // Guild Master badge
+  if (adventurer.isGuildMaster) {
+    const nameContainer = frag.querySelector('.adventurer-info');
+    if (nameContainer) {
+      const badge = document.createElement('span');
+      badge.className = 'guild-master-badge';
+      badge.textContent = 'Guild Master';
+      nameContainer.appendChild(badge);
+    }
+  }
 
   // Class icon (first letter of class as icon indicator)
   const classIconEl = frag.querySelector('[data-class-icon]');
@@ -119,12 +132,6 @@ export function renderAdventurerCard(adventurer, state) {
   const originEl = frag.querySelector('[data-origin]');
   if (originEl) {
     originEl.textContent = adventurer.origin || 'Unknown';
-  }
-
-  // Wage display
-  const wageEl = frag.querySelector('[data-wage]');
-  if (wageEl) {
-    wageEl.textContent = `⛃ ${(adventurer.wage ?? 0)}/day`;
   }
 
   // Evolution section
@@ -189,11 +196,57 @@ export function renderAdventurerCard(adventurer, state) {
  * Render a quest card from template.
  * @param {Object} quest - Quest entity
  * @param {Object} state - Current game state
+ * @param {string} [context='board'] - Render context: 'board' or 'dashboard'
  * @returns {DocumentFragment|null}
  */
-export function renderQuestCard(quest, state) {
+export function renderQuestCard(quest, state, context = 'board') {
   const frag = createCardElement('quest-card-template');
   if (!frag) return null;
+
+  const isDashboard = context === 'dashboard';
+  const partyAdventurers = (state?.party?.adventurerIds || [])
+    .map(id => state?.adventurers?.find(a => a.id === id))
+    .filter(Boolean);
+
+  function adventurerMeetsStats(adventurer, quest) {
+    const reqStats = quest.requirements?.minStats || {};
+    for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+      if ((reqStats[stat] ?? 0) > 0 && (adventurer?.[stat] ?? 0) < reqStats[stat]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const minPartySize = quest.requirements?.minPartySize;
+  const anySingleMeetsStats = partyAdventurers.some(a => adventurerMeetsStats(a, quest));
+  const effectiveMinSize = anySingleMeetsStats ? 1 : (minPartySize ?? 1);
+  const partySize = partyAdventurers.length;
+  const meetsSizeRequirement = partySize >= effectiveMinSize;
+
+  if (isDashboard) {
+    const progressSection = frag.querySelector('[data-progress-section]');
+    const reqStats = frag.querySelector('[data-req-stats]');
+    const partySizeBadge = frag.querySelector('[data-party-size-badge]');
+    const questActions = frag.querySelector('[data-action="send-party"]');
+
+    if (reqStats) reqStats.style.display = 'none';
+    if (partySizeBadge) partySizeBadge.parentElement.style.display = 'none';
+    if (questActions) questActions.parentElement.style.display = 'none';
+    if (progressSection) {
+      progressSection.style.display = 'block';
+      const ticksNeeded = (quest.difficulty || 1) * 10;
+      const currentTicks = state?.questTickCount ?? 0;
+      const progress = Math.min(100, Math.round((currentTicks / ticksNeeded) * 100));
+      const fill = frag.querySelector('[data-progress-fill]');
+      const label = frag.querySelector('[data-progress-label]');
+      if (fill) fill.style.width = `${progress}%`;
+      if (label) label.textContent = `${progress}% complete`;
+    }
+  } else {
+    const progressSection = frag.querySelector('[data-progress-section]');
+    if (progressSection) progressSection.style.display = 'none';
+  }
 
   // Name
   const nameEl = frag.querySelector('[data-name]');
@@ -245,12 +298,44 @@ export function renderQuestCard(quest, state) {
     xpEl.textContent = `✦ ${xp} XP`;
   }
 
-  // Send Party button - disabled if no party
+  // Party size badge & Send Party button
+  const sizeBadge = frag.querySelector('[data-party-size-badge]');
+  if (sizeBadge && !isDashboard) {
+    if (effectiveMinSize === 1) {
+      const hasSingleQualified = anySingleMeetsStats && minPartySize != null;
+      sizeBadge.textContent = hasSingleQualified
+        ? '1 adventurer qualifies (relaxed)'
+        : 'No size requirement';
+      sizeBadge.className = 'party-size-badge party-size-met';
+    } else if (meetsSizeRequirement) {
+      sizeBadge.textContent = `${partySize}/${effectiveMinSize}`;
+      sizeBadge.className = 'party-size-badge party-size-met';
+    } else {
+      const needed = effectiveMinSize - partySize;
+      sizeBadge.textContent = `${partySize}/${effectiveMinSize} (need ${needed} more)`;
+      sizeBadge.className = 'party-size-badge party-size-short';
+    }
+  }
+
   const sendBtn = frag.querySelector('[data-action="send-party"]');
-  if (sendBtn) {
-    const hasParty = state?.party?.adventurerIds?.length >= 2;
-    sendBtn.disabled = !hasParty;
-    sendBtn.setAttribute('aria-disabled', String(!hasParty));
+  if (sendBtn && !isDashboard) {
+    sendBtn.disabled = !meetsSizeRequirement || partySize === 0;
+    sendBtn.setAttribute('aria-disabled', String(!meetsSizeRequirement || partySize === 0));
+    if (meetsSizeRequirement && partySize > 0) {
+      sendBtn.addEventListener('click', () => {
+        if (window.__guildStore) {
+          const state = window.__guildStore.getState();
+          if (state.activeQuest && state.activeQuest.questId === quest.id) {
+            console.warn(`[Render] Quest "${quest.name}" already active — complete it first.`);
+            return;
+          }
+          window.__guildStore.dispatch({
+            type: 'SEND_QUEST',
+            payload: { questId: quest.id },
+          });
+        }
+      });
+    }
   }
 
   return frag;
@@ -374,11 +459,52 @@ export function renderView(viewName, state) {
   switch (viewName) {
     case 'dashboard': return renderDashboard(state);
     case 'roster': return renderRoster(state);
+    case 'recruitment': return renderRecruitment(state);
     case 'quests': return renderQuestBoard(state);
     case 'events': return renderEvents(state);
     case 'upgrades': return renderUpgrades(state);
     default: return renderDashboard(state);
   }
+}
+
+/**
+ * Render notification cards in the dashboard.
+ * @param {Object} state - Current game state
+ */
+function renderNotifications(state) {
+  const notifications = state.notifications || [];
+  if (notifications.length === 0) return;
+
+  const container = document.getElementById('game-content');
+  const notifContainer = document.createElement('div');
+  notifContainer.id = 'notifications-container';
+
+  for (const notif of notifications) {
+    const notifCard = document.createElement('div');
+    notifCard.className = 'notification-card';
+    notifCard.setAttribute('data-notif-id', notif.id);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-close';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => {
+      if (window.__guildStore) {
+        window.__guildStore.dispatch({
+          type: 'CLEAR_NOTIFICATION',
+          payload: { notificationId: notif.id },
+        });
+      }
+    });
+
+    const notifText = document.createElement('span');
+    notifText.textContent = notif.message;
+
+    notifCard.appendChild(closeBtn);
+    notifCard.appendChild(notifText);
+    notifContainer.appendChild(notifCard);
+  }
+
+  container.insertBefore(notifContainer, container.firstChild);
 }
 
 /**
@@ -389,6 +515,9 @@ function renderDashboard(state) {
   const container = document.getElementById('game-content');
   if (!container) return;
   container.innerHTML = '';
+
+  // Notifications
+  renderNotifications(state);
 
   // Office level card
   const officeLevel = calculateOfficeLevel(state);
@@ -402,7 +531,7 @@ function renderDashboard(state) {
 
   // Active quest card (if any)
   if (state.activeQuest && state.activeQuest.status === 'active') {
-    const questCard = renderCard('quest', state.activeQuest.questData, state);
+    const questCard = renderCard('quest', state.activeQuest.questData, state, 'dashboard');
     if (questCard) {
       questCard.classList.add('active-quest-card');
       container.appendChild(questCard);
@@ -433,11 +562,24 @@ function renderRoster(state) {
   if (!container) return;
   container.innerHTML = '';
 
-  const { adventurers } = state;
+  const { adventurers, party } = state;
+  const partyIds = new Set(party?.adventurerIds || []);
+
+  // Party status bar
+  const partyBar = document.createElement('div');
+  partyBar.className = 'card party-status-card';
+  partyBar.innerHTML = `
+    <h3>Party (${partyIds.size}/${adventurers.length})</h3>
+    <div class="party-summary">
+      <span>${[...partyIds].map(id => adventurers.find(a => a.id === id)?.name || '?').join(', ') || 'No party members'}</span>
+    </div>
+  `;
+  container.appendChild(partyBar);
+
   if (adventurers.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'card empty-state';
-    empty.textContent = 'No adventurers — hire from the pool!';
+    empty.textContent = 'No adventurers — hire from the Recruitment tab!';
     container.appendChild(empty);
     return;
   }
@@ -446,6 +588,32 @@ function renderRoster(state) {
     const card = renderCard('adventurer', adventurer, state);
     if (card) {
       card.classList.add('roster-card');
+
+      // Assign to party / Remove from party button
+      const isInParty = partyIds.has(adventurer.id);
+      const partyBtn = document.createElement('button');
+      partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
+      partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
+      partyBtn.addEventListener('click', () => {
+        if (window.__guildStore) {
+          const currentParty = state.party.adventurerIds || [];
+          let newPartyIds;
+          if (isInParty) {
+            newPartyIds = currentParty.filter(id => id !== adventurer.id);
+          } else {
+            if (currentParty.length >= 3) {
+              console.warn('[Roster] Party is full (max 3)');
+              return;
+            }
+            newPartyIds = [...currentParty, adventurer.id];
+          }
+          window.__guildStore.dispatch({
+            type: 'ASSIGN_PARTY',
+            payload: { partyId: party?.id, adventurerIds: newPartyIds },
+          });
+        }
+      });
+      card.appendChild(partyBtn);
 
       // Retirement button for Level 5+ adventurers
       if (adventurer.level >= 5) {
@@ -471,6 +639,76 @@ function renderRoster(state) {
 }
 
 /**
+ * Recruitment view — recruitment pool with hire buttons and restock option.
+ * @param {Object} state - Current game state
+ */
+function renderRecruitment(state) {
+  const container = document.getElementById('game-content');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const { recruitmentPool, gold } = state;
+
+  // Restock button
+  const restockSection = document.createElement('div');
+  restockSection.className = 'card restock-section';
+  restockSection.innerHTML = `
+    <h3>Recruitment Pool</h3>
+    <div class="restock-controls">
+      <span class="pool-count">${recruitmentPool.length} adventurers available</span>
+      <button class="btn-restock" ${gold < 5 ? 'disabled' : ''} data-action="restock">
+        Restock (5 gold)
+      </button>
+    </div>
+  `;
+  container.appendChild(restockSection);
+
+  // Restock handler
+  const restockBtn = restockSection.querySelector('.btn-restock');
+  restockBtn?.addEventListener('click', () => {
+    if (window.__guildStore) {
+      const newPool = generateRecruitmentPool(3);
+      window.__guildStore.dispatch({
+        type: 'RESTOCK',
+        payload: {
+          count: 3,
+          adventurers: newPool,
+        },
+      });
+    }
+  });
+
+  // Adventure cards from pool
+  if (recruitmentPool.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card empty-state';
+    empty.textContent = 'No adventurers available. Restock the pool!';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const adventurer of recruitmentPool) {
+    const card = renderCard('adventurer', adventurer, state);
+    if (!card) continue;
+    card.classList.add('recruit-card');
+
+    const hireBtn = document.createElement('button');
+    hireBtn.className = 'btn-hire';
+    hireBtn.textContent = 'Join Guild';
+    hireBtn.addEventListener('click', () => {
+      if (window.__guildStore) {
+        window.__guildStore.dispatch({
+          type: 'HIRE',
+          payload: { adventurerId: adventurer.id },
+        });
+      }
+    });
+    card.appendChild(hireBtn);
+    container.appendChild(card);
+  }
+}
+
+/**
  * Quest Board view — available quest cards.
  * @param {Object} state - Current game state
  */
@@ -479,13 +717,17 @@ function renderQuestBoard(state) {
   if (!container) return;
   container.innerHTML = '';
 
-  // Use fame-gated quest pool
-  const quests = getFameGatedQuestPool(state, 3);
+  // Use stored quests from state (generated at startup or via RESTOCK_QUESTS)
+  const quests = state.quests || [];
   if (quests.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'card empty-state';
-    empty.textContent = 'No quests available — check back later!';
-    container.appendChild(empty);
+    // Fallback: generate quests if pool is empty
+    const newQuests = getFameGatedQuestPool(state, 3);
+    if (window.__guildStore && newQuests.length > 0) {
+      window.__guildStore.dispatch({
+        type: 'RESTOCK_QUESTS',
+        payload: { count: newQuests.length, quests: newQuests },
+      });
+    }
     return;
   }
 
