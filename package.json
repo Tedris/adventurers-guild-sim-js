@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "esbuild src/app.js src/styles.css --outdir=dist --bundle --sourcemap --watch",
-    "build": "esbuild src/app.js src/styles.css --outdir=dist --bundle --sourcemap --minify"
+    "dev": "concurrently \"node esbuild.config.js --watch\" \"serve dist\"",
+    "build": "node esbuild.config.js",
+    "serve": "serve dist",
+    "start": "node launch.js",
+    "test": "node test-render.mjs && node test-templates.mjs && node test-app-integration.mjs && node test-runner.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.21.0"
+    "concurrently": "^9.1.0",
+    "esbuild": "^0.21.0",
+    "serve": "^14.2.0",
+    "typescript": "^5.7.3"
   }
 }
