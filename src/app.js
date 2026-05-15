@@ -4,8 +4,8 @@
 // Handles: initialization, state restoration, auto-save, rendering
 
 import { createStore } from './store.js';
-import { initStore, loadState, enableAutoSave } from './save-load.js';
-import { gameDefaults, validateGame, getFameLevel } from './entities.js';
+import { initStore, loadState, clearStore, enableAutoSave } from './save-load.js';
+import { gameDefaults, validateGame, getFameLevel } from './entities/index.js';
 import { renderCard, renderView } from './render.js';
 
 // ─── Validation ───
@@ -106,6 +106,90 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderView(currentView, state);
     });
   });
+
+  // Step 6b: Next Day button
+  const nextDayBtn = document.getElementById('btn-next-day');
+  if (nextDayBtn) {
+    nextDayBtn.addEventListener('click', () => {
+      if (window.__guildStore) {
+        window.__guildStore.dispatch({ type: 'TICK', payload: { tickCount: 1 } });
+      }
+    });
+  }
+
+  // Step 6c: Save button (manual save, auto-save is already enabled)
+  const saveBtn = document.getElementById('btn-save');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      if (window.__guildStore) {
+        const state = window.__guildStore.getState();
+        try {
+          await saveState(state);
+          saveBtn.textContent = 'Saved!';
+          setTimeout(() => { saveBtn.textContent = 'Save Game'; }, 1500);
+        } catch (e) {
+          console.error('[App] Manual save failed:', e);
+          saveBtn.textContent = 'Save Failed';
+          setTimeout(() => { saveBtn.textContent = 'Save Game'; }, 1500);
+        }
+      }
+    });
+  }
+
+  // Step 6d: Load button
+  const loadBtn = document.getElementById('btn-load');
+  if (loadBtn) {
+    loadBtn.addEventListener('click', async () => {
+      try {
+        const savedState = await loadState();
+        if (!savedState) {
+          loadBtn.textContent = 'No Save Found';
+          setTimeout(() => { loadBtn.textContent = 'Load Game'; }, 1500);
+          return;
+        }
+        const validation = validateGameShape(savedState);
+        if (!validation.valid) {
+          console.warn(`[App] Saved state invalid: ${validation.reason}`);
+          loadBtn.textContent = 'Corrupt Save';
+          setTimeout(() => { loadBtn.textContent = 'Load Game'; }, 1500);
+          return;
+        }
+        if (window.__guildStore) {
+          window.__guildStore.dispatch({ type: 'MERGE_STATE', payload: savedState });
+          currentView = savedState._currentView || 'dashboard';
+          render(window.__guildStore.getState());
+        }
+        loadBtn.textContent = 'Loaded!';
+        setTimeout(() => { loadBtn.textContent = 'Load Game'; }, 1500);
+      } catch (e) {
+        console.error('[App] Manual load failed:', e);
+        loadBtn.textContent = 'Load Failed';
+        setTimeout(() => { loadBtn.textContent = 'Load Game'; }, 1500);
+      }
+    });
+  }
+
+  // Step 6e: New Game button
+  const newGameBtn = document.getElementById('btn-new-game');
+  if (newGameBtn) {
+    newGameBtn.addEventListener('click', async () => {
+      if (!confirm('Start a new game? This will erase your current progress.')) return;
+      try {
+        await clearStore();
+        if (window.__guildStore) {
+          window.__guildStore.dispatch({ type: 'MERGE_STATE', payload: gameDefaults() });
+          currentView = 'dashboard';
+          render(window.__guildStore.getState());
+        }
+        newGameBtn.textContent = 'New Game!';
+        setTimeout(() => { newGameBtn.textContent = 'New Game'; }, 1500);
+      } catch (e) {
+        console.error('[App] New game failed:', e);
+        newGameBtn.textContent = 'Error';
+        setTimeout(() => { newGameBtn.textContent = 'New Game'; }, 1500);
+      }
+    });
+  }
 
   // Step 7: Restore saved state via dispatch (triggers auto-save + render)
   // MERGE_STATE reducer case (in store.js) replaces state with the payload

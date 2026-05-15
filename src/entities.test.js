@@ -15,7 +15,7 @@ const test = (name, fn) => {
 };
 
 // Import entity module
-import('./entities.js').then((module) => {
+import('./entities/index.js').then((module) => {
   const {
     defaultAdventurer,
     defaultQuest,
@@ -25,12 +25,9 @@ import('./entities.js').then((module) => {
     validateParty,
     VALID_CLASSES,
     VALID_ORIGINS,
-    calculateWage,
     generateRecruitmentPool,
     calculateAptitudes,
     VALID_RANKS,
-    RARITY_TIERS,
-    DEFAULT_WAGE,
     VALID_DIFFICULTIES,
     calculateClassDiversity,
     calculateAptitudeBonus,
@@ -41,12 +38,8 @@ import('./entities.js').then((module) => {
     calculateQuestSuccessRate,
     calculateQuestOutcome,
     generateQuestPool,
-    calculateWageScale,
     calculateUpgradeCost,
     getAvailableUpgrades,
-    calculateInflationPressure,
-    calculateGoldSinkOpportunities,
-    deductWages,
     checkMorale,
     checkDepartures,
     processQuestProgress,
@@ -256,69 +249,6 @@ import('./entities.js').then((module) => {
     assert(result.valid === false, 'party of 4 should be rejected');
   });
 
-  // --- Tests for calculateWage ---
-
-  test('calculateWage returns correct wage for Novice rank (with personality traits)', () => {
-    // Personality traits add morale-based wage modifiers (floor(morale/5))
-    // Novice base is 2g; traits can add 0-3g; total should be 2-5g
-    const wages = [];
-    for (let i = 0; i < 20; i++) {
-      const a = defaultAdventurer({ rank: 'Novice' });
-      wages.push(calculateWage(a));
-    }
-    const minWage = Math.min(...wages);
-    const maxWage = Math.max(...wages);
-    assert(minWage >= 2, `Novice wage should be at least 2 (base), min was ${minWage}`);
-    assert(maxWage <= 5, `Novice wage should be at most 5 (base+traits), max was ${maxWage}`);
-  });
-
-  test('calculateWage returns correct wage for Journeyman rank', () => {
-    const wages = [];
-    for (let i = 0; i < 20; i++) {
-      const a = defaultAdventurer({ rank: 'Journeyman' });
-      wages.push(calculateWage(a));
-    }
-    const minWage = Math.min(...wages);
-    assert(minWage >= 3, `Journeyman wage should be at least 3 (base), min was ${minWage}`);
-  });
-
-  test('calculateWage returns correct wage for Veteran rank', () => {
-    const a = defaultAdventurer({ rank: 'Veteran' });
-    assert(calculateWage(a) >= 4, `Veteran wage should be at least 4 (base), got ${calculateWage(a)}`);
-  });
-
-  test('calculateWage returns correct wage for Champion rank', () => {
-    const a = defaultAdventurer({ rank: 'Champion' });
-    assert(calculateWage(a) >= 5, `Champion wage should be at least 5 (base), got ${calculateWage(a)}`);
-  });
-
-  test('calculateWage returns correct wage for Legend rank', () => {
-    const a = defaultAdventurer({ rank: 'Legend' });
-    assert(calculateWage(a) >= 7, `Legend wage should be at least 7 (base), got ${calculateWage(a)}`);
-  });
-
-  test('calculateWage adds rarity bonus for Rare equipment', () => {
-    // With Rare weapon (+2g rarity), Novice base (2g) + rarity (2g) = 4g minimum
-    const a = defaultAdventurer({ rank: 'Novice', equipment: { weapon: { rarity: 'Rare' } } });
-    const wage = calculateWage(a);
-    assert(wage >= 4, `Novice + Rare weapon should be at least 4g, got ${wage}`);
-  });
-
-  test('calculateWage adds rarity bonus for Epic equipment', () => {
-    // Epic weapon (+3g) + Rare armor (+2g) = +5g on top of base
-    const a = defaultAdventurer({ rank: 'Novice', equipment: { weapon: { rarity: 'Epic' }, armor: { rarity: 'Rare' } } });
-    const wage = calculateWage(a);
-    assert(wage >= 7, `Novice + Epic weapon + Rare armor should be at least 7g, got ${wage}`);
-  });
-
-  test('calculateWage applies personality trait wage modifiers', () => {
-    const a = defaultAdventurer({
-      rank: 'Novice',
-      personality: { traits: ['Unyielding'] }, // morale=8, wage += floor(8/5) = 1
-    });
-    assert(calculateWage(a) >= 3, `Novice + Unyielding should have wage >= 3, got ${calculateWage(a)}`);
-  });
-
   // --- Tests for generateRecruitmentPool ---
 
   test('generateRecruitmentPool(1) returns array with one adventurer', () => {
@@ -348,13 +278,37 @@ import('./entities.js').then((module) => {
     }
   });
 
-  test('generateRecruitmentPool sets rank=Novice and wage via calculateWage', () => {
+  test('generateRecruitmentPool sets rank=Novice', () => {
     const pool = generateRecruitmentPool(2);
     for (const a of pool) {
       assert(a.rank === 'Novice', `rank should be Novice, got ${a.rank}`);
-      assert(a.wage > 0, `wage should be > 0, got ${a.wage}`);
-      assert(a.wage === calculateWage(a), `wage should match calculateWage`);
     }
+  });
+
+  test('generateRecruitmentPool applies fame stat bonuses when state has fame', () => {
+    const highFameState = { fame: 50 };
+    const pool = generateRecruitmentPool(3, highFameState);
+    for (const a of pool) {
+      for (const [stat, value] of Object.entries(a.stats)) {
+        assert(value >= 3, `fame stat bonus: ${stat}=${value} should be >= 3 with fame=50`);
+      }
+    }
+  });
+
+  test('generateRecruitmentPool without state produces baseline stats', () => {
+    const pool = generateRecruitmentPool(3, {});
+    for (const a of pool) {
+      for (const [stat, value] of Object.entries(a.stats)) {
+        assert(value >= 1 && value <= 20, `baseline stat ${stat}=${value} should be in range`);
+      }
+    }
+  });
+
+  test('generateRecruitmentPool applies legacy perks when state has legacyPerks', () => {
+    const perks = [{ name: 'Test Perk', effects: { str: 3 } }];
+    const stateWithPerks = { fame: 0, legacyPerks: perks };
+    const pool = generateRecruitmentPool(1, stateWithPerks);
+    assert(pool[0].stats.str >= 4, `legacy perk str bonus: expected str >= 4, got ${pool[0].stats.str}`);
   });
 
   // --- Tests for calculateAptitudes ---
@@ -570,30 +524,6 @@ import('./entities.js').then((module) => {
 
   // --- Tests for economy engine ---
 
-  test('calculateWageScale at level 1 returns scaleFactor 1', () => {
-    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
-    const result = calculateWageScale(adventurers, 1);
-    assert(result.scaleFactor === 1, `scaleFactor at level 1 should be 1, got ${result.scaleFactor}`);
-  });
-
-  test('calculateWageScale at level 3 returns scaleFactor 1.2', () => {
-    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
-    const result = calculateWageScale(adventurers, 3);
-    assert(result.scaleFactor === 1.2, `scaleFactor at level 3 should be 1.2, got ${result.scaleFactor}`);
-  });
-
-  test('calculateWageScale with fame > 50 applies 10% discount', () => {
-    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
-    const result = calculateWageScale(adventurers, 1, 60);
-    assert(result.fameDiscount === 0.1, `fameDiscount should be 0.1, got ${result.fameDiscount}`);
-  });
-
-  test('calculateWageScale with fame > 100 applies 20% discount', () => {
-    const adventurers = [defaultAdventurer({ rank: 'Novice' })];
-    const result = calculateWageScale(adventurers, 1, 120);
-    assert(result.fameDiscount === 0.2, `fameDiscount should be 0.2, got ${result.fameDiscount}`);
-  });
-
   test('calculateUpgradeCost base costs: office=50, equipment=30, job_postings=15', () => {
     assert(calculateUpgradeCost('office', 0) === 50, `office base cost should be 50, got ${calculateUpgradeCost('office', 0)}`);
     assert(calculateUpgradeCost('equipment', 0) === 30, `equipment base cost should be 30, got ${calculateUpgradeCost('equipment', 0)}`);
@@ -614,71 +544,19 @@ import('./entities.js').then((module) => {
     assert(types.includes('office'), 'office should be available');
   });
 
-  test('calculateInflationPressure low ratio returns low pressure', () => {
-    const state = { gold: 10, adventurers: [{ id: 'a1' }, { id: 'a2' }] };
-    const result = calculateInflationPressure(state);
-    assert(result.pressure === 'low', `low ratio should give low pressure, got ${result.pressure}`);
-  });
-
-  test('calculateInflationPressure high ratio returns high pressure', () => {
-    const state = { gold: 500, adventurers: [{ id: 'a1' }] };
-    const result = calculateInflationPressure(state);
-    assert(result.pressure === 'high', `high ratio should give high pressure, got ${result.pressure}`);
-  });
-
   // --- Tests for tick processor ---
-
-  test('deductWages deducts correct total from gold', () => {
-    // Use explicit empty personality to get base wages (no trait modifiers)
-    const adventurer1 = defaultAdventurer({ rank: 'Novice', personality: { traits: [] } });
-    const adventurer2 = defaultAdventurer({ rank: 'Journeyman', personality: { traits: [] } });
-    const state = { gold: 100, adventurers: [adventurer1, adventurer2] };
-    const result = deductWages(state);
-    assert(result.deducted === 5, `should deduct 5 (2+3), got ${result.deducted}`);
-    assert(result.remainingGold === 95, `remaining should be 95, got ${result.remainingGold}`);
-  });
-
-  test('deductWages with personality trait-modified wages', () => {
-    const adventurer = defaultAdventurer({ rank: 'Novice' });
-    adventurer.wage = calculateWage(adventurer);
-    const state = { gold: 100, adventurers: [adventurer], guildLevel: 1, fame: 0 };
-    const result = deductWages(state);
-    assert(result.deducted >= 2, `should deduct at least 2, got ${result.deducted}`);
-    assert(result.remainingGold <= 98, `remaining should be <= 98, got ${result.remainingGold}`);
-  });
-
-  test('deductWages with insufficient gold deducts what is available', () => {
-    const adventurer = defaultAdventurer({ rank: 'Veteran', wage: 4 });
-    const state = { gold: 2, adventurers: [adventurer] };
-    const result = deductWages(state);
-    assert(result.deducted === 2, `should deduct 2 (all gold), got ${result.deducted}`);
-    assert(result.unpaid === true, 'should mark as unpaid');
-  });
-
-  test('deductWages with no adventurers returns 0 deduction', () => {
-    const state = { gold: 100, adventurers: [] };
-    const result = deductWages(state);
-    assert(result.deducted === 0, 'should deduct 0 with no adventurers');
-  });
 
   test('checkMorale applies base decay (-1 per 10 ticks)', () => {
     const adventurer = defaultAdventurer({ morale: 50 });
-    const state = { gold: 100, adventurers: [adventurer], guildLevel: 1, fame: 0 };
+    const state = { adventurers: [adventurer] };
     const result = checkMorale(state, 20);
     assert(result.adjustedAdventurers[0].morale === 48, `morale should decay by 2 (20 ticks / 10), got ${result.adjustedAdventurers[0].morale}`);
-  });
-
-  test('checkMorale applies low gold penalty', () => {
-    const adventurer = defaultAdventurer({ rank: 'Novice', morale: 50 });
-    const state = { gold: 1, adventurers: [adventurer], guildLevel: 1, fame: 0 };
-    const result = checkMorale(state, 5);
-    assert(result.adjustedAdventurers[0].morale < 50, `morale should decrease with low gold, got ${result.adjustedAdventurers[0].morale}`);
   });
 
   test('checkDepartures removes adventurers with morale <= 0', () => {
     const alive = defaultAdventurer({ morale: 50 });
     const departed = defaultAdventurer({ morale: 0 });
-    const state = { gold: 100, adventurers: [alive, departed] };
+    const state = { adventurers: [alive, departed] };
     const result = checkDepartures(state);
     assert(result.departed.length === 1, 'one adventurer should have departed');
     assert(result.remaining.length === 1, 'one adventurer should remain');
@@ -686,13 +564,13 @@ import('./entities.js').then((module) => {
 
   test('checkDepartures keeps adventurers with morale > 0', () => {
     const adventurer = defaultAdventurer({ morale: 10 });
-    const state = { gold: 100, adventurers: [adventurer] };
+    const state = { adventurers: [adventurer] };
     const result = checkDepartures(state);
     assert(result.remaining.length === 1, 'adventurer should remain with positive morale');
   });
 
   test('processTick advances day', () => {
-    const state = { gold: 100, adventurers: [], day: 10, guildLevel: 1, fame: 0 };
+    const state = { gold: 100, adventurers: [], day: 10 };
     const result = processTick(state, 1);
     assert(result.day === 11, `day should advance by 1, got ${result.day}`);
   });
@@ -1110,7 +988,7 @@ import('./entities.js').then((module) => {
     assert(unique.size === ids.length, 'all event IDs should be unique');
   });
 
-  test('Budget events reference wage or gold mechanics', () => {
+  test('Budget events reference budget mechanics', () => {
     const budgetEvents = EVENT_TEMPLATES.filter(e => e.category === 'Budget');
     for (const e of budgetEvents) {
       assert(typeof e.id === 'string' && e.id.startsWith('budget-'), `Budget event should have "budget-" prefix: ${e.id}`);
@@ -1211,26 +1089,26 @@ import('./entities.js').then((module) => {
   test('selectNextEvent filters out cooldown events', () => {
     const state = {
       day: 5,
-      eventCooldowns: { 'budget-wage-demand': 10 },
+      eventCooldowns: { 'budget-bonus-demands': 10 },
     };
-    // wage-demand is in cooldown (cooldown ends at tick 10, current tick is 5)
+    // bonus-demands is in cooldown (cooldown ends at tick 10, current tick is 5)
     for (let i = 0; i < 20; i++) {
       const result = selectNextEvent(state);
       assert(result !== null, 'should return non-null event');
-      assert(result.id !== 'budget-wage-demand', 'should not return cooldown event');
+      assert(result.id !== 'budget-bonus-demands', 'should not return cooldown event');
     }
   });
 
   test('selectNextEvent returns event after cooldown expires', () => {
     const state = {
       day: 25,
-      eventCooldowns: { 'budget-wage-demand': 20 },
+      eventCooldowns: { 'budget-bonus-demands': 20 },
     };
-    // After 100 trials, should occasionally return budget-wage-demand
+    // After 100 trials, should occasionally return budget-bonus-demands
     let found = false;
     for (let i = 0; i < 100; i++) {
       const result = selectNextEvent(state);
-      if (result && result.id === 'budget-wage-demand') { found = true; break; }
+      if (result && result.id === 'budget-bonus-demands') { found = true; break; }
     }
     assert(found, 'should eventually return event after cooldown expires');
   });
@@ -1239,7 +1117,7 @@ import('./entities.js').then((module) => {
 
   test('resolveEvent returns delta object with eventId, resolvedAt, moraleAdjustment', () => {
     const state = { day: 5, gold: 100 };
-    const result = resolveEvent(state, 'budget-wage-demand', 0);
+    const result = resolveEvent(state, 'budget-bonus-demands', 0);
     assert(typeof result.delta === 'object', 'result must have delta object');
     assert(typeof result.eventId === 'string', 'result must have eventId');
     assert(typeof result.resolvedAt === 'number', 'result must have resolvedAt');
@@ -1267,9 +1145,9 @@ import('./entities.js').then((module) => {
 
   test('resolveEvent handles invalid choiceIndex gracefully', () => {
     const state = { day: 5, gold: 100 };
-    const result = resolveEvent(state, 'budget-wage-demand', 99);
+    const result = resolveEvent(state, 'budget-bonus-demands', 99);
     assert(result.delta && Object.keys(result.delta).length === 0, 'invalid choiceIndex should return empty delta');
-    assert(result.eventId === 'budget-wage-demand', 'eventId should be passed through');
+    assert(result.eventId === 'budget-bonus-demands', 'eventId should be passed through');
   });
 
   test('resolveEvent gold delta is correct for budget-price-surge choice 0', () => {
@@ -1280,7 +1158,7 @@ import('./entities.js').then((module) => {
 
   test('resolveEvent moraleAdjustment propagates through delta', () => {
     const state = { day: 5, gold: 100 };
-    const result = resolveEvent(state, 'budget-wage-demand', 2); // Refuse (morale -5)
+    const result = resolveEvent(state, 'budget-bonus-demands', 2); // Refuse (morale -5)
     assert(result.moraleAdjustment === -5, `moraleAdjustment should be -5, got ${result.moraleAdjustment}`);
   });
 
@@ -1302,11 +1180,6 @@ import('./entities.js').then((module) => {
     const defaults = gameDefaults();
     assert(typeof defaults.eventCooldowns === 'object' && !Array.isArray(defaults.eventCooldowns), `eventCooldowns should be an object, got ${typeof defaults.eventCooldowns}`);
     assert(Object.keys(defaults.eventCooldowns).length === 0, `eventCooldowns should be empty`);
-  });
-
-  test('gameDefaults includes wageMultiplier: 1', () => {
-    const defaults = gameDefaults();
-    assert(defaults.wageMultiplier === 1, `wageMultiplier should be 1, got ${defaults.wageMultiplier}`);
   });
 
   test('gameDefaults includes questRisk: 0', () => {
@@ -1578,28 +1451,28 @@ import('./entities.js').then((module) => {
 
   // ─── Fame Engine Tests ───
 
-  test('calculateFameGain includes quest count bonus', () => {
-    const state = { questCount: 10, adventurers: [], officeLevel: 1, fameMultiplier: 1 };
+  test('calculateFameGain returns flat base per completion (linear, not cumulative)', () => {
+    const state = { adventurers: [], officeLevel: 1, fameMultiplier: 1 };
     const gain = calculateFameGain(state);
-    assert(gain === 20, `quest count bonus: expected 20, got ${gain}`);
+    assert(gain === 2, `base fame per completion: expected 2, got ${gain}`);
   });
 
   test('calculateFameGain includes roster size bonus', () => {
-    const state = { questCount: 0, adventurers: [{ id: '1' }, { id: '2' }, { id: '3' }], officeLevel: 1, fameMultiplier: 1 };
+    const state = { adventurers: [{ id: '1' }, { id: '2' }, { id: '3' }], officeLevel: 1, fameMultiplier: 1 };
     const gain = calculateFameGain(state);
-    assert(gain === 9, `roster bonus: expected 9, got ${gain}`);
+    assert(gain === 11, `roster bonus: expected 11 (2 base + 9 roster), got ${gain}`);
   });
 
   test('calculateFameGain includes office level bonus', () => {
-    const state = { questCount: 0, adventurers: [], officeLevel: 3, fameMultiplier: 1 };
+    const state = { adventurers: [], officeLevel: 3, fameMultiplier: 1 };
     const gain = calculateFameGain(state);
-    assert(gain === 10, `office bonus: expected 10, got ${gain}`);
+    assert(gain === 12, `office bonus: expected 12 (2 base + 10 office), got ${gain}`);
   });
 
   test('calculateFameGain applies fameMultiplier', () => {
-    const state = { questCount: 10, adventurers: [], officeLevel: 1, fameMultiplier: 1.1 };
+    const state = { adventurers: [], officeLevel: 1, fameMultiplier: 1.1 };
     const gain = calculateFameGain(state);
-    assert(gain === 22, `with multiplier: expected 22, got ${gain}`);
+    assert(gain === 2, `with multiplier: expected 2 (floor(2*1.1)), got ${gain}`);
   });
 
   test('getFameLevel returns correct tier for Unknown Guild', () => {
