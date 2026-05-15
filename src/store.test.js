@@ -125,7 +125,7 @@ import('./store.js').then((module) => {
   // --- Tests for HIRE action ---
 
   test('HIRE: dispatches and adds adventurer to roster', () => {
-    const poolAdventurer = { id: 'pool-1', name: 'Pool Hero', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const poolAdventurer = { id: 'pool-1', name: 'Pool Hero', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [poolAdventurer] });
     store.dispatch({ type: 'HIRE', payload: { adventurerId: 'pool-1' } });
     const state = store.getState();
@@ -134,7 +134,7 @@ import('./store.js').then((module) => {
   });
 
   test('HIRE: removes adventurer from recruitmentPool', () => {
-    const poolAdventurer = { id: 'pool-2', name: 'Pool Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const poolAdventurer = { id: 'pool-2', name: 'Pool Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [poolAdventurer] });
     store.dispatch({ type: 'HIRE', payload: { adventurerId: 'pool-2' } });
     const state = store.getState();
@@ -151,39 +151,54 @@ import('./store.js').then((module) => {
 
   test('RESTOCK: generates specified number of adventurers', () => {
     const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [] });
-    const newAdventurers = [
-      { id: 'new-1', name: 'New 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 },
-      { id: 'new-2', name: 'New 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 },
-    ];
-    store.dispatch({ type: 'RESTOCK', payload: { adventurers: newAdventurers } });
+    store.dispatch({ type: 'RESTOCK', payload: { count: 2 } });
     const state = store.getState();
     assert(state.recruitmentPool.length === 2, `recruitmentPool should have 2, got ${state.recruitmentPool.length}`);
+    for (const a of state.recruitmentPool) {
+      assert(a.rank === 'Novice', `restocked adventurer rank should be Novice, got ${a.rank}`);
+    }
   });
 
   test('RESTOCK: appends to existing recruitmentPool', () => {
-    const existing = { id: 'existing-1', name: 'Existing', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const existing = { id: 'existing-1', name: 'Existing', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [existing], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
-    const newAdventurers = [{ id: 'new-1', name: 'New', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 }];
-    store.dispatch({ type: 'RESTOCK', payload: { adventurers: newAdventurers } });
+    store.dispatch({ type: 'RESTOCK', payload: { count: 1 } });
     const state = store.getState();
     assert(state.recruitmentPool.length === 2, `recruitmentPool should have 2 (1 existing + 1 new), got ${state.recruitmentPool.length}`);
     assert(state.recruitmentPool[0].id === 'existing-1', 'existing adventurer should still be in pool');
-    assert(state.recruitmentPool[1].id === 'new-1', 'new adventurer should be appended');
   });
 
   // --- Tests for ASSIGN_PARTY ---
 
-  test('ASSIGN_PARTY validates party size', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+  test('ASSIGN_PARTY allows party of 1 when no quest specified', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const store = createStore({ gold: 100, adventurers: [hero1], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
-    // Party of 1 without solo quest should fail
     const result = store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1'] } });
-    assert(result === false, 'ASSIGN_PARTY should fail for party of 1 without solo quest');
+    assert(result === true, 'ASSIGN_PARTY should allow party of 1 when no quest specified');
+  });
+
+  test('ASSIGN_PARTY rejects party too large', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero3 = { id: 'hero-3', name: 'Hero 3', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero4 = { id: 'hero-4', name: 'Hero 4', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2, hero3, hero4], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
+    const result = store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1', 'hero-2', 'hero-3', 'hero-4'] } });
+    assert(result === false, 'ASSIGN_PARTY should reject party larger than MAX_PARTY_SIZE');
+  });
+
+  test('ASSIGN_PARTY rejects party too small for quest', () => {
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
+    const quest = { id: 'q1', requirements: { minPartySize: 3 } };
+    const result = store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1', 'hero-2'], quest } });
+    assert(result === false, 'ASSIGN_PARTY should reject party too small for quest requirement');
   });
 
   test('ASSIGN_PARTY calculates synergy score correctly', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { tracking: 0.8 }, wage: 2 };
-    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { tracking: 0.9 }, wage: 2 };
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { tracking: 0.8 } };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { tracking: 0.9 } };
     const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
     store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1', 'hero-2'] } });
     const state = store.getState();
@@ -192,7 +207,7 @@ import('./store.js').then((module) => {
   });
 
   test('ASSIGN_PARTY rejects duplicate adventurer IDs', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const store = createStore({ gold: 100, adventurers: [hero1], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
     const result = store.dispatch({ type: 'ASSIGN_PARTY', payload: { partyId: 'p1', adventurerIds: ['hero-1', 'hero-1'] } });
     assert(result === false, 'ASSIGN_PARTY should reject duplicate IDs');
@@ -201,8 +216,8 @@ import('./store.js').then((module) => {
   // --- Tests for REORDER_PARTY ---
 
   test('REORDER_PARTY maintains party integrity', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
-    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 } });
     store.dispatch({ type: 'REORDER_PARTY', payload: { adventurerIds: ['hero-2', 'hero-1'] } });
     const state = store.getState();
@@ -211,8 +226,8 @@ import('./store.js').then((module) => {
   });
 
   test('REORDER_PARTY recalculates synergy on reorder', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { combat: 0.9 }, wage: 2 };
-    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { ranged_combat: 0.8 }, wage: 2 };
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { combat: 0.9 } };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: { ranged_combat: 0.8 } };
     const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [] });
     store.dispatch({ type: 'REORDER_PARTY', payload: { adventurerIds: ['hero-2', 'hero-1'] } });
     const state = store.getState();
@@ -222,8 +237,8 @@ import('./store.js').then((module) => {
   // --- Tests for SEND_QUEST ---
 
   test('SEND_QUEST sets activeQuest correctly', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
-    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const quest = { id: 'q1', name: 'Test Quest', difficulty: 2, requirements: { minStats: { str: 5, dex: 5, int: 5, vit: 5, lck: 5 }, preferredClasses: [], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 30, experience: 40 }, description: 'A test quest.' };
     const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [quest], activeQuest: null });
     store.dispatch({ type: 'SEND_QUEST', payload: { questId: 'q1', partyId: 'p1' } });
@@ -243,8 +258,8 @@ import('./store.js').then((module) => {
   // --- Tests for COMPLETE_QUEST ---
 
   test('COMPLETE_QUEST applies gold reward on success', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
-    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const quest = { id: 'q1', name: 'Easy Quest', difficulty: 1, requirements: { minStats: { str: 3, dex: 3, int: 3, vit: 3, lck: 3 }, preferredClasses: [], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 50, experience: 60 }, description: 'An easy quest.' };
     const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [quest], activeQuest: { questId: 'q1', partyId: 'p1', status: 'active', startTime: Date.now() } });
     store.dispatch({ type: 'COMPLETE_QUEST', payload: { questId: 'q1' } });
@@ -254,8 +269,8 @@ import('./store.js').then((module) => {
   });
 
   test('COMPLETE_QUEST updates adventurer experience', () => {
-    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 15, dex: 15, int: 15, vit: 15, lck: 15 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
-    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 15, dex: 15, int: 15, vit: 15, lck: 15 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {}, wage: 2 };
+    const hero1 = { id: 'hero-1', name: 'Hero 1', class: 'Sword', stats: { str: 15, dex: 15, int: 15, vit: 15, lck: 15 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero2 = { id: 'hero-2', name: 'Hero 2', class: 'Bow', stats: { str: 15, dex: 15, int: 15, vit: 15, lck: 15 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const quest = { id: 'q2', name: 'Medium Quest', difficulty: 3, requirements: { minStats: { str: 8, dex: 8, int: 8, vit: 8, lck: 8 }, preferredClasses: [], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 40, experience: 80 }, description: 'A medium quest.' };
     const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['hero-1', 'hero-2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [quest], activeQuest: { questId: 'q2', partyId: 'p1', status: 'active', startTime: Date.now() } });
     store.dispatch({ type: 'COMPLETE_QUEST', payload: { questId: 'q2' } });
@@ -380,11 +395,11 @@ import('./store.js').then((module) => {
 
   test('EVENT_FIRED: appends event to state.events', () => {
     const store = createStore({ gold: 100, adventurers: [{ id: 'a1', morale: 70 }], day: 5, events: [] });
-    const result = store.dispatch({ type: 'EVENT_FIRED', payload: { eventId: 'budget-wage-demand', title: 'Wage Demands', category: 'Budget', choices: [{ label: 'Accept' }, { label: 'Refuse' }] } });
+    const result = store.dispatch({ type: 'EVENT_FIRED', payload: { eventId: 'budget-bonus-demands', title: 'Quest Bonus Demands', category: 'Budget', choices: [{ label: 'Accept' }, { label: 'Refuse' }] } });
     assert(result === true, 'EVENT_FIRED should return true');
     const state = store.getState();
     assert(state.events.length === 1, `events should have 1 entry, got ${state.events.length}`);
-    assert(state.events[0].eventId === 'budget-wage-demand', 'eventId should match');
+    assert(state.events[0].eventId === 'budget-bonus-demands', 'eventId should match');
     assert(state.events[0].resolved === false, 'event should be unresolved');
     assert(state.events[0].timestamp === 5, 'timestamp should be current day');
   });
@@ -459,7 +474,7 @@ import('./store.js').then((module) => {
   // --- Tests for RETIRE action (Phase 5) ---
 
   test('RETIRE: removes adventurer from roster', () => {
-    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Veteran', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {}, wage: 4 }], day: 10, legacyPerks: [] });
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Veteran', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {} }], day: 10, legacyPerks: [] });
     const result = store.dispatch({ type: 'RETIRE', payload: { adventurerId: 'a1' } });
     assert(result === true, 'RETIRE should return true for valid adventurer');
     const state = store.getState();
@@ -467,7 +482,7 @@ import('./store.js').then((module) => {
   });
 
   test('RETIRE: generates and stores legacy perk', () => {
-    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Veteran', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {}, wage: 4 }], day: 10, legacyPerks: [] });
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Veteran', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {} }], day: 10, legacyPerks: [] });
     store.dispatch({ type: 'RETIRE', payload: { adventurerId: 'a1' } });
     const state = store.getState();
     assert(Array.isArray(state.legacyPerks), 'legacyPerks should be an array');
@@ -484,7 +499,7 @@ import('./store.js').then((module) => {
   });
 
   test('RETIRE: preserves other state fields', () => {
-    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Test', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {}, wage: 4 }], day: 10, fame: 25, questCount: 5, legacyPerks: [] });
+    const store = createStore({ gold: 100, adventurers: [{ id: 'a1', name: 'Test', class: 'Sword', rank: 'Veteran', level: 5, stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 5, experience: 100, aptitudes: {} }], day: 10, fame: 25, questCount: 5, legacyPerks: [] });
     store.dispatch({ type: 'RETIRE', payload: { adventurerId: 'a1' } });
     const state = store.getState();
     assert(state.gold === 100, 'gold should be preserved');
