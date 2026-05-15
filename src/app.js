@@ -6,7 +6,7 @@
 import { createStore } from './store.js';
 import { initStore, loadState, clearStore, enableAutoSave } from './save-load.js';
 import { gameDefaults, validateGame, getFameLevel } from './entities/index.js';
-import { renderCard, renderView } from './render.js';
+import { renderCard, renderView, showConfirmModal, hideModal, showEventModal } from './render/index.js';
 
 // ─── Validation ───
 
