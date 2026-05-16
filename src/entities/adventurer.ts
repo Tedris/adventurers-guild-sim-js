@@ -107,7 +107,7 @@ function rollStat(): number {
            + Math.floor(Math.random() * 3);
 }
 
-const CLASS_APTITUDES: Record<string, Record<string, number>> = {
+export const CLASS_APTITUDES: Record<string, Record<string, number>> = {
   Sword:  { tracking: 0.8, combat: 0.9 },
   Wand:   { herb_gathering: 0.9, investigation: 0.7 },
   Bow:    { tracking: 0.9, ranged_combat: 0.8 },
