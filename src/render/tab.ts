@@ -22,6 +22,7 @@ import {
   tabSlideTransition,
   upgradeSuccessAnimation,
 } from '../animation.js';
+import { VirtualList } from '../virtual-list.js';
 
 // ─── Animation State Tracking ──────────────────────────
 
@@ -30,6 +31,25 @@ import {
  * Used to detect card additions/removals for animation purposes.
  */
 const _oldCards = new WeakMap<HTMLElement, HTMLElement[]>();
+
+// ─── Virtual List State ────────────────────────────────
+
+/**
+ * The active VirtualList instance for the roster view (if virtualization is active).
+ * Stored per-container to support view switching.
+ */
+const _virtualLists = new WeakMap<HTMLElement, VirtualList>();
+
+/**
+ * Threshold: use virtual list when adventurer count exceeds this value.
+ */
+const VIRTUAL_LIST_THRESHOLD = 20;
+
+/**
+ * Fixed height for each adventurer card row (including gap).
+ * Estimated from CSS: padding + header + stats + morale + equipment + footer.
+ */
+const CARD_ROW_HEIGHT = 220;
 
 // ─── View Types ────────────────────────────────────────
 
@@ -251,11 +271,34 @@ export function renderDashboard(state: GameState): void {
 
 /**
  * Roster view — adventurer cards for all rostered adventurers.
+ * Uses virtual list rendering when adventurer count > 20 for performance.
  */
 export function renderRoster(state: GameState): void {
   const container = document.getElementById('game-content');
   if (!container) return;
 
+  const { adventurers, party } = state;
+  const partyIds = new Set(party?.adventurerIds || []);
+
+  // Destroy existing virtual list if switching to standard rendering
+  const existingVL = _virtualLists.get(container);
+  if (existingVL) {
+    existingVL.destroy();
+    _virtualLists.delete(container);
+  }
+
+  // Check if virtualization should be used
+  if (adventurers.length > VIRTUAL_LIST_THRESHOLD) {
+    renderRosterVirtual(container, state);
+  } else {
+    renderRosterStandard(container, state);
+  }
+}
+
+/**
+ * Render roster using standard DOM rendering (for small guilds ≤ 20 adventurers).
+ */
+function renderRosterStandard(container: HTMLElement, state: GameState): void {
   const { adventurers, party } = state;
   const partyIds = new Set(party?.adventurerIds || []);
 
@@ -395,6 +438,144 @@ export function renderRoster(state: GameState): void {
   }
 
   _oldCards.set(container, newCards);
+}
+
+/**
+ * Render roster using virtual list (for large guilds > 20 adventurers).
+ * Only renders visible cards + overscan to keep DOM shallow.
+ */
+function renderRosterVirtual(container: HTMLElement, state: GameState): void {
+  const { adventurers, party } = state;
+  const partyIds = new Set(party?.adventurerIds || []);
+
+  // Party status bar (rendered once outside the virtual list)
+  const partyBar = document.createElement('div');
+  partyBar.className = 'card party-status-card';
+  partyBar.innerHTML = `
+    <h3>Party (${partyIds.size}/${adventurers.length})</h3>
+    <div class="party-summary">
+      <span>${[...partyIds]
+        .map((id) => adventurers.find((a) => a.id === id)?.name || '?')
+        .join(', ') || 'No party members'}</span>
+    </div>
+  `;
+  container.insertBefore(partyBar, container.firstChild);
+
+  if (adventurers.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'card empty-state';
+    empty.textContent = 'No adventurers — hire from the Recruitment tab!';
+    container.appendChild(empty);
+    return;
+  }
+
+  // Create virtual list container
+  const virtualContainer = document.createElement('div');
+  virtualContainer.id = 'roster-virtual-container';
+  container.appendChild(virtualContainer);
+
+  // Destroy existing virtual list if present
+  const existingVL = _virtualLists.get(virtualContainer);
+  if (existingVL) {
+    existingVL.destroy();
+  }
+
+  // Create new VirtualList instance
+  const virtualList = new VirtualList({
+    itemCount: adventurers.length,
+    itemHeight: CARD_ROW_HEIGHT,
+    rowHeight: CARD_ROW_HEIGHT,
+    container: virtualContainer,
+    overscanCount: 3,
+    gap: 12,
+    renderCard: (index, adventurer) => {
+      const card = renderCard('adventurer' as CardType, adventurer, state);
+      if (!card) return null;
+
+      card.classList.add('roster-card', 'virtual-card');
+      card.setAttribute('data-adventurer-id', adventurer.id);
+
+      // Assign to party / Remove from party button
+      const isInParty = partyIds.has(adventurer.id);
+      const partyBtn = document.createElement('button');
+      partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
+      partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
+      partyBtn.addEventListener('click', () => {
+        if (window.__guildStore) {
+          const currentParty = state.party.adventurerIds || [];
+          let newPartyIds: string[];
+          if (isInParty) {
+            newPartyIds = currentParty.filter((id) => id !== adventurer.id);
+          } else {
+            if (currentParty.length >= 3) {
+              console.warn('[Roster] Party is full (max 3)');
+              return;
+            }
+            newPartyIds = [...currentParty, adventurer.id];
+          }
+          window.__guildStore.dispatch({
+            type: 'ASSIGN_PARTY',
+            payload: { partyId: party?.id, adventurerIds: newPartyIds },
+          });
+        }
+      });
+      card.appendChild(partyBtn);
+
+      // Retirement button for Level 5+ adventurers
+      if (adventurer.level >= 5) {
+        const retireBtn = document.createElement('button');
+        retireBtn.className = 'btn-retire';
+        retireBtn.textContent = 'Retire';
+        retireBtn.addEventListener('click', () => {
+          const cardEl = retireBtn.closest('.roster-card') as HTMLElement | null;
+          if (cardEl) {
+            const anim = fadeOutAndShrink(200);
+            const animHandle = playAnimation(cardEl, anim);
+            animHandle.addEventListener('finish', () => {
+              cardEl.remove();
+              showConfirmModal(
+                `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
+                () => {
+                  if (window.__guildStore) {
+                    window.__guildStore.dispatch({
+                      type: 'RETIRE',
+                      payload: { adventurerId: adventurer.id },
+                    });
+                  }
+                },
+              );
+            });
+          } else {
+            showConfirmModal(
+              `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
+              () => {
+                if (window.__guildStore) {
+                  window.__guildStore.dispatch({
+                    type: 'RETIRE',
+                    payload: { adventurerId: adventurer.id },
+                  });
+                }
+              },
+            );
+          }
+        });
+        card.appendChild(retireBtn);
+      }
+
+      return card;
+    },
+    onCardEnter: (element, index) => {
+      // Animate new cards entering viewport
+      const anim = slideInFromRight(180);
+      playAnimation(element, anim);
+    },
+  });
+
+  // Store the virtual list instance
+  _virtualLists.set(virtualContainer, virtualList);
+
+  // Initial render
+  virtualList.update(adventurers, state);
 }
 
 // ─── Recruitment View ──────────────────────────────────
