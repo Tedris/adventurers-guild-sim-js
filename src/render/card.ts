@@ -6,10 +6,29 @@
 // Threat mitigation T-04-01: Game data is inserted via textContent/setAttribute,
 // never innerHTML. Only trusted template structures are parsed from HTML.
 
-import type { GameState, Adventurer, Quest, QuestTemplate, EventTemplate, GameEvent } from '../types.js';
+import type {
+  GameState,
+  Adventurer,
+  Quest,
+  QuestTemplate,
+  EventTemplate,
+  GameEvent,
+  Stats,
+  Equipment,
+  EquipmentItem,
+} from '../types.js';
 import {
   getEvolutionStatus,
 } from '../entities/index.js';
+import {
+  positiveEventFeedback,
+  negativeEventFeedback,
+  neutralEventFeedback,
+  questSuccessCelebration,
+  questFailureAnimation,
+  playAnimation,
+  scalePulse,
+} from '../animation.js';
 
 // ─── Public API ────────────────────────────────────────
 
@@ -41,16 +60,36 @@ export function renderCard(
 // ─── Template Cloning Helper ────────────────────────────
 
 /**
- * Clone a template and return its content as a DocumentFragment.
+ * Clone a template and return the first element child.
  */
 function createCardElement(templateId: string): HTMLElement | null {
   const template = document.getElementById(templateId);
-  if (!template) {
+  if (!template || !(template instanceof HTMLTemplateElement)) {
     console.warn(`[render] Template #${templateId} not found`);
     return null;
   }
   const frag = document.importNode(template.content, true);
-  return frag.firstElementChild;
+  return frag.firstElementChild as HTMLElement;
+}
+
+/**
+ * Query a child element from a fragment, casting to HTMLElement.
+ */
+function queryEl(
+  frag: HTMLElement | DocumentFragment,
+  selector: string,
+): HTMLElement | null {
+  return frag.querySelector(selector) as HTMLElement | null;
+}
+
+/**
+ * Safe equipment slot access.
+ */
+function getEquipSlot(
+  equipment: Equipment,
+  slot: 'weapon' | 'armor' | 'accessory',
+): EquipmentItem | null {
+  return equipment[slot];
 }
 
 // ─── Adventurer Card Renderer ──────────────────────────
@@ -66,7 +105,7 @@ export function renderAdventurerCard(
   if (!frag) return null;
 
   // Name
-  const nameEl = frag.querySelector('[data-name]');
+  const nameEl = queryEl(frag, '[data-name]');
   if (nameEl) nameEl.textContent = adventurer.name ?? 'Unnamed';
 
   // Guild Master badge
@@ -81,16 +120,17 @@ export function renderAdventurerCard(
   }
 
   // Class icon (first letter of class as icon indicator)
-  const classIconEl = frag.querySelector('[data-class-icon]');
+  const classIconEl = queryEl(frag, '[data-class-icon]');
   if (classIconEl) {
     const classLetter = (adventurer.class ?? '?')[0].toUpperCase();
     classIconEl.textContent = classLetter;
   }
 
   // Stats grid
-  const stats = adventurer.stats ?? {};
-  for (const stat of ['str', 'dex', 'int', 'vit', 'lck'] as const) {
-    const statEl = frag.querySelector(`[data-stat="${stat}"]`);
+  const stats: Stats = adventurer.stats ?? { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
+  const statKeys: (keyof Stats)[] = ['str', 'dex', 'int', 'vit', 'lck'];
+  for (const stat of statKeys) {
+    const statEl = queryEl(frag, `[data-stat="${stat}"]`);
     if (statEl) {
       const label = stat.toUpperCase();
       const value = stats[stat] ?? 0;
@@ -100,8 +140,8 @@ export function renderAdventurerCard(
 
   // Morale bar
   const morale = adventurer.morale ?? 70;
-  const moraleBar = frag.querySelector('[data-morale-bar]');
-  const moraleValue = frag.querySelector('[data-morale]');
+  const moraleBar = queryEl(frag, '[data-morale-bar]');
+  const moraleValue = queryEl(frag, '[data-morale]');
   if (moraleBar) {
     moraleBar.style.width = `${morale}%`;
     moraleBar.style.backgroundColor = getMoraleBarColor(morale);
@@ -111,12 +151,13 @@ export function renderAdventurerCard(
   }
 
   // Equipment slots
-  const equipment = adventurer.equipment ?? {};
-  for (const slot of ['weapon', 'armor', 'accessory'] as const) {
-    const equipEl = frag.querySelector(`[data-equip="${slot}"]`);
-    const rarityEl = frag.querySelector(`[data-rarity="${slot}"]`);
+  const equipment: Equipment = adventurer.equipment ?? { weapon: null, armor: null, accessory: null };
+  const equipSlots: ('weapon' | 'armor' | 'accessory')[] = ['weapon', 'armor', 'accessory'];
+  for (const slot of equipSlots) {
+    const equipEl = queryEl(frag, `[data-equip="${slot}"]`);
+    const rarityEl = queryEl(frag, `[data-rarity="${slot}"]`);
     if (equipEl && rarityEl) {
-      const item = equipment[slot];
+      const item = getEquipSlot(equipment, slot);
       if (item && item.rarity) {
         rarityEl.textContent = item.rarity;
         rarityEl.style.color = getRarityColor(item.rarity);
@@ -128,13 +169,13 @@ export function renderAdventurerCard(
   }
 
   // Rank badge
-  const rankEl = frag.querySelector('[data-rank]');
+  const rankEl = queryEl(frag, '[data-rank]');
   if (rankEl) {
     rankEl.textContent = adventurer.rank ?? 'Novice';
   }
 
   // Origin badge
-  const originEl = frag.querySelector('[data-origin]');
+  const originEl = queryEl(frag, '[data-origin]');
   if (originEl) {
     originEl.textContent = adventurer.origin ?? 'Unknown';
   }
@@ -164,7 +205,7 @@ export function renderAdventurerCard(
     // Show evolution progress hint
     const progressEl = document.createElement('div');
     progressEl.className = 'evolution-hint';
-    const equipment = adventurer.equipment ?? {};
+    const equip = adventurer.equipment ?? { weapon: null, armor: null, accessory: null };
     const missing = evolution.unmet
       .slice(0, 2)
       .map(
@@ -172,7 +213,7 @@ export function renderAdventurerCard(
           `${e.result}: ${e.missing
             .map(
               ([slot, cls]) =>
-                `${slot}: ${equipment[slot]?.name ?? 'None'} (need ${cls})`,
+                `${slot}: ${getEquipSlot(equip, slot as 'weapon' | 'armor' | 'accessory')?.name ?? 'None'} (need ${cls})`,
             )
             .join(', ')}`,
       )
@@ -190,7 +231,7 @@ export function renderAdventurerCard(
 
   // Visual indicator for evolved adventurers
   if (adventurer.evolved) {
-    const evolvedIconEl = frag.querySelector('[data-class-icon]');
+    const evolvedIconEl = queryEl(frag, '[data-class-icon]');
     if (evolvedIconEl) {
       evolvedIconEl.style.border = '2px solid #f0c040';
       evolvedIconEl.style.boxShadow = '0 0 8px rgba(240, 192, 64, 0.5)';
@@ -219,11 +260,13 @@ export function renderQuestCard(
     .filter(Boolean) as Adventurer[];
 
   function adventurerMeetsStats(adventurer: Adventurer, q: Quest): boolean {
-    const reqStats = q.requirements?.minStats ?? {};
-    for (const stat of ['str', 'dex', 'int', 'vit', 'lck'] as const) {
+    const reqStats: Stats = q.requirements?.minStats ?? { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
+    const advStats: Stats = adventurer.stats ?? { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
+    const statKeys: (keyof Stats)[] = ['str', 'dex', 'int', 'vit', 'lck'];
+    for (const stat of statKeys) {
       if (
         (reqStats[stat] ?? 0) > 0 &&
-        (adventurer[stat] ?? 0) < (reqStats[stat] ?? 0)
+        (advStats[stat] ?? 0) < (reqStats[stat] ?? 0)
       ) {
         return false;
       }
@@ -240,48 +283,51 @@ export function renderQuestCard(
   const meetsSizeRequirement = partySize >= effectiveMinSize;
 
   if (isDashboard) {
-    const progressSection = frag.querySelector('[data-progress-section]');
-    const reqStats = frag.querySelector('[data-req-stats]');
-    const partySizeBadge = frag.querySelector('[data-party-size-badge]');
-    const questActions = frag.querySelector('[data-action="send-party"]');
+    const progressSection = queryEl(frag, '[data-progress-section]');
+    const reqStatsEl = queryEl(frag, '[data-req-stats]');
+    const partySizeBadge = queryEl(frag, '[data-party-size-badge]');
+    const questActions = queryEl(frag, '[data-action="send-party"]');
 
-    if (reqStats) reqStats.style.display = 'none';
-    if (partySizeBadge) partySizeBadge.parentElement!.style.display = 'none';
-    if (questActions) questActions.parentElement!.style.display = 'none';
+    if (reqStatsEl) reqStatsEl.style.display = 'none';
+    if (partySizeBadge && partySizeBadge.parentElement)
+      partySizeBadge.parentElement.style.display = 'none';
+    if (questActions && questActions.parentElement)
+      questActions.parentElement.style.display = 'none';
     if (progressSection) {
       progressSection.style.display = 'block';
       const ticksNeeded = (quest.difficulty ?? 1) * 10;
       const currentTicks = state?.questTickCount ?? 0;
       const progress = Math.min(100, Math.round((currentTicks / ticksNeeded) * 100));
-      const fill = frag.querySelector('[data-progress-fill]');
-      const label = frag.querySelector('[data-progress-label]');
+      const fill = queryEl(frag, '[data-progress-fill]');
+      const label = queryEl(frag, '[data-progress-label]');
       if (fill) fill.style.width = `${progress}%`;
       if (label) label.textContent = `${progress}% complete`;
     }
   } else {
-    const progressSection = frag.querySelector('[data-progress-section]');
+    const progressSection = queryEl(frag, '[data-progress-section]');
     if (progressSection) progressSection.style.display = 'none';
   }
 
   // Name
-  const nameEl = frag.querySelector('[data-name]');
+  const nameEl = queryEl(frag, '[data-name]');
   if (nameEl) nameEl.textContent = quest.name || 'Unnamed Quest';
 
   // Difficulty stars
-  const difficultyEl = frag.querySelector('[data-difficulty]');
+  const difficultyEl = queryEl(frag, '[data-difficulty]');
   if (difficultyEl) {
     const difficulty = quest.difficulty || 1;
     difficultyEl.textContent = getDifficultyStars(difficulty);
   }
 
   // Description
-  const descEl = frag.querySelector('[data-description]');
+  const descEl = queryEl(frag, '[data-description]');
   if (descEl) descEl.textContent = quest.description || 'No description.';
 
   // Requirements stats
-  const reqStats = (quest.requirements && quest.requirements.minStats) || {};
-  for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
-    const statEl = frag.querySelector(`[data-req-stat="${stat}"]`);
+  const reqStats: Stats = (quest.requirements && quest.requirements.minStats) || { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
+  const statKeys: (keyof Stats)[] = ['str', 'dex', 'int', 'vit', 'lck'];
+  for (const stat of statKeys) {
+    const statEl = queryEl(frag, `[data-req-stat="${stat}"]`);
     if (statEl) {
       const label = stat.toUpperCase();
       const value = reqStats[stat] ?? 0;
@@ -290,7 +336,7 @@ export function renderQuestCard(
   }
 
   // Preferred classes list
-  const classesList = frag.querySelector('[data-classes]');
+  const classesList = queryEl(frag, '[data-classes]');
   if (classesList) {
     const preferredClasses = quest.requirements?.preferredClasses || [];
     for (const cls of preferredClasses) {
@@ -302,19 +348,19 @@ export function renderQuestCard(
   }
 
   // Rewards
-  const goldEl = frag.querySelector('[data-gold]');
+  const goldEl = queryEl(frag, '[data-gold]');
   if (goldEl) {
     const gold = quest.rewards?.gold ?? 0;
     goldEl.textContent = `⛃ ${gold}`;
   }
-  const xpEl = frag.querySelector('[data-experience]');
+  const xpEl = queryEl(frag, '[data-experience]');
   if (xpEl) {
     const xp = quest.rewards?.experience ?? 0;
     xpEl.textContent = `✦ ${xp} XP`;
   }
 
   // Party size badge & Send Party button
-  const sizeBadge = frag.querySelector('[data-party-size-badge]');
+  const sizeBadge = queryEl(frag, '[data-party-size-badge]');
   if (sizeBadge && !isDashboard) {
     if (effectiveMinSize === 1) {
       const hasSingleQualified = anySingleMeetsStats && minPartySize != null;
@@ -332,7 +378,7 @@ export function renderQuestCard(
     }
   }
 
-  const sendBtn = frag.querySelector('[data-action="send-party"]');
+  const sendBtn = queryEl(frag, '[data-action="send-party"]') as HTMLButtonElement | null;
   if (sendBtn && !isDashboard) {
     sendBtn.disabled = !meetsSizeRequirement || partySize === 0;
     sendBtn.setAttribute(
@@ -343,9 +389,11 @@ export function renderQuestCard(
       sendBtn.addEventListener('click', () => {
         if (window.__guildStore) {
           const state = window.__guildStore.getState();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const activeQ = (state as any).activeQuest;
           if (
-            state.activeQuest &&
-            state.activeQuest.questId === quest.id
+            activeQ &&
+            activeQ.questId === quest.id
           ) {
             console.warn(
               `[Render] Quest "${quest.name}" already active — complete it first.`,
@@ -356,9 +404,21 @@ export function renderQuestCard(
             type: 'SEND_QUEST',
             payload: { questId: quest.id },
           });
+          // Brief scale pulse for visual feedback
+          const anim = scalePulse(200);
+          playAnimation(frag, anim);
         }
       });
     }
+  }
+
+  // Apply quest result animation in dashboard context
+  if (isDashboard && state.activeQuest?.result) {
+    const { success } = state.activeQuest.result;
+    const animConfig = success
+      ? questSuccessCelebration()
+      : questFailureAnimation();
+    playAnimation(frag, animConfig);
   }
 
   return frag;
@@ -377,11 +437,11 @@ export function renderEventCard(
   if (!frag) return null;
 
   // Title
-  const titleEl = frag.querySelector('[data-title]');
+  const titleEl = queryEl(frag, '[data-title]');
   if (titleEl) titleEl.textContent = event.title || 'Event';
 
   // Category badge (color-coded)
-  const categoryEl = frag.querySelector('[data-category]');
+  const categoryEl = queryEl(frag, '[data-category]');
   if (categoryEl) {
     categoryEl.textContent = event.category || 'Unknown';
     // Color coding: Budget=Crimson, Crisis=Orange, Drama=Purple
@@ -394,17 +454,18 @@ export function renderEventCard(
   }
 
   // Description
-  const descEl = frag.querySelector('[data-description]');
+  const descEl = queryEl(frag, '[data-description]');
   if (descEl) descEl.textContent = event.description || 'No description.';
 
   // Choice buttons
-  const choicesContainer = frag.querySelector('[data-choices]');
+  const choicesContainer = queryEl(frag, '[data-choices]');
   if (choicesContainer && event.choices) {
-    for (const choice of event.choices) {
+    for (let i = 0; i < event.choices.length; i++) {
+      const choice = event.choices[i];
       const btn = document.createElement('button');
       btn.className = 'btn-choice';
       btn.textContent = choice.label;
-      btn.setAttribute('data-choice-index', String(choice.index));
+      btn.setAttribute('data-choice-index', String(i));
       btn.addEventListener('click', () => {
         // Dispatch event resolution through the store
         const eventElement = btn.closest('.card-event');
@@ -413,7 +474,7 @@ export function renderEventCard(
           if (eventId) {
             window.dispatchEvent(
               new CustomEvent('event-choice', {
-                detail: { eventId, choiceIndex: choice.index },
+                detail: { eventId, choiceIndex: i },
               }),
             );
           }
@@ -423,12 +484,30 @@ export function renderEventCard(
     }
   }
 
-  // Timestamp
-  const timestampEl = frag.querySelector('[data-timestamp]');
+  // Timestamp - EventTemplate doesn't have timestamp; it's set at runtime
+  const timestampEl = queryEl(frag, '[data-timestamp]');
   if (timestampEl) {
-    const day = event.timestamp ?? state?.day ?? 0;
+    const day = (event as unknown as Record<string, unknown>).timestamp ?? state?.day ?? 0;
     timestampEl.textContent = `Day ${day}`;
   }
+
+  // Apply event feedback animation based on category
+  const category = event.category || 'Drama';
+  let animConfig: ReturnType<typeof positiveEventFeedback>;
+  switch (category) {
+    case 'Budget':
+      // Budget events: check for gold change info if available
+      animConfig = positiveEventFeedback();
+      break;
+    case 'Crisis':
+      animConfig = negativeEventFeedback();
+      break;
+    default: // Drama
+      animConfig = neutralEventFeedback();
+      break;
+  }
+  // Apply animation to the card's root element after rendering
+  const eventAnim = playAnimation(frag, animConfig);
 
   return frag;
 }
