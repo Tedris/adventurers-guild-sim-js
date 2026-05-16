@@ -19,6 +19,7 @@ import {
   slideInFromRight,
   fadeOutAndShrink,
   playAnimation,
+  tabSlideTransition,
 } from '../animation.js';
 
 // ─── Animation State Tracking ──────────────────────────
@@ -36,9 +37,99 @@ export type ViewName = 'dashboard' | 'roster' | 'recruitment' | 'quests' | 'even
 // ─── View Dispatcher ───────────────────────────────────
 
 /**
+ * View order mapping for transition direction detection.
+ */
+const VIEW_ORDER: Record<ViewName, number> = {
+  dashboard: 0,
+  roster: 1,
+  recruitment: 2,
+  quests: 3,
+  events: 4,
+  upgrades: 5,
+};
+
+/**
+ * Track the previously rendered view per container for transition direction detection.
+ */
+const _lastView = new Map<string, ViewName>();
+
+/**
  * Dispatch rendering to the correct view based on tab name.
  */
 export function renderView(viewName: ViewName, state: GameState): void {
+  const container = document.getElementById('game-content');
+  if (!container) {
+    switch (viewName) {
+      case 'dashboard':
+        return renderDashboard(state);
+      case 'roster':
+        return renderRoster(state);
+      case 'recruitment':
+        return renderRecruitment(state);
+      case 'quests':
+        return renderQuestBoard(state);
+      case 'events':
+        return renderEvents(state);
+      case 'upgrades':
+        return renderUpgrades(state);
+      default:
+        return renderDashboard(state);
+    }
+  }
+
+  const lastView = _lastView.get('game-content');
+  _lastView.set('game-content', viewName);
+
+  // If no previous view (first render), render directly without transition
+  if (!lastView) {
+    _executeView(viewName, state);
+    return;
+  }
+
+  // Determine transition direction
+  const currentIndex = VIEW_ORDER[lastView] ?? 0;
+  const newIndex = VIEW_ORDER[viewName] ?? 0;
+  const direction: 'left' | 'right' = newIndex > currentIndex ? 'left' : 'right';
+  const transitions = tabSlideTransition(direction);
+
+  // Capture old content for out-animation
+  const oldContent = container.innerHTML;
+
+  // Render new view
+  _executeView(viewName, state);
+
+  // Animate old content out and new content in
+  if (oldContent !== '') {
+    // Create temporary container for out-animation
+    const tempOut = document.createElement('div');
+    tempOut.innerHTML = oldContent;
+    container.appendChild(tempOut);
+
+    const outAnim = playAnimation(tempOut, transitions.out);
+    outAnim.addEventListener('finish', () => {
+      tempOut.remove();
+    });
+
+    // Animate in the new content (first child of container after old content removal)
+    const newContent = container.firstElementChild;
+    if (newContent && newContent instanceof HTMLElement) {
+      newContent.style.opacity = '0';
+      newContent.style.transform = direction === 'left'
+        ? 'translateX(30px)'
+        : 'translateX(-30px)';
+      const inAnim = playAnimation(newContent, transitions.in);
+      inAnim.addEventListener('finish', () => {
+        newContent.style.opacity = '';
+        newContent.style.transform = '';
+      });
+    }
+  }
+}
+
+/**
+ * Execute the view rendering without animation (internal).
+ */
+function _executeView(viewName: ViewName, state: GameState): void {
   switch (viewName) {
     case 'dashboard':
       return renderDashboard(state);
