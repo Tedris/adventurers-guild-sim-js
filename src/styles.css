@@ -70,6 +70,52 @@ body {
   color: var(--color-accent);
 }
 
+#game-toolbar {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-toolbar {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.btn-toolbar:hover {
+  background: #c7354f;
+}
+
+.btn-new-game {
+  background: #4caf50;
+}
+
+.btn-new-game:hover {
+  background: #388e3c;
+}
+
+#header-stats + button,
+#game-header .btn-next-day {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+#game-header .btn-next-day:hover {
+  background: #c7354f;
+}
+
 /* ===== Navigation Tabs ===== */
 #game-nav {
   display: flex;
@@ -355,8 +401,6 @@ body {
 }
 
 .quest-card .quest-requirements .preferred-classes {
-  display: flex;
-  gap: 4px;
   margin-top: 4px;
 }
 
@@ -383,6 +427,35 @@ body {
   color: var(--color-text-muted);
 }
 
+.quest-card .quest-party-size {
+  margin: 4px 0 8px;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.quest-card .party-size-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.quest-card .party-size-badge.party-size-met {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.quest-card .party-size-badge.party-size-short {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+}
+
+.quest-card .party-size-badge.party-size-none {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-muted);
+}
+
 .quest-card .quest-action {
   margin-top: 8px;
 }
@@ -405,7 +478,35 @@ body {
   opacity: 0.6;
 }
 
-/* ===== Event Card Variant ===== */
+.quest-card .quest-progress {
+  margin: 8px 0;
+  display: none;
+}
+
+.quest-card .quest-progress .progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.quest-card .quest-progress .progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), #4fc3f7);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.quest-card .quest-progress .progress-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  display: block;
+}
+
+/* ===== Active Quest Card ===== */
 
 .event-card {
   border-left: 3px solid #ff9800;
@@ -744,4 +845,201 @@ body {
 .evolved-class {
   color: #f0c040;
   font-weight: bold;
+}
+
+/* ===== Recruitment View ===== */
+
+.restock-section {
+  grid-column: 1 / -1;
+  border-left: 3px solid #4caf50;
+}
+
+.restock-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.pool-count {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.btn-restock {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.btn-restock:hover {
+  background: #388e3c;
+}
+
+.btn-restock:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.btn-hire {
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+  width: 100%;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.btn-hire:hover {
+  background: #c7354f;
+}
+
+.recruit-card {
+  border-left: 3px solid #2196f3;
+}
+
+.party-summary {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.btn-assign-party {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+  width: 100%;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.btn-assign-party:hover {
+  background: #1976d2;
+}
+
+.btn-remove-party {
+  background: #ff9800;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+  width: 100%;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.btn-remove-party:hover {
+  background: #f57c00;
+}
+
+/* Guild Master badge */
+.adventurer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.guild-master-badge {
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  color: #1a1a2e;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Notifications */
+#notifications-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.notification-card {
+  background: linear-gradient(135deg, #2d4a3e, #1a3a2e);
+  border: 1px solid #4caf50;
+  border-radius: var(--card-radius);
+  padding: 12px 16px;
+  color: var(--color-text);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  float: right;
+  margin-left: 8px;
+  padding: 0 4px;
+}
+
+.notification-close:hover {
+  color: var(--color-text);
+}
+
+/* ===== Virtual List Styles ===== */
+/* Applied when adventurer count > 20 */
+
+.virtual-list-container {
+  overflow-y: auto;
+  position: relative;
+  height: 100%;
+  contain: strict; /* Performance: isolate layout/paint */
+}
+
+.virtual-list-spacer-top,
+.virtual-list-spacer-bottom {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.virtual-list-cards {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-card {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  will-change: transform; /* GPU acceleration for smooth scrolling */
+}
+
+/* Prevent layout thrashing during scroll */
+.virtual-list-container * {
+  contain: layout style;
 }
