@@ -20,6 +20,7 @@ import {
   fadeOutAndShrink,
   playAnimation,
   tabSlideTransition,
+  upgradeSuccessAnimation,
 } from '../animation.js';
 
 // ─── Animation State Tracking ──────────────────────────
@@ -639,6 +640,9 @@ export function renderUpgrades(state: GameState): void {
               type: 'UPGRADE_GUILD',
               payload: { upgradeType: upgrade.type, gold: upgrade.nextCost },
             });
+            // Upgrade success animation
+            const anim = upgradeSuccessAnimation();
+            playAnimation(card, anim);
           }
         },
       );
