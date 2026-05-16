@@ -13,7 +13,7 @@
  */
 export interface AnimationConfig {
   keyframes: Keyframe[];
-  options?: AnimationOptions;
+  options?: KeyframeAnimationOptions;
   duration?: number;
   easing?: string;
   delay?: number;
