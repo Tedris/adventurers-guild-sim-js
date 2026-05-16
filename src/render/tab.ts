@@ -569,6 +569,10 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
       const anim = slideInFromRight(180);
       playAnimation(element, anim);
     },
+    onCardLeave: (element) => {
+      const anim = fadeOutAndShrink(200);
+      playAnimation(element, anim);
+    },
   });
 
   // Store the virtual list instance
