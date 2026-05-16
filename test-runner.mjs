@@ -16,6 +16,7 @@ const testFiles = [
   'src/entities.test.js',
   'src/store.test.js',
   'src/save-load.test.js',
+  'src/data-integrity.test.js',
 ];
 
 let failed = false;
