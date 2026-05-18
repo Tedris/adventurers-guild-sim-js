@@ -50,6 +50,7 @@ export type Personality = {
 export type PersonalityTraitDef = {
   morale: number;
   quest_success: number;
+  aptitude_bonus?: Record<string, number>;
   description: string;
 };
 
