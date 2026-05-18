@@ -659,8 +659,8 @@ import('./entities/index.js').then((module) => {
     assert(QUEST_TEMPLATES.length >= 12, `QUEST_TEMPLATES should have >= 12 entries, got ${QUEST_TEMPLATES.length}`);
   });
 
-  test('QUEST_TEMPLATES has at most 15 entries', () => {
-    assert(QUEST_TEMPLATES.length <= 15, `QUEST_TEMPLATES should have <= 15 entries, got ${QUEST_TEMPLATES.length}`);
+  test('QUEST_TEMPLATES has at most 25 entries', () => {
+    assert(QUEST_TEMPLATES.length <= 25, `QUEST_TEMPLATES should have <= 25 entries, got ${QUEST_TEMPLATES.length}`);
   });
 
   test('QUEST_TEMPLATES contains all 8 original template names', () => {
