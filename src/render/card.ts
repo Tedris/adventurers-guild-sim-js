@@ -19,6 +19,7 @@ import type {
 } from '../types.js';
 import {
   getEvolutionStatus,
+  PERSONALITY_TRAIT_TABLE,
 } from '../entities/index.js';
 import {
   positiveEventFeedback,
@@ -235,6 +236,32 @@ export function renderAdventurerCard(
     if (evolvedIconEl) {
       evolvedIconEl.style.border = '2px solid #f0c040';
       evolvedIconEl.style.boxShadow = '0 0 8px rgba(240, 192, 64, 0.5)';
+    }
+  }
+
+  // Trait badges
+  const traitsListEl = queryEl(frag, '[data-traits]');
+  if (traitsListEl && adventurer.personality?.traits) {
+    for (const traitName of adventurer.personality.traits) {
+      const traitDef = PERSONALITY_TRAIT_TABLE[traitName];
+      if (traitDef) {
+        const badge = document.createElement('span');
+        badge.className = 'trait-badge';
+        badge.textContent = traitName;
+        badge.title = traitDef.description;
+
+        // Categorize traits by name patterns
+        const mysticalTraits = ['Arcane Prodigy', 'Dreamwalker', 'Spirit-Talker', 'Starborn', 'Void-Watcher'];
+        const disciplinedTraits = ['Iron-Willed', 'Ascetic', 'Devout', 'Stoic', 'Zealous'];
+
+        if (mysticalTraits.includes(traitName)) {
+          badge.classList.add('mystical');
+        } else if (disciplinedTraits.includes(traitName)) {
+          badge.classList.add('disciplined');
+        }
+
+        traitsListEl.appendChild(badge);
+      }
     }
   }
 
