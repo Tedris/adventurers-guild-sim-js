@@ -140,7 +140,7 @@ export function calculateAptitudes(adventurer: Adventurer): Record<string, numbe
   // Apply personality trait aptitude modifiers from data
   const personality = adventurer.personality || {};
   const traits = personality.traits || [];
-  const traitAptitudes: Record<string, number> = {};
+  const traitAptitudes: Record<string, number> = { ...baseAptitudes };
 
   for (const traitName of traits) {
     const trait = PERSONALITY_TRAIT_TABLE[traitName];
@@ -158,7 +158,7 @@ export function calculateAptitudes(adventurer: Adventurer): Record<string, numbe
     }
   }
 
-  return { ...baseAptitudes, ...traitAptitudes };
+  return traitAptitudes;
 }
 
 // Fame levels for recruitment bonuses
