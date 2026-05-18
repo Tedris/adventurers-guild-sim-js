@@ -50,6 +50,10 @@ export const VALID_PERSONALITY_TRAITS = [
   'Scholarly', 'Curious', 'Analytical', 'Patient', 'Detail-oriented',
   // Roguish types (+stealth, +ranged_combat)
   'Cunning', 'Resourceful', 'Stealthy', 'Lucky', 'Adaptable',
+  // Mystical types (new v1.2)
+  'Arcane Prodigy', 'Dreamwalker', 'Spirit-Talker', 'Starborn', 'Void-Watcher',
+  // Disciplined types (new v1.2)
+  'Iron-Willed', 'Ascetic', 'Devout', 'Stoic', 'Zealous',
 ] as const;
 
 export const PERSONALITY_TRAIT_TABLE: Record<string, PersonalityTraitDef> = {
@@ -83,6 +87,18 @@ export const PERSONALITY_TRAIT_TABLE: Record<string, PersonalityTraitDef> = {
   Stealthy:    { morale: -1, quest_success: 3, description: '-1 morale on hire, +3% stealth quest success' },
   Lucky:       { morale: 3,  quest_success: 2, description: '+3 morale on hire, +2% luck-dependent quest success' },
   Adaptable:   { morale: 2,  quest_success: 2, description: '+2 morale on hire, +2% any quest success' },
+  // Mystical types (new v1.2)
+  'Arcane Prodigy': { morale: 2,  quest_success: 3, aptitude_bonus: { investigation: 0.03 }, description: '+2 morale on hire, +3% investigation success' },
+  'Dreamwalker':    { morale: 5,  quest_success: 1, aptitude_bonus: { all: 0.01 }, description: '+5 morale on hire, +1% all quest success' },
+  'Spirit-Talker':  { morale: 3,  quest_success: 2, aptitude_bonus: { herb_gathering: 0.02 }, description: '+3 morale on hire, +2% herb_gathering success' },
+  'Starborn':       { morale: 4,  quest_success: 2, aptitude_bonus: { all: 0.02 }, description: '+4 morale on hire, +2% all quest success' },
+  'Void-Watcher':   { morale: -2, quest_success: 4, aptitude_bonus: { stealth: 0.04 }, description: '-2 morale on hire, +4% stealth success' },
+  // Disciplined types (new v1.2)
+  'Iron-Willed':  { morale: 6,  quest_success: 1, aptitude_bonus: { defense: 0.01 }, description: '+6 morale on hire, +1% defense success' },
+  'Ascetic':      { morale: 4,  quest_success: 2, aptitude_bonus: { protection: 0.02 }, description: '+4 morale on hire, +2% protection success' },
+  'Devout':       { morale: 5,  quest_success: 2, aptitude_bonus: { protection: 0.02 }, description: '+5 morale on hire, +2% protection success' },
+  'Stoic':        { morale: 3,  quest_success: 1, aptitude_bonus: { defense: 0.01 }, description: '+3 morale on hire, +1% defense success' },
+  'Zealous':      { morale: -5, quest_success: 5, aptitude_bonus: { combat: 0.05 }, description: '-5 morale on hire, +5% combat success' },
 };
 
 // ─── Name Generation ───────────────────────────────────
@@ -121,19 +137,23 @@ export const CLASS_APTITUDES: Record<string, Record<string, number>> = {
 export function calculateAptitudes(adventurer: Adventurer): Record<string, number> {
   const baseAptitudes = CLASS_APTITUDES[adventurer.class] || {};
 
-  // Apply personality trait aptitude modifiers
+  // Apply personality trait aptitude modifiers from data
   const personality = adventurer.personality || {};
   const traits = personality.traits || [];
   const traitAptitudes: Record<string, number> = {};
 
   for (const traitName of traits) {
     const trait = PERSONALITY_TRAIT_TABLE[traitName];
-    if (trait && trait.quest_success > 0) {
-      const classType = adventurer.class.toLowerCase();
-      if (classType === 'sword' || classType === 'axe') {
-        traitAptitudes.combat = (traitAptitudes.combat || 0) + trait.quest_success * 0.01;
-      } else if (classType === 'staff' || classType === 'wand') {
-        traitAptitudes.investigation = (traitAptitudes.investigation || 0) + trait.quest_success * 0.01;
+    if (trait && trait.aptitude_bonus) {
+      for (const [aptitude, bonus] of Object.entries(trait.aptitude_bonus)) {
+        if (aptitude === 'all') {
+          // Apply to all aptitudes in baseAptitudes
+          for (const baseAptitude of Object.keys(baseAptitudes)) {
+            traitAptitudes[baseAptitude] = (traitAptitudes[baseAptitude] || 0) + bonus;
+          }
+        } else {
+          traitAptitudes[aptitude] = (traitAptitudes[aptitude] || 0) + bonus;
+        }
       }
     }
   }
