@@ -248,10 +248,14 @@ import('./entities/index.js').then((module) => {
     assert(found, 'fame=50 pool should occasionally include diff-3 new templates (ran 50 trials)');
   });
 
-  test('getFameGatedQuestPool with fame=75 includes diff-4 new templates', () => {
+ test('getFameGatedQuestPool with fame=75 includes diff-4 new templates', () => {
     const newNames = ['Fortify the frontier settlement', 'Negotiate the regional alliance'];
-    const hasNew = result.some(q => newNames.includes(q.name));
-    assert(hasNew, `fame=75 pool should include at least one diff-4 new template, got: ${result.map(q => q.name).join(', ')}`);
+    let found = false;
+    for (let i = 0; i < 50; i++) {
+      const result = getFameGatedQuestPool({ fame: 75 }, 15);
+      if (result.some(q => newNames.includes(q.name))) { found = true; break; }
+    }
+    assert(found, 'fame=75 pool should occasionally include diff-4 new templates (ran 50 trials)');
   });
 
   test('generateQuestPool includes new templates in random selection', () => {
