@@ -166,6 +166,55 @@ body {
   color: var(--color-text);
 }
 
+/* ===== Trait Badges ===== */
+
+.traits-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.trait-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: rgba(233, 69, 96, 0.2);
+  color: #e94560;
+  border: 1px solid rgba(233, 69, 96, 0.4);
+  cursor: help;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.trait-badge:hover {
+  background: rgba(233, 69, 96, 0.3);
+  border-color: #e94560;
+}
+
+.trait-badge.mystical {
+  background: rgba(147, 112, 219, 0.2);
+  color: #9370db;
+  border-color: rgba(147, 112, 219, 0.4);
+}
+
+.trait-badge.mystical:hover {
+  background: rgba(147, 112, 219, 0.3);
+  border-color: #9370db;
+}
+
+.trait-badge.disciplined {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  border-color: rgba(76, 175, 80, 0.4);
+}
+
+.trait-badge.disciplined:hover {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: #4caf50;
+}
+
 /* ===== Responsive Layout — Mobile (≤480px) ===== */
 
 @media (max-width: 480px) {
