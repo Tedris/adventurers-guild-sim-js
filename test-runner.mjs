@@ -17,6 +17,7 @@ const testFiles = [
   'src/store.test.js',
   'src/save-load.test.js',
   'src/data-integrity.test.js',
+  'src/personality-traits.test.js',
 ];
 
 let failed = false;
