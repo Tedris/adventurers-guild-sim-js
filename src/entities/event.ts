@@ -17,7 +17,7 @@ export const EVENT_COOLDOWN_TICKS = 20; // Minimum ticks between same event
 // ─── Event Templates ───────────────────────────────────
 
 export const EVENT_TEMPLATES: EventTemplate[] = [
-  // ── Budget Events (4) ───────────────────────────────
+  // ── Budget Events (6) ───────────────────────────────
 
   {
     id: 'budget-bonus-demands',
@@ -67,8 +67,32 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
       { label: 'Refuse (reputation -2)', effect: (state) => ({ reputation: ((state.reputation as number | undefined) ?? 0) - 2 }) },
     ],
   },
+  {
+    id: 'budget-skills-upgrade',
+    category: 'Budget',
+    weight: 3,
+    title: 'Skills Upgrade Program',
+    description: 'A wandering master offers intensive combat drills for your team. The training will make them stronger — if you can spare the gold.',
+    choices: [
+      { label: 'Pay for training (-20 gold, +5 trainingBonus)', effect: (state) => ({ gold: -20, trainingBonus: 5 }) },
+      { label: 'Moderate program (-10 gold, +2 trainingBonus)', effect: (state) => ({ gold: -10, trainingBonus: 2 }) },
+      { label: 'Decline (no cost, no gain)', effect: (state) => ({}) },
+    ],
+  },
+  {
+    id: 'budget-payday-dispute',
+    category: 'Budget',
+    weight: 3,
+    title: 'Payday Dispute',
+    description: 'Word of your latest quest reward has spread through the guild. Your adventurers want a cut of the profits.',
+    choices: [
+      { label: 'Pay bonus (-15 gold, +5 future quest rewards)', effect: (state) => ({ gold: -15 }) },
+      { label: 'Negotiate partial (-5 gold, morale +5)', effect: (state) => ({ gold: -5, moraleAdjustment: 5 }) },
+      { label: 'Refuse (morale -5)', effect: (state) => ({ moraleAdjustment: -5 }) },
+    ],
+  },
 
-  // ── Crisis Events (4) ───────────────────────────────
+  // ── Crisis Events (6) ───────────────────────────────
 
   {
     id: 'crisis-monster-attack',
@@ -118,8 +142,32 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
       { label: 'Ignore it (morale -8, 1-2 adventurer loss)', effect: (state) => ({ moraleAdjustment: -8 }) },
     ],
   },
+  {
+    id: 'crisis-collateral-damage',
+    category: 'Crisis',
+    weight: 3,
+    title: 'Collateral Damage',
+    description: 'A routine quest went sideways — innocent bystanders were caught in the crossfire. The town is angry and demands answers.',
+    choices: [
+      { label: 'Compensate victims (-15 gold, reputation +2, morale +2)', effect: (state) => ({ gold: -15, reputation: ((state.reputation as number | undefined) ?? 0) + 2, moraleAdjustment: 2 }) },
+      { label: 'Public apology (no cost, reputation -1, morale +1)', effect: (state) => ({ reputation: ((state.reputation as number | undefined) ?? 0) - 1, moraleAdjustment: 1 }) },
+      { label: 'Ignore (reputation -3, morale -2, questRisk +5%)', effect: (state) => ({ reputation: ((state.reputation as number | undefined) ?? 0) - 3, moraleAdjustment: -2, questRisk: ((state.questRisk as number | undefined) ?? 0) + 5 }) },
+    ],
+  },
+  {
+    id: 'crisis-client-lawsuit',
+    category: 'Crisis',
+    weight: 3,
+    title: 'Client Lawsuit',
+    description: 'A client who hired your guild for a simple job is suing for damages after the mission went badly.',
+    choices: [
+      { label: 'Settle out of court (-25 gold, reputation -1)', effect: (state) => ({ gold: -25, reputation: ((state.reputation as number | undefined) ?? 0) - 1 }) },
+      { label: 'Contest in court (-10 gold, 50/50 reputation outcome)', effect: (state) => ({ gold: -10 }) },
+      { label: 'Ignore (reputation -4, fameDelta -2)', effect: (state) => ({ reputation: ((state.reputation as number | undefined) ?? 0) - 4, fameDelta: -2 }) },
+    ],
+  },
 
-  // ── Drama Events (4) ────────────────────────────────
+  // ── Drama Events (6) ────────────────────────────────
 
   {
     id: 'drama-relationship',
@@ -167,6 +215,30 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
       { label: 'Address it publicly (+5 gold, morale +3)', effect: (state) => ({ gold: 5, moraleAdjustment: 3 }) },
       { label: 'Ignore it (no cost, no gain)', effect: (state) => ({}) },
       { label: 'Find the source (-3 gold for investigation)', effect: (state) => ({ gold: -3, reputation: ((state.reputation as number | undefined) ?? 0) + 1 }) },
+    ],
+  },
+  {
+    id: 'drama-forbidden-romance',
+    category: 'Drama',
+    weight: 2,
+    title: 'Forbidden Romance',
+    description: 'Two adventurers have been spotted spending time together after missions. The relationship is causing whispers through the guild.',
+    choices: [
+      { label: 'Encourage it (morale +3)', effect: (state) => ({ moraleAdjustment: 3 }) },
+      { label: 'Ignore (morale neutral)', effect: (state) => ({}) },
+      { label: 'Discourage it (morale -2)', effect: (state) => ({ moraleAdjustment: -2 }) },
+    ],
+  },
+  {
+    id: 'drama-shadows-envy',
+    category: 'Drama',
+    weight: 2,
+    title: 'Shadows of Envy',
+    description: 'One adventurer keeps getting the prime quest assignments. Resentment is building among the rest of the guild.',
+    choices: [
+      { label: 'Rotate quest assignments (morale +3, gold -3)', effect: (state) => ({ moraleAdjustment: 3, gold: -3 }) },
+      { label: 'Give everyone recognition (morale +2, no cost)', effect: (state) => ({ moraleAdjustment: 2 }) },
+      { label: 'Let it play out (morale -3)', effect: (state) => ({ moraleAdjustment: -3 }) },
     ],
   },
 ];
