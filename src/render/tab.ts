@@ -319,7 +319,10 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
     <h3>Party (${partyIds.size}/${adventurers.length})</h3>
     <div class="party-summary">
       <span>${[...partyIds]
-        .map((id) => adventurers.find((a) => a.id === id)?.name || '?')
+        .map((id) => {
+          const a = adventurers.find((a) => a.id === id);
+          return a ? a.name + ' (' + (a.evolvedClass || a.class) + ')' : '?';
+        })
         .join(', ') || 'No party members'}</span>
     </div>
   `;
@@ -455,7 +458,10 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
     <h3>Party (${partyIds.size}/${adventurers.length})</h3>
     <div class="party-summary">
       <span>${[...partyIds]
-        .map((id) => adventurers.find((a) => a.id === id)?.name || '?')
+        .map((id) => {
+          const a = adventurers.find((a) => a.id === id);
+          return a ? a.name + ' (' + (a.evolvedClass || a.class) + ')' : '?';
+        })
         .join(', ') || 'No party members'}</span>
     </div>
   `;
@@ -910,7 +916,7 @@ export function createPartyStatusCard(state: GameState): HTMLElement {
       <div class="party-synergy">Synergy: ${synergyScore.toFixed(1)}</div>
       <ul class="party-members">
         ${adventurers
-          .map((a) => `<li>${a.name} (${a.class})</li>`)
+          .map((a) => `<li>${a.name} (${a.evolvedClass || a.class})</li>`)
           .join('')}
       </ul>
     `
