@@ -1657,6 +1657,61 @@ import('./entities/index.js').then((module) => {
     assert(base.combat === 0.9, `CLASS_APTITUDES.Sword.combat should be 0.9, got ${base.combat}`);
   });
 
+  test('evolveClass returns Sharpshooter for Bow + Sharpshooter Monocular', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Bow',
+      equipment: { weapon: { name: 'Bow' }, armor: null, accessory: { name: "Sharpshooter's Monocular" } },
+    });
+    const result = evolveClass(adventurer);
+    assert(result.evolved === true, 'should evolve to Sharpshooter');
+    assert(result.newClass === 'Sharpshooter', `expected Sharpshooter, got ${result.newClass}`);
+  });
+
+  test('evolveClass returns Arcane Scholar for Staff + Scholar Manuscript', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Staff',
+      equipment: { weapon: { name: 'Staff' }, armor: null, accessory: { name: "Scholar's Manuscript" } },
+    });
+    const result = evolveClass(adventurer);
+    assert(result.evolved === true, 'should evolve to Arcane Scholar');
+    assert(result.newClass === 'Arcane Scholar', `expected Arcane Scholar, got ${result.newClass}`);
+  });
+
+  test('evolveClass returns Bastion Warden for Shield + Plate Armor', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Shield',
+      equipment: { weapon: { name: 'Shield' }, armor: { name: 'Plate Armor' }, accessory: null },
+    });
+    const result = evolveClass(adventurer);
+    assert(result.evolved === true, 'should evolve to Bastion Warden');
+    assert(result.newClass === 'Bastion Warden', `expected Bastion Warden, got ${result.newClass}`);
+  });
+
+  test('evolveClass returns Warlord for Mace + Plate Armor', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Mace',
+      equipment: { weapon: { name: 'Mace' }, armor: { name: 'Plate Armor' }, accessory: null },
+    });
+    const result = evolveClass(adventurer);
+    assert(result.evolved === true, 'should evolve to Warlord');
+    assert(result.newClass === 'Warlord', `expected Warlord, got ${result.newClass}`);
+  });
+
+  test('evolveAdventurer returns evolved adventurer with multiplier-based aptitudes', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Bow',
+      equipment: { weapon: { name: 'Bow' }, armor: null, accessory: { name: "Sharpshooter's Monocular" } },
+    });
+    const result = evolveAdventurer(adventurer);
+    assert(result.class === 'Sharpshooter', 'should have Sharpshooter class');
+    assert(result.evolved === true, 'should be marked as evolved');
+    assert(result.evolvedClass === 'Sharpshooter', 'evolvedClass should be set');
+    // Verify multiplier math: Bow base tracking=0.9, Sharpshooter primary tracking=1.4
+    const expectedTracking = 0.9 * 1.4;
+    assert(Math.abs(result.aptitudes.tracking - expectedTracking) < 0.001, 'tracking multiplier applied');
+    assert(result.evolutionDate !== null, 'should have evolutionDate');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);
