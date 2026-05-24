@@ -116,6 +116,7 @@ export interface EventDelta {
   questRisk?: number;
   temporaryUnavailability?: number;
   retentionBonus?: number;
+  trainingBonus?: number;
   [key: string]: unknown;
 }
 

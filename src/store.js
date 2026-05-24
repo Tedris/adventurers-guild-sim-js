@@ -432,7 +432,7 @@ export function createStore(initialState, validators = {}) {
             }
           }
 
-          const allAdventurers = [...updatedAdventurers, ...milestoneArrivals];
+          const allAdventurers = [...tickResult.adventurers, ...milestoneArrivals];
           const newPartyAdventurerIds = newFame >= 10 && tickResult.party.adventurerIds.length < 2
             ? [...tickResult.party.adventurerIds, ...(milestoneArrivals.slice(0, 1).map(a => a.id))]
             : milestoneArrivals.length > 0 && tickResult.party.adventurerIds.length < 2
@@ -551,7 +551,7 @@ export function createStore(initialState, validators = {}) {
         cooldowns[eventId] = (currentState.day || 0) + 20; // 20 ticks cooldown
 
         // Merge any other delta fields into state
-        const { gold, moraleAdjustment, departureCount: depCount, retirementTriggered, _retirementPerk, _newPerks, ...restDelta } = resolution.delta;
+        const { gold, moraleAdjustment, departureCount: depCount, retirementTriggered, trainingBonus, _retirementPerk, _newPerks, ...restDelta } = resolution.delta;
 
         return {
           ...currentState,
@@ -564,6 +564,8 @@ export function createStore(initialState, validators = {}) {
           // Apply legacy perks from retirement
           ...(_newPerks ? { legacyPerks: _newPerks } : {}),
           ...(resolution.delta.fameDelta ? { fame: (currentState.fame || 0) + resolution.delta.fameDelta } : {}),
+          // Apply training bonus as temporary state (consumed after next quest)
+          ...(trainingBonus ? { pendingTrainingBonus: (currentState.pendingTrainingBonus || 0) + trainingBonus } : {}),
         };
       }
       default:
