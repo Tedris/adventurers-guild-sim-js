@@ -20,6 +20,7 @@ export interface Adventurer {
   aptitudes: Record<string, number>;
   evolved: boolean;
   evolutionDate: string | null;
+  evolvedClass: string | null;
   isGuildMaster?: boolean;
 }
 
@@ -173,7 +174,7 @@ export interface ClassEvolution {
   requires: { weapon?: string; armor?: string; accessory?: string };
   result: string;
   description: string;
-  aptitudes: Record<string, number>;
+  aptitude_multipliers: { primary: Record<string, number>; secondary: Record<string, number> };
   minRank: string;
 }
 
@@ -393,11 +394,11 @@ export interface SynergyResult {
 // ─── Evolution Result Types ────────────────────────────
 
 export interface EvolutionResult {
-  evolved: boolean;
-  newClass: string | null;
-  newAptitudes: Record<string, number> | null;
-  description: string | null;
-}
+   evolved: boolean;
+   newClass: string | null;
+   newAptitudes: { primary: Record<string, number>; secondary: Record<string, number> } | null;
+   description: string | null;
+ }
 
 // ─── Event Resolution Result ───────────────────────────
 
