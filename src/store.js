@@ -3,7 +3,7 @@
 // Central state machine with pub/sub dispatch and validation.
 // All state changes flow through this single channel.
 
-import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, evolveClass, evolveAdventurer, processTick, resolveEvent, generateLegacyPerk, generateRecruitmentPool, MAX_PARTY_SIZE, FAME_MILESTONE_ARRIVALS, generateMilestoneArrivals, generateId } from './entities/index.js';
+import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, evolveClass, evolveAdventurer, processTick, resolveEvent, generateLegacyPerk, generateRecruitmentPool, MAX_PARTY_SIZE, FAME_MILESTONE_ARRIVALS, generateMilestoneArrivals, generateId, getEvolutionStatus } from './entities/index.js';
 
 /**
  * Creates a reactive state store.
@@ -403,6 +403,20 @@ export function createStore(initialState, validators = {}) {
 
         const tickResult = processTick(currentState, tickCount);
 
+        // Check for evolution eligibility (D-25)
+        const potentialEvolutions = [];
+        for (const adventurer of tickResult.adventurers) {
+          if (adventurer.evolved) continue;
+          const status = getEvolutionStatus(adventurer);
+          if (status.canEvolve && status.matching.length > 0) {
+            potentialEvolutions.push({
+              adventurerId: adventurer.id,
+              name: adventurer.name,
+              evolutionName: status.matching[0].result,
+            });
+          }
+        }
+
         // Check if active quest completed and calculate rewards
         const activeQuest = tickResult.activeQuest;
         if (activeQuest && activeQuest.status === 'complete') {
@@ -449,6 +463,20 @@ export function createStore(initialState, validators = {}) {
             });
           }
 
+          // Add evolution notification if applicable
+          if (potentialEvolutions.length > 0) {
+            const evolveMsg = 'Evolution available: ' + potentialEvolutions.map(e => e.name + ' → ' + e.evolutionName).join(', ');
+            // Only add if not already notified about evolution (dedup within last notification)
+            const lastNotif = tickNotifications[tickNotifications.length - 1];
+            if (!lastNotif || !lastNotif.message.includes('Evolution available')) {
+              tickNotifications.push({
+                id: generateId(),
+                message: evolveMsg,
+                timestamp: Date.now(),
+              });
+            }
+          }
+
           return {
             ...tickResult,
             gold: newGold,
@@ -469,6 +497,22 @@ export function createStore(initialState, validators = {}) {
           };
         }
 
+        // Add evolution notifications if applicable
+        if (potentialEvolutions.length > 0) {
+          const evolveMsg = 'Evolution available: ' + potentialEvolutions.map(e => e.name + ' → ' + e.evolutionName).join(', ');
+          const existingNotifications = tickResult.notifications || [];
+          const lastNotif = existingNotifications[existingNotifications.length - 1];
+          if (!lastNotif || !lastNotif.message.includes('Evolution available')) {
+            return {
+              ...tickResult,
+              notifications: [...existingNotifications, {
+                id: generateId(),
+                message: evolveMsg,
+                timestamp: Date.now(),
+              }],
+            };
+          }
+        }
         return tickResult;
       }
       case 'EVENT_FIRED': {
