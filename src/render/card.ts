@@ -121,10 +121,20 @@ export function renderAdventurerCard(
   }
 
   // Class icon (first letter of class as icon indicator)
+  // Show evolved class name when the adventurer has evolved
+  const displayClass = adventurer.evolvedClass || adventurer.class;
   const classIconEl = queryEl(frag, '[data-class-icon]');
   if (classIconEl) {
-    const classLetter = (adventurer.class ?? '?')[0].toUpperCase();
+    const classLetter = (displayClass ?? '?')[0].toUpperCase();
     classIconEl.textContent = classLetter;
+    // "Evolved" badge for evolved adventurers
+    if (adventurer.evolved) {
+      const evolvedBadge = document.createElement('span');
+      evolvedBadge.className = 'evolved-badge';
+      evolvedBadge.textContent = 'Evolved';
+      evolvedBadge.style.cssText = 'font-size: 0.7em; color: #f0c040; margin-left: 4px; font-weight: bold;';
+      classIconEl.after(evolvedBadge);
+    }
   }
 
   // Stats grid
@@ -182,8 +192,9 @@ export function renderAdventurerCard(
   }
 
   // Evolution section
+  // Evolution is irreversible (D-04), so only show for non-evolved adventurers
   const evolution = getEvolutionStatus(adventurer);
-  if (evolution.matching.length > 0) {
+  if (!adventurer.evolved && evolution.matching.length > 0) {
     const evolveBtn = document.createElement('button');
     evolveBtn.className = 'btn-evolve';
     evolveBtn.textContent = 'Evolve Class!';
@@ -202,7 +213,7 @@ export function renderAdventurerCard(
     } else {
       frag.appendChild(evolveBtn);
     }
-  } else if (evolution.unmet.length > 0) {
+  } else if (!adventurer.evolved && evolution.unmet.length > 0) {
     // Show evolution progress hint
     const progressEl = document.createElement('div');
     progressEl.className = 'evolution-hint';
