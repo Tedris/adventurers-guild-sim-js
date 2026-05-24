@@ -67,6 +67,7 @@ import('./entities/index.js').then((module) => {
     getFameLevel,
     getFameGatedQuestPool,
     CLASS_EVOLUTIONS,
+    CLASS_APTITUDES,
     evolveClass,
     getEvolutionStatus,
     evolveAdventurer,
@@ -1591,6 +1592,30 @@ import('./entities/index.js').then((module) => {
     assert(result.class === 'Sword Mage', `expected Sword Mage, got ${result.class}`);
     assert(result.evolved === true, 'should be marked as evolved');
     assert(result.aptitudes.combat > 0, 'should have combat aptitude');
+  });
+
+  test('evolveAdventurer applies multiplier-based aptitudes correctly', () => {
+    // Bow base: tracking: 0.9, ranged_combat: 0.8
+    // Sharpshooter primary: tracking: 1.4, ranged_combat: 1.4
+    // Expected: tracking=0.9*1.4=1.26, ranged_combat=0.8*1.4=1.12
+    const adventurer = defaultAdventurer({
+      class: 'Bow',
+      equipment: { weapon: { name: 'Bow' }, armor: null, accessory: { name: "Sharpshooter's Monocular" } },
+    });
+    const result = evolveAdventurer(adventurer);
+    const expectedTracking = 0.9 * 1.4;
+    const expectedRanged = 0.8 * 1.4;
+    assert(Math.abs(result.aptitudes.tracking - expectedTracking) < 0.001, `tracking: expected ${expectedTracking}, got ${result.aptitudes.tracking}`);
+    assert(Math.abs(result.aptitudes.ranged_combat - expectedRanged) < 0.001, `ranged_combat: expected ${expectedRanged}, got ${result.aptitudes.ranged_combat}`);
+    assert(result.class === 'Sharpshooter', `class should be Sharpshooter, got ${result.class}`);
+    assert(result.evolvedClass === 'Sharpshooter', `evolvedClass should be 'Sharpshooter', got ${result.evolvedClass}`);
+    assert(result.evolved === true, 'should be evolved');
+    assert(result.evolutionDate !== null, 'should have evolutionDate');
+  });
+
+  test('CLASS_APTITUDES base values are unchanged after evolution', () => {
+    const base = CLASS_APTITUDES.Sword;
+    assert(base.combat === 0.9, `CLASS_APTITUDES.Sword.combat should be 0.9, got ${base.combat}`);
   });
 
   // Print summary
