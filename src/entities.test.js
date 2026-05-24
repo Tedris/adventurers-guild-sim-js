@@ -398,6 +398,21 @@ import('./entities/index.js').then((module) => {
     assert(result.aptitudeBonus >= 0, `aptitude bonus should be non-negative, got ${result.aptitudeBonus}`);
   });
 
+  test('calculateSynergyScore works with evolved adventurer aptitudes', () => {
+    const evolved = evolveAdventurer(defaultAdventurer({
+      class: 'Bow',
+      equipment: { weapon: { name: 'Bow' }, armor: null, accessory: { name: "Sharpshooter's Monocular" } },
+    }));
+    const adventurers = [
+      evolved,
+      defaultAdventurer({ class: 'Staff', aptitudes: { herb_gathering: 0.8 } }),
+    ];
+    const quest = { requirements: { preferredClasses: ['tracking'] } };
+    const result = calculateSynergyScore(adventurers, quest);
+    assert(result.synergyScore > 0, `synergy with evolved adventurer should be positive, got ${result.synergyScore}`);
+    assert(result.aptitudeBonus >= 0, `aptitude bonus should be non-negative with evolved aptitudes`);
+  });
+
   // --- Tests for getSoloEligible ---
 
   test('getSoloEligible returns true for Legend rank', () => {
