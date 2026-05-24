@@ -255,6 +255,7 @@ export function defaultAdventurer(overrides: {
   aptitudes?: Record<string, number>;
   evolved?: boolean;
   evolutionDate?: string | null;
+  evolvedClass?: string | null;
   legacyPerks?: LegacyPerk[];
 } = {}): Adventurer {
   const validClass = VALID_CLASSES[Math.floor(Math.random() * VALID_CLASSES.length)];
@@ -287,6 +288,7 @@ export function defaultAdventurer(overrides: {
     aptitudes: overrides.aptitudes ?? {},
     evolved: overrides.evolved ?? false,
     evolutionDate: overrides.evolutionDate ?? null,
+    evolvedClass: overrides.evolvedClass ?? null,
   };
 
   // Apply legacy perks if provided
@@ -629,7 +631,6 @@ export const CLASS_EVOLUTIONS: ClassEvolution[] = [
 
 export function evolveClass(adventurer: Adventurer): EvolutionResult {
   const equipment = adventurer.equipment || {};
-  const currentClass = adventurer.class;
 
   for (const evolution of CLASS_EVOLUTIONS) {
     const { weapon: reqWeapon, armor: reqArmor, accessory: reqAccessory } = evolution.requires;
@@ -639,15 +640,10 @@ export function evolveClass(adventurer: Adventurer): EvolutionResult {
     const hasAccessory = reqAccessory ? equipment.accessory?.name === reqAccessory : true;
 
     if (hasWeapon && hasArmor && hasAccessory) {
-      // Check rank requirement
-      const rankIndex = VALID_RANKS.indexOf((adventurer.rank || 'Novice') as typeof VALID_RANKS[number]);
-      const minRankIndex = VALID_RANKS.indexOf(evolution.minRank as typeof VALID_RANKS[number]);
-      if (rankIndex < minRankIndex) continue;
-
       return {
         evolved: true,
         newClass: evolution.result,
-        newAptitudes: evolution.aptitudes,
+        newAptitudes: evolution.aptitude_multipliers,
         description: evolution.description,
       };
     }
@@ -772,6 +768,7 @@ export function createGuildMaster(): Adventurer {
     aptitudes: {},
     evolved: false,
     evolutionDate: null,
+    evolvedClass: null,
     isGuildMaster: true,
   };
 }

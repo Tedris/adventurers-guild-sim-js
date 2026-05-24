@@ -1529,14 +1529,15 @@ import('./entities/index.js').then((module) => {
     assert(result.newClass === 'Sword Mage', `expected Sword Mage, got ${result.newClass}`);
   });
 
-  test('evolveClass respects rank requirement', () => {
+  test('evolveClass ignores rank requirement — rank is flavor only', () => {
     const adventurer = defaultAdventurer({
       class: 'Sword',
       rank: 'Novice',
       equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
     });
     const result = evolveClass(adventurer);
-    assert(result.evolved === false, 'Novice should not be able to evolve to Sword Mage (requires Journeyman)');
+    assert(result.evolved === true, 'Novice should still evolve to Sword Mage with correct equipment');
+    assert(result.newClass === 'Sword Mage', `expected Sword Mage, got ${result.newClass}`);
   });
 
   test('evolveClass returns correct aptitude_multipliers for evolved class', () => {
