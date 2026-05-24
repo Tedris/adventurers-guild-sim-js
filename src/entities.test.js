@@ -577,8 +577,8 @@ import('./entities/index.js').then((module) => {
 
   // --- Tests for name generation and personality traits ---
 
-  test('VALID_PERSONALITY_TRAITS has exactly 25 entries', () => {
-    assert(VALID_PERSONALITY_TRAITS.length === 25, `expected 25 traits, got ${VALID_PERSONALITY_TRAITS.length}`);
+  test('VALID_PERSONALITY_TRAITS has exactly 35 entries', () => {
+    assert(VALID_PERSONALITY_TRAITS.length === 35, `expected 35 traits, got ${VALID_PERSONALITY_TRAITS.length}`);
   });
 
   test('PERSONALITY_TRAIT_TABLE has matching entries for all VALID_PERSONALITY_TRAITS', () => {
@@ -924,24 +924,24 @@ import('./entities/index.js').then((module) => {
     assert(VALID_EVENT_CATEGORIES.includes('Drama'), 'must include Drama');
   });
 
-  test('EVENT_TEMPLATES is an array with 12 entries', () => {
+  test('EVENT_TEMPLATES is an array with 18 entries', () => {
     assert(Array.isArray(EVENT_TEMPLATES), 'EVENT_TEMPLATES must be an array');
-    assert(EVENT_TEMPLATES.length === 12, `expected 12 events, got ${EVENT_TEMPLATES.length}`);
+    assert(EVENT_TEMPLATES.length === 18, `expected 18 events, got ${EVENT_TEMPLATES.length}`);
   });
 
-  test('EVENT_TEMPLATES has 4 Budget events', () => {
+  test('EVENT_TEMPLATES has 6 Budget events', () => {
     const budgetEvents = EVENT_TEMPLATES.filter(e => e.category === 'Budget');
-    assert(budgetEvents.length === 4, `expected 4 Budget events, got ${budgetEvents.length}`);
+    assert(budgetEvents.length === 6, `expected 6 Budget events, got ${budgetEvents.length}`);
   });
 
-  test('EVENT_TEMPLATES has 4 Crisis events', () => {
+  test('EVENT_TEMPLATES has 6 Crisis events', () => {
     const crisisEvents = EVENT_TEMPLATES.filter(e => e.category === 'Crisis');
-    assert(crisisEvents.length === 4, `expected 4 Crisis events, got ${crisisEvents.length}`);
+    assert(crisisEvents.length === 6, `expected 6 Crisis events, got ${crisisEvents.length}`);
   });
 
-  test('EVENT_TEMPLATES has 4 Drama events', () => {
+  test('EVENT_TEMPLATES has 6 Drama events', () => {
     const dramaEvents = EVENT_TEMPLATES.filter(e => e.category === 'Drama');
-    assert(dramaEvents.length === 4, `expected 4 Drama events, got ${dramaEvents.length}`);
+    assert(dramaEvents.length === 6, `expected 6 Drama events, got ${dramaEvents.length}`);
   });
 
   test('EVENT_TEMPLATES entries have required fields', () => {
@@ -971,15 +971,15 @@ import('./entities/index.js').then((module) => {
     }
   });
 
-  test('EVENT_TEMPLATES weights sum to 27 (balanced: 9 per category)', () => {
+  test('EVENT_TEMPLATES weights sum correctly (43 total)', () => {
     const budgetWeight = EVENT_TEMPLATES.filter(e => e.category === 'Budget').reduce((s, e) => s + e.weight, 0);
     const crisisWeight = EVENT_TEMPLATES.filter(e => e.category === 'Crisis').reduce((s, e) => s + e.weight, 0);
     const dramaWeight = EVENT_TEMPLATES.filter(e => e.category === 'Drama').reduce((s, e) => s + e.weight, 0);
-    assert(budgetWeight === 9, `Budget weight should be 9, got ${budgetWeight}`);
-    assert(crisisWeight === 9, `Crisis weight should be 9, got ${crisisWeight}`);
-    assert(dramaWeight === 9, `Drama weight should be 9, got ${dramaWeight}`);
+    assert(budgetWeight === 15, `Budget weight should be 15, got ${budgetWeight}`);
+    assert(crisisWeight === 15, `Crisis weight should be 15, got ${crisisWeight}`);
+    assert(dramaWeight === 13, `Drama weight should be 13, got ${dramaWeight}`);
     const totalWeight = budgetWeight + crisisWeight + dramaWeight;
-    assert(totalWeight === 27, `total weight should be 27, got ${totalWeight}`);
+    assert(totalWeight === 43, `total weight should be 43, got ${totalWeight}`);
   });
 
   test('EVENT_TEMPLATES events have unique IDs', () => {
@@ -1025,27 +1025,27 @@ import('./entities/index.js').then((module) => {
     assert(Array.isArray(generateEventPool()), 'generateEventPool must return an array');
   });
 
-  test('generateEventPool returns 27 entries (sum of all weights)', () => {
+  test('generateEventPool returns 43 entries (sum of all weights)', () => {
     const pool = generateEventPool();
-    assert(pool.length === 27, `expected 27 entries, got ${pool.length}`);
+    assert(pool.length === 43, `expected 43 entries, got ${pool.length}`);
   });
 
-  test('generateEventPool contains correct number of Budget events (9)', () => {
+  test('generateEventPool contains correct number of Budget events (15)', () => {
     const pool = generateEventPool();
     const budget = pool.filter(e => e.category === 'Budget');
-    assert(budget.length === 9, `expected 9 Budget entries, got ${budget.length}`);
+    assert(budget.length === 15, `expected 15 Budget entries, got ${budget.length}`);
   });
 
-  test('generateEventPool contains correct number of Crisis events (9)', () => {
+  test('generateEventPool contains correct number of Crisis events (15)', () => {
     const pool = generateEventPool();
     const crisis = pool.filter(e => e.category === 'Crisis');
-    assert(crisis.length === 9, `expected 9 Crisis entries, got ${crisis.length}`);
+    assert(crisis.length === 15, `expected 15 Crisis entries, got ${crisis.length}`);
   });
 
-  test('generateEventPool contains correct number of Drama events (9)', () => {
+  test('generateEventPool contains correct number of Drama events (13)', () => {
     const pool = generateEventPool();
     const drama = pool.filter(e => e.category === 'Drama');
-    assert(drama.length === 9, `expected 9 Drama entries, got ${drama.length}`);
+    assert(drama.length === 13, `expected 13 Drama entries, got ${drama.length}`);
   });
 
   test('generateEventPool entries match EVENT_TEMPLATES structure', () => {
@@ -1518,14 +1518,14 @@ import('./entities/index.js').then((module) => {
     assert(result.newClass === null, 'newClass should be null');
   });
 
-  test('evolveClass returns evolution for Sword + Wand', () => {
+  test('evolveClass returns evolution for Sword + Arcane Crystal', () => {
     const adventurer = defaultAdventurer({
       class: 'Sword',
       rank: 'Journeyman',
-      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
     });
     const result = evolveClass(adventurer);
-    assert(result.evolved === true, 'should evolve with Sword + Wand');
+    assert(result.evolved === true, 'should evolve with Sword + Arcane Crystal');
     assert(result.newClass === 'Sword Mage', `expected Sword Mage, got ${result.newClass}`);
   });
 
@@ -1533,28 +1533,29 @@ import('./entities/index.js').then((module) => {
     const adventurer = defaultAdventurer({
       class: 'Sword',
       rank: 'Novice',
-      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
     });
     const result = evolveClass(adventurer);
     assert(result.evolved === false, 'Novice should not be able to evolve to Sword Mage (requires Journeyman)');
   });
 
-  test('evolveClass returns correct aptitudes for evolved class', () => {
+  test('evolveClass returns correct aptitude_multipliers for evolved class', () => {
     const adventurer = defaultAdventurer({
       class: 'Sword',
       rank: 'Journeyman',
-      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
     });
     const result = evolveClass(adventurer);
-    assert(result.newAptitudes.combat === 0.95, 'Sword Mage should have 0.95 combat');
-    assert(result.newAptitudes.investigation === 0.5, 'Sword Mage should have 0.5 investigation');
+    assert(result.newAptitudes.primary.combat === 1.3, 'Sword Mage should have 1.3 primary combat');
+    assert(result.newAptitudes.primary.investigation === 1.2, 'Sword Mage should have 1.2 primary investigation');
+    assert(result.newAptitudes.secondary.protection === 0.7, 'Sword Mage should have 0.7 secondary protection');
   });
 
   test('getEvolutionStatus returns matching evolutions', () => {
     const adventurer = defaultAdventurer({
       class: 'Sword',
       rank: 'Journeyman',
-      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
     });
     const status = getEvolutionStatus(adventurer);
     assert(status.matching.length > 0, 'should have matching evolutions');
@@ -1583,7 +1584,7 @@ import('./entities/index.js').then((module) => {
     const adventurer = defaultAdventurer({
       class: 'Sword',
       rank: 'Journeyman',
-      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Wand' } },
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
     });
     const result = evolveAdventurer(adventurer);
     assert(result.class === 'Sword Mage', `expected Sword Mage, got ${result.class}`);

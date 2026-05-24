@@ -35,6 +35,16 @@ export const RARITY_TIERS = ['Common', 'Uncommon', 'Rare', 'Epic'] as const;
 
 export const VALID_RANKS = ['Novice', 'Journeyman', 'Veteran', 'Champion', 'Legend'] as const;
 
+// ─── Evolution Equipment Constants ──────────────────────
+
+export const EVOLUTION_EQUIPMENT = {
+  ARCANE_CRYSTAL: 'Arcane Crystal',
+  SHARPSHOOTER_MONOCULAR: "Sharpshooter's Monocular",
+  SCHOLAR_MANUSCRIPT: "Scholar's Manuscript",
+  PLATE_ARMOR: 'Plate Armor',
+  SHIELD: 'Shield',
+} as const;
+
 export const MIN_STAT = 1;
 export const MAX_STAT = 20;
 export const DEFAULT_MORALE = 70;
@@ -526,61 +536,94 @@ export function calculateOfficeLevel(state: {
 // ─── Class Evolution ───────────────────────────────────
 
 export const CLASS_EVOLUTIONS: ClassEvolution[] = [
+  // ── Arcane Crystal Paths (weapon + Arcane Crystal) ──────────────────────
   {
-    requires: { weapon: 'Sword', accessory: 'Wand' },
+    requires: { weapon: 'Sword', accessory: 'Arcane Crystal' },
     result: 'Sword Mage',
     description: 'A warrior who channels arcane energy through their blade.',
-    aptitudes: { combat: 0.95, investigation: 0.5, protection: 0.4 },
+    aptitude_multipliers: { primary: { combat: 1.3, investigation: 1.2 }, secondary: { protection: 0.7 } },
     minRank: 'Journeyman',
   },
   {
-    requires: { weapon: 'Bow', accessory: 'Staff' },
-    result: 'Wind Dancer',
-    description: 'A ranged fighter who commands natural forces.',
-    aptitudes: { tracking: 0.95, ranged_combat: 0.9, herb_gathering: 0.3 },
-    minRank: 'Journeyman',
-  },
-  {
-    requires: { weapon: 'Axe', accessory: 'Shield' },
-    result: 'Berserker Guardian',
-    description: 'A frontline fighter combining brute force with defense.',
-    aptitudes: { combat: 0.9, defense: 0.85, protection: 0.7 },
-    minRank: 'Veteran',
-  },
-  {
-    requires: { weapon: 'Dagger', accessory: 'Wand' },
+    requires: { weapon: 'Dagger', accessory: 'Arcane Crystal' },
     result: 'Shadowweaver',
     description: 'A stealth operative who cloaks strikes in magic.',
-    aptitudes: { stealth: 0.95, assassination: 0.85, investigation: 0.4 },
+    aptitude_multipliers: { primary: { stealth: 1.3, assassination: 1.3 }, secondary: { combat: 0.8 } },
     minRank: 'Journeyman',
   },
   {
-    requires: { weapon: 'Mace', accessory: 'Staff' },
+    requires: { weapon: 'Bow', accessory: 'Arcane Crystal' },
+    result: 'Wind Dancer',
+    description: 'A ranged fighter who commands natural forces.',
+    aptitude_multipliers: { primary: { tracking: 1.3, ranged_combat: 1.2 }, secondary: { defense: 0.7 } },
+    minRank: 'Journeyman',
+  },
+  {
+    requires: { weapon: 'Mace', accessory: 'Arcane Crystal' },
     result: 'Holy Avenger',
     description: 'A divine warrior who smites with radiant power.',
-    aptitudes: { combat: 0.85, defense: 0.7, investigation: 0.3 },
+    aptitude_multipliers: { primary: { combat: 1.2, defense: 1.2 }, secondary: { investigation: 0.7 } },
     minRank: 'Veteran',
   },
+  {
+    requires: { weapon: 'Axe', accessory: 'Arcane Crystal' },
+    result: 'Storm Reaver',
+    description: 'A thunderous warrior who channels storms through their axe.',
+    aptitude_multipliers: { primary: { combat: 1.3 }, secondary: { ranged_combat: 0.9, stealth: 0.6 } },
+    minRank: 'Champion',
+  },
+
+  // ── Shield Armor Paths (weapon + Shield as armor) ──────────────────────
   {
     requires: { weapon: 'Sword', armor: 'Shield' },
     result: 'Paladin',
     description: 'A noble defender who fights with honor and strength.',
-    aptitudes: { combat: 0.85, defense: 0.85, protection: 0.8 },
+    aptitude_multipliers: { primary: { defense: 1.3, protection: 1.2 }, secondary: { combat: 1.1 } },
     minRank: 'Veteran',
   },
   {
     requires: { weapon: 'Bow', armor: 'Shield' },
     result: 'Ranger Captain',
     description: 'A master tracker who leads from the frontlines.',
-    aptitudes: { tracking: 0.9, ranged_combat: 0.85, defense: 0.5 },
+    aptitude_multipliers: { primary: { tracking: 1.3, ranged_combat: 1.2 }, secondary: { defense: 0.8 } },
     minRank: 'Journeyman',
   },
   {
-    requires: { weapon: 'Axe', accessory: 'Wand' },
-    result: 'Storm Reaver',
-    description: 'A thunderous warrior who channels storms through their axe.',
-    aptitudes: { combat: 0.9, ranged_combat: 0.4, stealth: 0.3 },
-    minRank: 'Champion',
+    requires: { weapon: 'Axe', armor: 'Shield' },
+    result: 'Berserker Guardian',
+    description: 'A frontline fighter combining brute force with defense.',
+    aptitude_multipliers: { primary: { combat: 1.3, defense: 1.2 }, secondary: { protection: 0.8 } },
+    minRank: 'Veteran',
+  },
+
+  // ── New Paths (Sharpshooter, Arcane Scholar, Bastion Warden, Warlord) ──
+  {
+    requires: { weapon: 'Bow', accessory: "Sharpshooter's Monocular" },
+    result: 'Sharpshooter',
+    description: 'A master ranged fighter who strikes with deadly precision.',
+    aptitude_multipliers: { primary: { tracking: 1.4, ranged_combat: 1.4 }, secondary: { stealth: 0.7 } },
+    minRank: 'Journeyman',
+  },
+  {
+    requires: { weapon: 'Staff', accessory: "Scholar's Manuscript" },
+    result: 'Arcane Scholar',
+    description: 'A learned mage who deciphers ancient arcane theories.',
+    aptitude_multipliers: { primary: { investigation: 1.4, herb_gathering: 1.3 }, secondary: { combat: 0.7 } },
+    minRank: 'Journeyman',
+  },
+  {
+    requires: { weapon: 'Shield', armor: 'Plate Armor' },
+    result: 'Bastion Warden',
+    description: 'An immovable bulwark who shields allies with unwavering resolve.',
+    aptitude_multipliers: { primary: { defense: 1.4, protection: 1.3 }, secondary: { combat: 0.8 } },
+    minRank: 'Veteran',
+  },
+  {
+    requires: { weapon: 'Mace', armor: 'Plate Armor' },
+    result: 'Warlord',
+    description: 'A relentless commander who crushes enemies with overwhelming force.',
+    aptitude_multipliers: { primary: { combat: 1.4, defense: 1.3 }, secondary: { protection: 1.1 } },
+    minRank: 'Veteran',
   },
 ];
 

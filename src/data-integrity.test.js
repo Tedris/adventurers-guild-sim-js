@@ -87,8 +87,17 @@ import('./entities/index.js').then((module) => {
     for (const evo of CLASS_EVOLUTIONS) {
       assert(VALID_RANKS.includes(evo.minRank), `Invalid rank ${evo.minRank} in evolution ${evo.result}`);
       if (evo.requires.weapon) assert(VALID_CLASSES.includes(evo.requires.weapon), `Invalid weapon class ${evo.requires.weapon} in ${evo.result}`);
-      if (evo.requires.armor) assert(VALID_CLASSES.includes(evo.requires.armor), `Invalid armor class ${evo.requires.armor} in ${evo.result}`);
-      if (evo.requires.accessory) assert(VALID_CLASSES.includes(evo.requires.accessory), `Invalid accessory class ${evo.requires.accessory} in ${evo.result}`);
+      // Armor and accessory items can be either valid classes (Shield armor) or custom equipment names
+      if (evo.requires.armor) {
+        const armorOk = VALID_CLASSES.includes(evo.requires.armor) ||
+          ['Shield', 'Plate Armor', 'Leather', 'Chain'].includes(evo.requires.armor);
+        assert(armorOk, `Invalid armor class ${evo.requires.armor} in ${evo.result}`);
+      }
+      if (evo.requires.accessory) {
+        const accOk = VALID_CLASSES.includes(evo.requires.accessory) ||
+          ['Wand', 'Staff', 'Arcane Crystal', "Sharpshooter's Monocular", "Scholar's Manuscript"].includes(evo.requires.accessory);
+        assert(accOk, `Invalid accessory class ${evo.requires.accessory} in ${evo.result}`);
+      }
     }
   });
 
