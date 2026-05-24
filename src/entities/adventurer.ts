@@ -654,11 +654,7 @@ export function evolveClass(adventurer: Adventurer): EvolutionResult {
 
 export function getEvolutionStatus(adventurer: Adventurer): EvolutionStatus {
   const equipment = adventurer.equipment || {};
-  const possible = CLASS_EVOLUTIONS.filter(e => {
-    const rankIndex = VALID_RANKS.indexOf((adventurer.rank || 'Novice') as typeof VALID_RANKS[number]);
-    const minRankIndex = VALID_RANKS.indexOf(e.minRank as typeof VALID_RANKS[number]);
-    return rankIndex >= minRankIndex;
-  });
+  const possible = CLASS_EVOLUTIONS; // No rank filter — all 12 paths considered
 
   const matching: ClassEvolution[] = [];
   const unmet: Array<ClassEvolution & { missing: [string, string][] }> = [];

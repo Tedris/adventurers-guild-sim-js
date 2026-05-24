@@ -1556,7 +1556,6 @@ import('./entities/index.js').then((module) => {
   test('getEvolutionStatus returns matching evolutions', () => {
     const adventurer = defaultAdventurer({
       class: 'Sword',
-      rank: 'Journeyman',
       equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
     });
     const status = getEvolutionStatus(adventurer);
@@ -1574,6 +1573,31 @@ import('./entities/index.js').then((module) => {
     const berserker = status.unmet.find(e => e.result === 'Berserker Guardian');
     assert(berserker !== undefined, 'should have Berserker Guardian as unmet');
     assert(berserker.missing.length > 0, 'should have missing items listed');
+  });
+
+  test('getEvolutionStatus classifies all 12 evolution paths', () => {
+    const adventurer = defaultAdventurer({
+      class: 'Sword',
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
+    });
+    const status = getEvolutionStatus(adventurer);
+    const allResults = [...status.matching, ...status.unmet].map(e => e.result);
+    assert(allResults.length === 12, `should classify all 12 paths, got ${allResults.length}`);
+    const expected = ['Sword Mage','Shadowweaver','Wind Dancer','Holy Avenger','Storm Reaver','Paladin','Ranger Captain','Berserker Guardian','Sharpshooter','Arcane Scholar','Bastion Warden','Warlord'];
+    for (const e of expected) {
+      assert(allResults.includes(e), `${e} should be in evolution status`);
+    }
+  });
+
+  test('getEvolutionStatus shows rank is not a gate', () => {
+    const novice = defaultAdventurer({
+      class: 'Sword',
+      rank: 'Novice',
+      equipment: { weapon: { name: 'Sword' }, armor: null, accessory: { name: 'Arcane Crystal' } },
+    });
+    const status = getEvolutionStatus(novice);
+    assert(status.canEvolve === true, 'Novice should have matching evolutions');
+    assert(status.matching.find(e => e.result === 'Sword Mage'), 'Sword Mage should be matching for Novice');
   });
 
   test('evolveAdventurer returns unchanged adventurer when no evolution', () => {
