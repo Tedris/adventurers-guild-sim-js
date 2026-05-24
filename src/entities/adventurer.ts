@@ -694,10 +694,25 @@ export function evolveAdventurer(adventurer: Adventurer): Adventurer {
   const result = evolveClass(adventurer);
   if (!result.evolved) return { ...adventurer };
 
+  // Get base aptitudes for the adventurer's current (base) class
+  const baseAptitudes = CLASS_APTITUDES[adventurer.class] || {};
+
+  // Apply multipliers: primary boosted, secondary reduced, others unchanged
+  const evolvedAptitudes: Record<string, number> = { ...baseAptitudes };
+  const multipliers = result.newAptitudes!;
+
+  for (const [aptitude, mult] of Object.entries(multipliers.primary)) {
+    evolvedAptitudes[aptitude] = (evolvedAptitudes[aptitude] || 0) * mult;
+  }
+  for (const [aptitude, mult] of Object.entries(multipliers.secondary)) {
+    evolvedAptitudes[aptitude] = (evolvedAptitudes[aptitude] || 0) * mult;
+  }
+
   const newAdventurer: Adventurer = {
     ...adventurer,
     class: result.newClass!,
-    aptitudes: { ...calculateAptitudes({ ...adventurer, class: result.newClass! }), ...result.newAptitudes! },
+    aptitudes: evolvedAptitudes,
+    evolvedClass: result.newClass,
     evolved: true,
     evolutionDate: new Date().toISOString(),
   };
