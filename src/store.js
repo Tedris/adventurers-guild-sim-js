@@ -424,11 +424,19 @@ export function createStore(initialState, validators = {}) {
           const partyAdventurers = currentState.adventurers.filter(a =>
             (currentState.party?.adventurerIds || []).includes(a.id)
           );
-          const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
-          const equipmentBonus = tickResult.equipmentBonus || 0;
-          const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
-          const succeeded = Math.random() * 100 < successRateWithBonus;
-          const outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
+          const autoCompleted = activeQuest.result?.success === true;
+          let succeeded;
+          let outcome;
+          if (autoCompleted) {
+            succeeded = true;
+            outcome = calculateQuestOutcome(partyAdventurers, quest, true);
+          } else {
+            const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
+            const equipmentBonus = tickResult.equipmentBonus || 0;
+            const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
+            succeeded = Math.random() * 100 < successRateWithBonus;
+            outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
+          }
           const newGold = Math.max(0, (tickResult.gold ?? 0) + outcome.gold);
           const fameGain = calculateFameGain(tickResult);
           const fameMultiplier = tickResult.fameMultiplier || 1;

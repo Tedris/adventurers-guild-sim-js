@@ -7,6 +7,7 @@ import { createStore } from './store.js';
 import { initStore, loadState, clearStore, enableAutoSave } from './save-load.js';
 import { gameDefaults, validateGame, getFameLevel } from './entities/index.js';
 import { renderCard, renderView, showConfirmModal, hideModal, showEventModal } from './render/index.js';
+import { createGameTicker } from './ticker.js';
 
 // ─── Validation ───
 
@@ -86,6 +87,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Step 4: Enable auto-save FIRST (before any dispatch)
   // This ensures MERGE_STATE dispatch triggers persistence (T-05-03 mitigation)
   enableAutoSave(store);
+
+  // Step 4.5: Start the game ticker for auto quest completion
+  const ticker = createGameTicker(store);
 
   // Step 5: Subscribe for rendering
   store.subscribe(render);
