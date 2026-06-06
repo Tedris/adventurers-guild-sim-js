@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node esbuild.config.js --watch\" \"serve .\"",
+    "dev": "concurrently \"node esbuild.config.js --watch\" \"serve dist\"",
     "build": "node esbuild.config.js && cp index.html dist/",
-    "serve": "serve .",
+    "serve": "serve dist",
     "start": "node launch.js",
     "test": "node test-render.mjs && node test-templates.mjs && node test-app-integration.mjs && node test-runner.mjs"
   },
