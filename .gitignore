@@ -3,3 +3,22 @@ dist/
 
 # Dependencies
 node_modules/
+
+# AI agent files
+.opencode/
+.agents/
+_bmad/
+_bmad-output/
+.planning/
+.conductor/
+
+# Environment variables
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
