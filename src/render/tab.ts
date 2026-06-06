@@ -12,7 +12,7 @@ import {
   getFameGatedQuestPool,
   generateRecruitmentPool,
 } from '../entities/index.js';
-import { renderCard } from './card.js';
+import { renderCard, trackEventListener, detachAllListeners } from './card.js';
 import type { CardType } from './card.js';
 import { showConfirmModal } from './event-display.js';
 import {
@@ -192,14 +192,15 @@ export function renderNotifications(state: GameState): void {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'notification-close';
     closeBtn.textContent = '\u00d7';
-    closeBtn.addEventListener('click', () => {
+    const closeHandler = () => {
       if (window.__guildStore) {
         window.__guildStore.dispatch({
           type: 'CLEAR_NOTIFICATION',
           payload: { notificationId: notif.id },
         });
       }
-    });
+    };
+    trackEventListener(closeBtn, 'click', closeHandler);
 
     const notifText = document.createElement('span');
     notifText.textContent = notif.message;
@@ -350,7 +351,7 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
       const partyBtn = document.createElement('button');
       partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
       partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
-      partyBtn.addEventListener('click', () => {
+      const partyHandler = () => {
         if (window.__guildStore) {
           const currentParty = state.party.adventurerIds || [];
           let newPartyIds: string[];
@@ -368,7 +369,8 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
             payload: { partyId: party?.id, adventurerIds: newPartyIds },
           });
         }
-      });
+      };
+      trackEventListener(partyBtn, 'click', partyHandler);
       card.appendChild(partyBtn);
 
       // Retirement button for Level 5+ adventurers
@@ -376,12 +378,13 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
         const retireBtn = document.createElement('button');
         retireBtn.className = 'btn-retire';
         retireBtn.textContent = 'Retire';
-        retireBtn.addEventListener('click', () => {
+        const retireHandler = () => {
           const cardEl = retireBtn.closest('.roster-card') as HTMLElement | null;
           if (cardEl) {
             const anim = fadeOutAndShrink(200);
             const animHandle = playAnimation(cardEl, anim);
             animHandle.addEventListener('finish', () => {
+              detachAllListeners(cardEl);
               cardEl.remove();
               showConfirmModal(
                 `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
@@ -408,7 +411,8 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
               },
             );
           }
-        });
+        };
+        trackEventListener(retireBtn, 'click', retireHandler);
         card.appendChild(retireBtn);
       }
 
@@ -419,13 +423,16 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
 
   // Detect and animate removed adventurers
   const newIds = new Set(adventurers.map((a) => a.id));
+  let orphanedCount = 0;
   for (const oldCard of oldCards) {
     const oldId = oldCard.getAttribute('data-adventurer-id');
     if (oldId && !newIds.has(oldId)) {
       // This adventurer was removed — animate out then remove
+      orphanedCount++;
       const anim = fadeOutAndShrink(200);
       const animHandle = playAnimation(oldCard, anim);
       animHandle.addEventListener('finish', () => {
+        detachAllListeners(oldCard);
         oldCard.remove();
       });
     }
@@ -438,6 +445,10 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
       const anim = slideInFromRight(180);
       playAnimation(newCard, anim);
     }
+  }
+
+  if (orphanedCount > 0) {
+    console.debug(`[Render] Cleaned ${orphanedCount} orphaned roster cards`);
   }
 
   _oldCards.set(container, newCards);
@@ -506,7 +517,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
       const partyBtn = document.createElement('button');
       partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
       partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
-      partyBtn.addEventListener('click', () => {
+      const vPartyHandler = () => {
         if (window.__guildStore) {
           const currentParty = state.party.adventurerIds || [];
           let newPartyIds: string[];
@@ -524,7 +535,8 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
             payload: { partyId: party?.id, adventurerIds: newPartyIds },
           });
         }
-      });
+      };
+      trackEventListener(partyBtn, 'click', vPartyHandler);
       card.appendChild(partyBtn);
 
       // Retirement button for Level 5+ adventurers
@@ -532,12 +544,13 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
         const retireBtn = document.createElement('button');
         retireBtn.className = 'btn-retire';
         retireBtn.textContent = 'Retire';
-        retireBtn.addEventListener('click', () => {
+        const vRetireHandler = () => {
           const cardEl = retireBtn.closest('.roster-card') as HTMLElement | null;
           if (cardEl) {
             const anim = fadeOutAndShrink(200);
             const animHandle = playAnimation(cardEl, anim);
             animHandle.addEventListener('finish', () => {
+              detachAllListeners(cardEl);
               cardEl.remove();
               showConfirmModal(
                 `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
@@ -564,7 +577,8 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
               },
             );
           }
-        });
+        };
+        trackEventListener(retireBtn, 'click', vRetireHandler);
         card.appendChild(retireBtn);
       }
 
@@ -576,6 +590,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
       playAnimation(element, anim);
     },
     onCardLeave: (element) => {
+      detachAllListeners(element);
       const anim = fadeOutAndShrink(200);
       playAnimation(element, anim);
     },
@@ -625,7 +640,7 @@ export function renderRecruitment(state: GameState): void {
 
   // Restock handler
   const restockBtn = restockSection.querySelector('.btn-restock');
-  restockBtn?.addEventListener('click', () => {
+  const restockHandler = () => {
     if (window.__guildStore) {
       const newPool = generateRecruitmentPool(3);
       window.__guildStore.dispatch({
@@ -636,7 +651,10 @@ export function renderRecruitment(state: GameState): void {
         },
       });
     }
-  });
+  };
+  if (restockBtn) {
+    trackEventListener(restockBtn as HTMLElement, 'click', restockHandler);
+  }
 
   // Adventure cards from pool
   if (recruitmentPool.length === 0) {
@@ -649,6 +667,7 @@ export function renderRecruitment(state: GameState): void {
   }
 
   const newCards: HTMLElement[] = [];
+  let recruitmentOrphanedCount = 0;
 
   for (const adventurer of recruitmentPool) {
     const card = renderCard('adventurer' as CardType, adventurer, state);
@@ -659,14 +678,15 @@ export function renderRecruitment(state: GameState): void {
     const hireBtn = document.createElement('button');
     hireBtn.className = 'btn-hire';
     hireBtn.textContent = 'Join Guild';
-    hireBtn.addEventListener('click', () => {
+    const hireHandler = () => {
       if (window.__guildStore) {
         window.__guildStore.dispatch({
           type: 'HIRE',
           payload: { adventurerId: adventurer.id },
         });
       }
-    });
+    };
+    trackEventListener(hireBtn, 'click', hireHandler);
     card.appendChild(hireBtn);
     container.appendChild(card);
     newCards.push(card);
@@ -686,12 +706,18 @@ export function renderRecruitment(state: GameState): void {
   for (const oldCard of oldCards) {
     const oldId = oldCard.getAttribute('data-adventurer-id');
     if (oldId && !newIds.has(oldId)) {
+      recruitmentOrphanedCount++;
       const anim = fadeOutAndShrink(200);
       const animHandle = playAnimation(oldCard, anim);
       animHandle.addEventListener('finish', () => {
+        detachAllListeners(oldCard);
         oldCard.remove();
       });
     }
+  }
+
+  if (recruitmentOrphanedCount > 0) {
+    console.debug(`[Render] Cleaned ${recruitmentOrphanedCount} orphaned recruitment cards`);
   }
 
   _oldCards.set(container, newCards);
@@ -822,7 +848,7 @@ export function renderUpgrades(state: GameState): void {
         ? 'Insufficient Gold'
         : `Upgrade (⛃ ${upgrade.nextCost})`;
     btn.disabled = gold < upgrade.nextCost;
-    btn.addEventListener('click', () => {
+    const upgradeHandler = () => {
       showConfirmModal(
         `Spend ⛃ ${upgrade.nextCost} gold to upgrade ${upgrade.name} to Level ${upgrade.currentLevel + 1}?`,
         () => {
@@ -837,7 +863,8 @@ export function renderUpgrades(state: GameState): void {
           }
         },
       );
-    });
+    };
+    trackEventListener(btn, 'click', upgradeHandler);
     card.appendChild(btn);
 
     container.appendChild(card);

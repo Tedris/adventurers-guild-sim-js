@@ -31,6 +31,45 @@ import {
   scalePulse,
 } from '../animation.js';
 
+// ─── Event Listener Cleanup ────────────────────────────
+
+/**
+ * Stores event listener references on elements for cleanup.
+ * Using WeakMap to avoid memory leaks — keys are HTMLElements, values are arrays of {type, listener, options}.
+ */
+const _listenerRefs = new WeakMap<HTMLElement, Array<{ type: string; listener: EventListener; options: AddEventListenerOptions | boolean }>>();
+
+/**
+ * Attach an event listener to an element while tracking it for cleanup.
+ * This enables deterministic removal of all listeners when an element is discarded.
+ */
+export function trackEventListener(
+  element: HTMLElement,
+  type: string,
+  listener: EventListener,
+  options?: AddEventListenerOptions | boolean,
+): void {
+  element.addEventListener(type, listener, options);
+  if (!_listenerRefs.has(element)) {
+    _listenerRefs.set(element, []);
+  }
+  _listenerRefs.get(element)!.push({ type, listener, options: options ?? false });
+}
+
+/**
+ * Detach all tracked event listeners from an element.
+ * Call this before removing an element from the DOM to prevent orphaned listeners.
+ */
+export function detachAllListeners(element: HTMLElement): void {
+  const refs = _listenerRefs.get(element);
+  if (refs) {
+    for (const { type, listener, options } of refs) {
+      element.removeEventListener(type, listener, options);
+    }
+    _listenerRefs.delete(element);
+  }
+}
+
 // ─── Public API ────────────────────────────────────────
 
 export type CardType = 'adventurer' | 'quest' | 'event';
@@ -198,14 +237,15 @@ export function renderAdventurerCard(
     const evolveBtn = document.createElement('button');
     evolveBtn.className = 'btn-evolve';
     evolveBtn.textContent = 'Evolve Class!';
-    evolveBtn.addEventListener('click', () => {
+    const evolveHandler = () => {
       if (window.__guildStore) {
         window.__guildStore.dispatch({
           type: 'EVOLVE_CLASS',
           payload: { adventurerId: adventurer.id },
         });
       }
-    });
+    };
+    trackEventListener(evolveBtn, 'click', evolveHandler);
     // Insert before the card footer if it exists
     const footer = frag.querySelector('.card-footer');
     if (footer) {
@@ -424,7 +464,7 @@ export function renderQuestCard(
       String(!meetsSizeRequirement || partySize === 0),
     );
     if (meetsSizeRequirement && partySize > 0) {
-      sendBtn.addEventListener('click', () => {
+      const sendHandler = () => {
         if (window.__guildStore) {
           const state = window.__guildStore.getState();
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -446,7 +486,8 @@ export function renderQuestCard(
           const anim = scalePulse(200);
           playAnimation(frag, anim);
         }
-      });
+      };
+      trackEventListener(sendBtn, 'click', sendHandler);
     }
   }
 
@@ -504,7 +545,7 @@ export function renderEventCard(
       btn.className = 'btn-choice';
       btn.textContent = choice.label;
       btn.setAttribute('data-choice-index', String(i));
-      btn.addEventListener('click', () => {
+      const choiceHandler = () => {
         // Dispatch event resolution through the store
         const eventElement = btn.closest('.card-event');
         if (eventElement) {
@@ -517,7 +558,8 @@ export function renderEventCard(
             );
           }
         }
-      });
+      };
+      trackEventListener(btn, 'click', choiceHandler);
       choicesContainer.appendChild(btn);
     }
   }
