@@ -16,6 +16,8 @@ import type {
 
 import { calculateQuestSuccessRate, calculateQuestOutcome } from './party.js';
 
+export const TICK_INTERVAL_MS = 1500;
+
 // ─── Upgrade System ────────────────────────────────────
 
 const UPGRADE_BASE_COSTS: Record<string, number> = {

@@ -8,6 +8,7 @@
 
 import type { Adventurer, GameState } from './types.js';
 import type { AnimationConfig } from './animation.js';
+import { detachAllListeners } from './render/card.js';
 
 // ─── Types ─────────────────────────────────────────────
 
@@ -313,7 +314,10 @@ export class VirtualList {
       this.observer = null;
     }
 
-    // Clear all card elements
+    // Clear all card elements with listener cleanup
+    for (const [, card] of this.cardElements) {
+      detachAllListeners(card);
+    }
     this.cardElements.clear();
 
     // Clear references

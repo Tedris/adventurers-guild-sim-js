@@ -329,7 +329,7 @@ import('./entities/index.js').then((module) => {
   });
 
   test('calculateAptitudes returns empty object for unknown class', () => {
-    const a = defaultAdventurer({ class: 'Dragon' });
+    const a = defaultAdventurer({ class: 'Dragon', personality: { traits: [] } });
     const apt = calculateAptitudes(a);
     assert(Object.keys(apt).length === 0, 'unknown class should have no aptitudes');
   });

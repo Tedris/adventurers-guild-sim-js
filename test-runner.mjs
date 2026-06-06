@@ -20,6 +20,12 @@ const testFiles = [
   'src/personality-traits.test.js',
 ];
 
+// List of Node.js test scripts (run separately, not bundled)
+const scriptTests = [
+  'test-listener-cleanup.mjs',
+  'test-render.mjs',
+];
+
 let failed = false;
 
 for (const testFile of testFiles) {
@@ -69,6 +75,35 @@ for (const testFile of testFiles) {
 
   // Clean up
   try { rmSync(bundleDir, { recursive: true }); } catch {}
+}
+
+// Run Node.js test scripts (not bundled, run directly)
+for (const scriptTest of scriptTests) {
+  const fullPath = join(cwd, scriptTest);
+  try {
+    readFileSync(fullPath);
+  } catch {
+    console.log(`⊘ ${scriptTest} (skipped — not found)`);
+    continue;
+  }
+
+  try {
+    const testOutput = execSync(`node "${fullPath}"`, {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    console.log(`\n--- ${scriptTest} ---`);
+    console.log(testOutput);
+
+    if (testOutput.includes('✗')) {
+      failed = true;
+    }
+  } catch (e) {
+    console.log(`\n✗ ${scriptTest} FAILED`);
+    console.log(e.stdout || e.stderr || e.message);
+    failed = true;
+  }
 }
 
 if (failed) {
