@@ -383,6 +383,8 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
           if (cardEl) {
             const anim = fadeOutAndShrink(200);
             const animHandle = playAnimation(cardEl, anim);
+            // WAAPI Animation objects auto-collect after finish event fires —
+            // no need to track this listener in _listenerRefs.
             animHandle.addEventListener('finish', () => {
               detachAllListeners(cardEl);
               cardEl.remove();
@@ -431,6 +433,8 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
       orphanedCount++;
       const anim = fadeOutAndShrink(200);
       const animHandle = playAnimation(oldCard, anim);
+      // WAAPI Animation objects auto-collect after finish event fires —
+      // no need to track this listener in _listenerRefs.
       animHandle.addEventListener('finish', () => {
         detachAllListeners(oldCard);
         oldCard.remove();
@@ -549,6 +553,8 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
           if (cardEl) {
             const anim = fadeOutAndShrink(200);
             const animHandle = playAnimation(cardEl, anim);
+            // WAAPI Animation objects auto-collect after finish event fires —
+            // no need to track this listener in _listenerRefs.
             animHandle.addEventListener('finish', () => {
               detachAllListeners(cardEl);
               cardEl.remove();
@@ -709,6 +715,8 @@ export function renderRecruitment(state: GameState): void {
       recruitmentOrphanedCount++;
       const anim = fadeOutAndShrink(200);
       const animHandle = playAnimation(oldCard, anim);
+      // WAAPI Animation objects auto-collect after finish event fires —
+      // no need to track this listener in _listenerRefs.
       animHandle.addEventListener('finish', () => {
         detachAllListeners(oldCard);
         oldCard.remove();
