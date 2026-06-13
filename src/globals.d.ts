@@ -1,9 +1,9 @@
 // Global type declarations for browser environment
 
 interface GuildStore {
-  getState: () => Record<string, unknown>;
-  subscribe: (fn: (state: Record<string, unknown>, action?: Record<string, unknown>) => void) => () => void;
-  dispatch: (action: Record<string, unknown>) => boolean;
+  getState: () => import('./types.js').GameState;
+  subscribe: (fn: (state: import('./types.js').GameState, action?: import('./types.js').StoreAction) => void) => () => void;
+  dispatch: (action: import('./types.js').StoreAction) => boolean;
 }
 
 interface Window {

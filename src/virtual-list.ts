@@ -429,6 +429,7 @@ export class VirtualList {
         if (this.observer) {
           this.observer.unobserve(card);
         }
+        detachAllListeners(card);
         card.remove();
         this.cardElements.delete(index);
       }

@@ -14,9 +14,13 @@ const test = (name, fn) => {
   catch(e) { console.log(`✗ ${name}: ${e.message}`); }
 };
 
-// Import store module
-import('./store.js').then((module) => {
-  const { createStore, createAction } = module;
+// Load both modules in parallel so all tests run before summary prints
+Promise.all([
+  import('./store.js'),
+  import('./entities/adventurer.js'),
+]).then(([storeModule, entityModule]) => {
+  const { createStore, createAction } = storeModule;
+  const { generateRecruitmentPool, validateAdventurer } = entityModule;
 
   // --- Tests for createStore ---
 
@@ -159,6 +163,41 @@ import('./store.js').then((module) => {
     }
   });
 
+  test('RESTOCK: rejects when gold < 5 (insufficient gold)', () => {
+    const store = createStore({ gold: 3, adventurers: [], recruitmentPool: [], day: 1 });
+    const result = store.dispatch({ type: 'RESTOCK', payload: { count: 3 } });
+    assert(result === false, 'RESTOCK should return false when gold < 5');
+    const state = store.getState();
+    assert(state.gold === 3, 'gold should remain unchanged');
+    assert(state.recruitmentPool.length === 0, 'recruitmentPool should remain unchanged');
+  });
+
+  test('RESTOCK: deducts 5 gold and adds 3 adventurers when gold >= 5', () => {
+    const store = createStore({ gold: 10, adventurers: [], recruitmentPool: [], day: 1 });
+    const result = store.dispatch({ type: 'RESTOCK', payload: { count: 3 } });
+    assert(result === true, 'RESTOCK should return true when gold >= 5');
+    const state = store.getState();
+    assert(state.gold === 5, `gold should be 5 after deducting 5, got ${state.gold}`);
+    assert(state.recruitmentPool.length === 3, `recruitmentPool should have 3, got ${state.recruitmentPool.length}`);
+    for (const a of state.recruitmentPool) {
+      assert(a.rank === 'Novice', `restocked adventurer rank should be Novice, got ${a.rank}`);
+    }
+  });
+
+  test('RESTOCK: gold at exactly 5 still allows restock', () => {
+    const store = createStore({ gold: 5, adventurers: [], recruitmentPool: [], day: 1 });
+    const result = store.dispatch({ type: 'RESTOCK', payload: { count: 1 } });
+    assert(result === true, 'RESTOCK should succeed with exactly 5 gold');
+    const state = store.getState();
+    assert(state.gold === 0, 'gold should be 0 after restock');
+  });
+
+  test('RESTOCK: gold at 4 rejects restock', () => {
+    const store = createStore({ gold: 4, adventurers: [], recruitmentPool: [], day: 1 });
+    const result = store.dispatch({ type: 'RESTOCK', payload: { count: 1 } });
+    assert(result === false, 'RESTOCK should fail with 4 gold');
+  });
+
   test('RESTOCK: appends to existing recruitmentPool', () => {
     const existing = { id: 'existing-1', name: 'Existing', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
     const store = createStore({ gold: 100, adventurers: [], recruitmentPool: [existing], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 } });
@@ -166,6 +205,71 @@ import('./store.js').then((module) => {
     const state = store.getState();
     assert(state.recruitmentPool.length === 2, `recruitmentPool should have 2 (1 existing + 1 new), got ${state.recruitmentPool.length}`);
     assert(state.recruitmentPool[0].id === 'existing-1', 'existing adventurer should still be in pool');
+  });
+
+  // --- Tests for generateRecruitmentPool Job Postings bonus ---
+
+  test('generateRecruitmentPool: applies Job Postings bonus to all stats', () => {
+    const state = { fame: 0, upgrades: { job_postings: 2 } };
+    const pool = generateRecruitmentPool(3, state);
+    assert(pool.length === 3, `should generate 3 adventurers, got ${pool.length}`);
+    for (const a of pool) {
+      for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+        assert(a.stats[stat] >= 2, `${stat} should be at least 2 (3d3+2=3 + 0 fame + 2 job_postings, clamped)`, `stat ${stat}=${a.stats[stat]}`);
+        assert(a.stats[stat] >= 3 + 2 - 2 || a.stats[stat] >= 1, `${stat} includes Job Postings bonus: ${a.stats[stat]}`);
+      }
+    }
+  });
+
+  test('generateRecruitmentPool: Job Postings bonus respects MAX_STAT cap (20)', () => {
+    const state = { fame: 100, upgrades: { job_postings: 10 } };
+    const pool = generateRecruitmentPool(1, state);
+    assert(pool.length === 1, 'should generate 1 adventurer');
+    for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+      assert(pool[0].stats[stat] <= 20, `${stat} should not exceed 20 (MAX_STAT cap), got ${pool[0].stats[stat]}`);
+    }
+  });
+
+  test('generateRecruitmentPool: fame bonus still applied with Job Postings', () => {
+    const state = { fame: 30, upgrades: { job_postings: 1 } };
+    const pool = generateRecruitmentPool(5, state);
+    for (const a of pool) {
+      for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+        assert(a.stats[stat] >= 3, `${stat} should be at least 3 (base roll), got ${a.stats[stat]}`);
+        assert(a.stats[stat] >= 3 + 1, `${stat} should include Job Postings +1: ${a.stats[stat]}`);
+      }
+    }
+  });
+
+  test('generateRecruitmentPool: legacy perks applied after Job Postings bonus', () => {
+    const state = {
+      fame: 0,
+      upgrades: { job_postings: 1 },
+      legacyPerks: [{ id: 'perk-1', templateId: 'iron-will', name: 'Iron Will', description: 'Test perk', effects: { vit: 5 }, appliedAt: 0 }],
+    };
+    const pool = generateRecruitmentPool(1, state);
+    assert(pool.length === 1, 'should generate 1 adventurer');
+    assert(pool[0].stats.vit >= 3 + 1 + 5, `vit should include base + job_postings + legacy perk: ${pool[0].stats.vit}`);
+  });
+
+  test('generateRecruitmentPool: no Job Postings when level is 0', () => {
+    const state = { fame: 0, upgrades: { job_postings: 0 } };
+    const pool = generateRecruitmentPool(3, state);
+    assert(pool.length === 3, 'should generate 3 adventurers');
+    for (const a of pool) {
+      for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+        assert(a.stats[stat] >= 1 && a.stats[stat] <= 12, `${stat} should be in base range (1-12) without Job Postings: ${a.stats[stat]}`);
+      }
+    }
+  });
+
+  test('generateRecruitmentPool: generated adventurers pass validateAdventurer', () => {
+    const state = { fame: 30, upgrades: { job_postings: 5 }, legacyPerks: [{ id: 'p1', templateId: 'p1', name: 'P', description: '', effects: { str: 1, dex: 1, int: 1, vit: 1, lck: 1 }, appliedAt: 0 }] };
+    const pool = generateRecruitmentPool(10, state);
+    for (const a of pool) {
+      const result = validateAdventurer(a);
+      assert(result.valid === true, `adventurer ${a.id} should pass validation: ${result.reason}`);
+    }
   });
 
   // --- Tests for ASSIGN_PARTY ---

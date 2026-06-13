@@ -103,7 +103,7 @@ export interface EventTemplate {
 
 export interface EventChoice {
   label: string;
-  effect: (state: Record<string, unknown>) => EventDelta;
+  effect: (state: GameState) => EventDelta;
 }
 
 export interface EventDelta {
@@ -289,6 +289,8 @@ export interface GameState {
   questRisk?: number;
   reputation?: number;
   favorDebt?: number;
+  pendingTrainingBonus?: number;
+  temporaryUnavailability?: number;
 }
 
 // ─── Store Action Types ────────────────────────────────
@@ -407,6 +409,21 @@ export interface EventResolution {
   eventId: string;
   resolvedAt: number;
   moraleAdjustment: number;
+}
+
+// ─── Tick Result Types ─────────────────────────────────
+
+export interface TickResult extends Partial<GameState> {
+  adventurers: Adventurer[];
+  gold: number;
+  fame: number;
+  party: Party;
+  questCount: number;
+  fameMilestonesReached: number[];
+  notifications: Notification[];
+  activeQuest: ActiveQuest | null;
+  equipmentBonus: number;
+  fameMultiplier: number;
 }
 
 // ─── IndexedDB Types ───────────────────────────────────

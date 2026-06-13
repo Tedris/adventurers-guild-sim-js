@@ -100,14 +100,14 @@ checkContent('index.ts barrel', join(__dirname, 'src', 'render', 'index.ts'), [
   "export * from './event-display.js'",
 ], 'barrel re-exports');
 
-// ─── Verify app.js imports from barrel ───
-console.log('\n--- app.js Import Update ---');
-const appPath = join(__dirname, 'src', 'app.js');
+// ─── Verify app.ts imports from barrel ───
+console.log('\n--- app.ts Import Update ---');
+const appPath = join(__dirname, 'src', 'app.ts');
 const appCode = readFileSync(appPath, 'utf-8');
 if (appCode.includes('./render/index.js')) {
-  console.log('  ✓ app.js imports from ./render/index.js');
+  console.log('  ✓ app.ts imports from ./render/index.js');
 } else {
-  console.error('  ✗ app.js does not import from ./render/index.js');
+  console.error('  ✗ app.ts does not import from ./render/index.js');
   passed = false;
 }
 

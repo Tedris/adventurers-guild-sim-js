@@ -4,19 +4,20 @@
 // All state changes flow through this single channel.
 
 import { validateParty, calculateSynergyScore, calculateQuestSuccessRate, calculateQuestOutcome, calculateUpgradeCost, calculateFameGain, evolveClass, evolveAdventurer, processTick, resolveEvent, generateLegacyPerk, generateRecruitmentPool, MAX_PARTY_SIZE, FAME_MILESTONE_ARRIVALS, generateMilestoneArrivals, generateId, getEvolutionStatus } from './entities/index.js';
+import type { GameState, StoreAction, ActionType, EventDelta, Equipment, Stats, Quest } from './types.js';
 
 /**
  * Creates a reactive state store.
- * @param {Object} initialState - Initial game state
- * @param {Object} [validators={}] - Map of action types to validation functions
+ * @param {GameState} initialState - Initial game state
+ * @param {Record<ActionType, (state: GameState, payload: unknown) => boolean>} [validators={}] - Map of action types to validation functions
  * @returns {Object} Store API (getState, subscribe, dispatch)
  */
-export function createStore(initialState, validators = {}) {
+export function createStore(initialState: GameState, validators: Record<ActionType, (state: GameState, payload: unknown) => boolean> = Object.create(null) as Record<ActionType, (state: GameState, payload: unknown) => boolean>) {
   let state = structuredClone(initialState);
-  const subscribers = new Set();
+  const subscribers = new Set<(state: GameState, action: StoreAction) => void>();
 
   // Pure reducer — state transitions are immutable
-  function reducer(currentState, action) {
+  function reducer(currentState: GameState, action: StoreAction): GameState {
     switch (action.type) {
       case 'GOLD':
         return { ...currentState, gold: (currentState.gold ?? 0) + action.payload };
@@ -49,9 +50,16 @@ export function createStore(initialState, validators = {}) {
         const count = action.payload.count ?? 1;
         if (!Number.isInteger(count) || count <= 0) return currentState;
 
+        const RESTOCK_COST = 5;
+        if ((currentState.gold ?? 0) < RESTOCK_COST) {
+          console.warn(`[Store] RESTOCK rejected: insufficient gold (need ${RESTOCK_COST}, have ${currentState.gold})`);
+          return currentState;
+        }
+
         const newPoolEntries = generateRecruitmentPool(count, currentState);
         return {
           ...currentState,
+          gold: currentState.gold - RESTOCK_COST,
           recruitmentPool: [...currentState.recruitmentPool, ...newPoolEntries],
         };
       }
@@ -91,7 +99,7 @@ export function createStore(initialState, validators = {}) {
 
         // Calculate synergy score
         const partyAdventurers = currentState.adventurers.filter(a => adventurerIds.includes(a.id));
-        const { synergyScore } = calculateSynergyScore(partyAdventurers, quest || null);
+        const { synergyScore } = calculateSynergyScore(partyAdventurers, (quest || null) as unknown as Record<string, unknown> | null);
 
         return {
           ...currentState,
@@ -155,10 +163,11 @@ export function createStore(initialState, validators = {}) {
 
          const updatedAdventurer = { ...adventurer, ...updates };
 
-         // Check for class evolution after equipment changes
-         let evolvedAdventurer = updatedAdventurer;
-         let evolutionTriggered = false;
-         if (updates.equipment || updates.weapon || updates.armor || updates.accessory) {
+        // Check for class evolution after equipment changes
+          let evolvedAdventurer = updatedAdventurer;
+          let evolutionTriggered = false;
+          const updatesWithEquipment = updates as { equipment?: Partial<Equipment>; weapon?: string; armor?: string; accessory?: string };
+          if (updatesWithEquipment.equipment || updatesWithEquipment.weapon || updatesWithEquipment.armor || updatesWithEquipment.accessory) {
            const evolution = evolveClass(updatedAdventurer);
            if (evolution.evolved) {
              evolvedAdventurer = evolveAdventurer(updatedAdventurer);
@@ -197,8 +206,8 @@ export function createStore(initialState, validators = {}) {
         const minSize = quest.requirements?.minPartySize;
         const anySingleMeetsStats = partyAdventurers.some(a => {
           const reqStats = quest.requirements?.minStats || {};
-          for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
-            if ((reqStats[stat] ?? 0) > 0 && (a[stat] ?? 0) < reqStats[stat]) {
+          for (const stat of ['str', 'dex', 'int', 'vit', 'lck'] as (keyof Stats)[]) {
+            if ((reqStats[stat] ?? 0) > 0 && (a.stats[stat] ?? 0) < reqStats[stat]) {
               return false;
             }
           }
@@ -243,13 +252,13 @@ export function createStore(initialState, validators = {}) {
         );
 
         // Calculate success with equipment bonus from upgrades
-        const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
+        const successRate = calculateQuestSuccessRate(partyAdventurers, quest as unknown as Record<string, unknown>);
         const equipmentBonus = currentState.equipmentBonus || 0;
         const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
         const succeeded = Math.random() * 100 < successRateWithBonus;
 
         // Calculate outcome
-        const outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
+        const outcome = calculateQuestOutcome(partyAdventurers, quest as unknown as Record<string, unknown>, succeeded);
 
         // Apply results
         const newGold = Math.max(0, (currentState.gold ?? 0) + outcome.gold);
@@ -389,7 +398,7 @@ export function createStore(initialState, validators = {}) {
           adventurers: currentState.adventurers.map(a =>
             a.id === adventurerId ? evolvedAdventurer : a
           ),
-          lastEvolution: { adventurerId, class: evolution.newClass },
+          lastEvolution: evolution.newClass ? { adventurerId, class: evolution.newClass } : null,
         };
       }
       case 'CLEAR_EVOLUTION':
@@ -429,13 +438,13 @@ export function createStore(initialState, validators = {}) {
           let outcome;
           if (autoCompleted) {
             succeeded = true;
-            outcome = calculateQuestOutcome(partyAdventurers, quest, true);
+            outcome = calculateQuestOutcome(partyAdventurers, quest as unknown as Record<string, unknown>, true);
           } else {
-            const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
+            const successRate = calculateQuestSuccessRate(partyAdventurers, quest as unknown as Record<string, unknown>);
             const equipmentBonus = tickResult.equipmentBonus || 0;
             const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
             succeeded = Math.random() * 100 < successRateWithBonus;
-            outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
+            outcome = calculateQuestOutcome(partyAdventurers, quest as unknown as Record<string, unknown>, succeeded);
           }
           const newGold = Math.max(0, (tickResult.gold ?? 0) + outcome.gold);
           const fameGain = calculateFameGain(tickResult);
@@ -486,6 +495,7 @@ export function createStore(initialState, validators = {}) {
           }
 
           return {
+            ...currentState,
             ...tickResult,
             gold: newGold,
             adventurers: allAdventurers,
@@ -497,11 +507,11 @@ export function createStore(initialState, validators = {}) {
             questCount: (tickResult.questCount || 0) + 1,
             fameMilestonesReached: newMilestones,
             notifications: tickNotifications,
-            activeQuest: {
-              ...tickResult.activeQuest,
+            activeQuest: currentState.activeQuest ? {
+              ...currentState.activeQuest,
               status: succeeded ? 'complete' : 'failed',
               result: outcome,
-            },
+            } : null,
           };
         }
 
@@ -510,18 +520,19 @@ export function createStore(initialState, validators = {}) {
           const evolveMsg = 'Evolution available: ' + potentialEvolutions.map(e => e.name + ' → ' + e.evolutionName).join(', ');
           const existingNotifications = tickResult.notifications || [];
           const lastNotif = existingNotifications[existingNotifications.length - 1];
-          if (!lastNotif || !lastNotif.message.includes('Evolution available')) {
-            return {
-              ...tickResult,
-              notifications: [...existingNotifications, {
-                id: generateId(),
-                message: evolveMsg,
-                timestamp: Date.now(),
-              }],
-            };
-          }
+      if (!lastNotif || !lastNotif.message.includes('Evolution available')) {
+             return {
+               ...currentState,
+               ...tickResult,
+               notifications: [...existingNotifications, {
+                 id: generateId(),
+                 message: evolveMsg,
+                 timestamp: Date.now(),
+               }],
+             };
+           }
         }
-        return tickResult;
+        return { ...currentState, ...tickResult } as GameState;
       }
       case 'EVENT_FIRED': {
         const { eventId, title, description, category, choices } = action.payload;
@@ -548,7 +559,7 @@ export function createStore(initialState, validators = {}) {
       case 'EVENT_RESOLVED': {
         const { eventId, choiceIndex } = action.payload;
 
-        if (!eventId && eventId !== 0) return currentState;
+        if (!eventId) return currentState;
 
         // Resolve the event using the entity function
         const resolution = resolveEvent(currentState, eventId, choiceIndex);
@@ -618,7 +629,7 @@ export function createStore(initialState, validators = {}) {
           ...(resolution.delta.fameDelta ? { fame: (currentState.fame || 0) + resolution.delta.fameDelta } : {}),
           // Apply training bonus as temporary state (consumed after next quest)
           ...(trainingBonus ? { pendingTrainingBonus: (currentState.pendingTrainingBonus || 0) + trainingBonus } : {}),
-        };
+        } as GameState;
       }
       default:
         return currentState;
@@ -626,14 +637,14 @@ export function createStore(initialState, validators = {}) {
   }
 
   return {
-    getState: () => structuredClone(state),
+    getState: (): GameState => structuredClone(state),
 
-    subscribe: (fn) => {
+    subscribe: (fn: (state: GameState, action: StoreAction) => void) => {
       subscribers.add(fn);
       return () => subscribers.delete(fn);
     },
 
-    dispatch: (action) => {
+    dispatch: (action: StoreAction): boolean => {
       const validator = validators[action.type];
       if (validator && !validator(state, action.payload)) {
         console.warn(`[Store] Action "${action.type}" rejected: validation failed`);
@@ -659,9 +670,9 @@ export function createStore(initialState, validators = {}) {
  * @param {Function|*} [payloadFn] - Function to transform payload, or value
  * @returns {Function} Action creator that returns { type, payload }
  */
-export function createAction(type, payloadFn) {
+export function createAction(type: ActionType, payloadFn?: (payload: unknown) => unknown) {
   return {
-    [type](payload) {
+    [type](payload: unknown) {
       return {
         type,
         payload: typeof payloadFn === 'function' ? payloadFn(payload) : payload,

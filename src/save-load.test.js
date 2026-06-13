@@ -174,7 +174,7 @@ Object.defineProperty(globalThis, 'indexedDB', {
 // ─── Test Execution ───
 // Sequential async test runner — each test awaits the previous.
 
-import('./save-load.js').then((module) => {
+import('./save-load').then((module) => {
   const { initStore, saveState, loadState, clearStore, enableAutoSave } = module;
 
   let chain = Promise.resolve();

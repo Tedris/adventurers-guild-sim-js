@@ -210,6 +210,11 @@ export function renderNotifications(state: GameState): void {
     notifContainer.appendChild(notifCard);
   }
 
+  const existing = container.querySelector('#notifications-container') as HTMLElement;
+  if (existing) {
+    detachAllListeners(existing);
+    existing.remove();
+  }
   container.insertBefore(notifContainer, container.firstChild);
 }
 

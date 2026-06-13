@@ -1,0 +1,100 @@
+# generated: 2026-05-31
+# last_updated: 2026-06-13T18:00:00
+# project: adventurers-guild-sim-js
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: implementation_artifacts
+# epic_source: _bmad-output/planning-artifacts/epics-brownfield-2026-05-30.md (ACTIVE — superseded greenfield: epics.md)
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+#
+# RECOMMENDED SPRINT ORDER:
+# 1. Epic 1: Core Gameplay — DONE ✅
+# 2. Epic 2: Bug Fixes — DONE ✅
+# 3. Epic 3: TypeScript Migration — quick win, sets foundation
+# 4. Epic 5: Navigation & Tooltips — Phases 15-16
+# 5. Epic 6: Party Management — Phases 17-18
+# 6. Epic 7: Interaction Quality — Phases 19-20
+# 7. Epic 4: Tech Debt — after Epic 3, complete after Epics 5-7
+
+generated: 2026-05-30
+project: adventurers-guild-sim-js
+project_key: NOKEY
+tracking_system: file-system
+story_location: implementation_artifacts
+
+development_status:
+  # Epic 1: Core Gameplay Foundation
+  epic-1: done
+  1-1-click-to-earn-gold: done
+  1-2-purchase-guild-upgrades: done
+  1-3-quest-auto-completion: done
+  1-4-real-time-visual-feedback: done
+  epic-1-retrospective: done
+
+  # Epic 2: Bug Fixes & Test Coverage
+  epic-2: done
+  2-1-fix-duplicate-evolution-button-event-listener: done
+  2-2-consolidate-quest-success-rate-calculation: done
+  2-3-wire-quest-templates-test-into-test-runner: done
+  epic-2-retrospective: done
+
+  # Epic 3: TypeScript Migration
+  epic-3: done
+  3-1-migrate-store-js-to-typescript: done
+  3-2-migrate-app-js-to-typescript: done
+  3-3-migrate-save-load-js-to-typescript: done
+  3-4-migrate-click-effects-feedback-ticker-to-typescript: done
+  epic-3-retrospective: done
+
+  # Epic 4: Tech Debt Reduction
+  epic-4: backlog
+  4-1-extract-store-action-handlers-from-god-reducer: backlog
+  4-2-replace-global-store-access-in-render-functions: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Navigation & Tooltips (v1.3 Phases 15-16)
+  epic-5: backlog
+  5-1-rebuild-tab-switching-with-smooth-transitions: backlog
+  5-2-implement-rich-adventurer-card-tooltips: backlog
+  5-3-implement-quest-card-tooltips: backlog
+  5-4-implement-contextual-mechanic-tooltips: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Party Management (v1.3 Phases 17-18)
+  epic-6: backlog
+  6-1-build-party-overview-panel: backlog
+  6-2-add-party-synergy-display: backlog
+  6-3-implement-drag-and-drop-party-building: backlog
+  6-4-implement-party-composition-validation: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Interaction Quality (v1.3 Phases 19-20)
+  epic-7: backlog
+  7-1-ensure-touch-target-sizes-and-button-feedback: backlog
+  7-2-show-bonus-source-breakdown: backlog
+  7-3-clickable-stat-attribution: backlog
+  epic-7-retrospective: optional

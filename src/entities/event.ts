@@ -6,6 +6,7 @@ import type {
   EventTemplate,
   EventDelta,
   EventResolution,
+  GameState,
 } from '../types.js';
 
 // ─── Constants ─────────────────────────────────────────
@@ -285,7 +286,7 @@ export function selectNextEvent(state: {
 // ─── Event Resolution ──────────────────────────────────
 
 export function resolveEvent(
-  state: { day?: number; [key: string]: unknown },
+  state: GameState,
   eventId: string,
   choiceIndex: number
 ): EventResolution {

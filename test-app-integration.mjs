@@ -1,5 +1,5 @@
-// Adventurers Guild Simulator — Test: app.js Integration
-// Verifies that app.js wires together store, render, and event handlers
+// Adventurers Guild Simulator — Test: app.ts Integration
+// Verifies that app.ts wires together store, render, and event handlers
 
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -11,13 +11,13 @@ const __dirname = dirname(__filename);
 let passed = true;
 
 // ─── Check app.js imports from render barrel and store.js ───
-const appPath = join(__dirname, 'src', 'app.js');
+const appPath = join(__dirname, 'src', 'app.ts');
 const appCode = readFileSync(appPath, 'utf-8');
 
 if (appCode.includes("import") && (appCode.includes("render") || appCode.includes("renderView"))) {
-  console.log('  ✓ app.js imports render module');
+  console.log('  ✓ app.ts imports render module');
 } else {
-  console.error('  ✗ app.js missing render module import');
+  console.error('  ✗ app.ts missing render module import');
   passed = false;
 }
 
@@ -39,27 +39,27 @@ if (tabCode.includes("innerHTML = ''") || tabCode.includes("innerHTML=''")) {
   passed = false;
 }
 
-// ─── Verify app.js wires up store subscribe for rendering ───
+// ─── Verify app.ts wires up store subscribe for rendering ───
 if (appCode.includes("store.subscribe")) {
-  console.log('  ✓ app.js subscribes store to render');
+  console.log('  ✓ app.ts subscribes store to render');
 } else {
-  console.error('  ✗ app.js missing store.subscribe');
+  console.error('  ✗ app.ts missing store.subscribe');
   passed = false;
 }
 
 // ─── Verify tab navigation is wired up ───
 if (appCode.includes("nav-tab") || appCode.includes("data-tab")) {
-  console.log('  ✓ app.js has tab navigation wiring');
+  console.log('  ✓ app.ts has tab navigation wiring');
 } else {
-  console.error('  ✗ app.js missing tab navigation');
+  console.error('  ✗ app.ts missing tab navigation');
   passed = false;
 }
 
 // ─── Verify Next Day button exists and is wired ───
 if (appCode.includes("TICK")) {
-  console.log('  ✓ app.js dispatches TICK action for time advancement');
+  console.log('  ✓ app.ts dispatches TICK action for time advancement');
 } else {
-  console.error('  ✗ app.js missing TICK dispatch');
+  console.error('  ✗ app.ts missing TICK dispatch');
   passed = false;
 }
 
@@ -81,18 +81,18 @@ if (htmlCode.includes('data-tab="quests"')) {
   passed = false;
 }
 
-// ─── Verify app.js references dist/app.js or app.js in index.html ───
-if (htmlCode.includes('app.js')) {
-  console.log('  ✓ index.html references app.js');
+// ─── Verify app.ts is referenced in index.html ───
+if (htmlCode.includes('app.ts')) {
+  console.log('  ✓ index.html references app.ts');
 } else {
-  console.error('  ✗ index.html missing app.js reference');
+  console.error('  ✗ index.html missing app.ts reference');
   passed = false;
 }
 
 if (passed) {
-  console.log('\nAll app.js integration checks PASSED');
+  console.log('\nAll app.ts integration checks PASSED');
   process.exit(0);
 } else {
-  console.error('\nSome app.js integration checks FAILED');
+  console.error('\nSome app.ts integration checks FAILED');
   process.exit(1);
 }

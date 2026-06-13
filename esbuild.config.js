@@ -4,7 +4,7 @@ const args = process.argv.slice(2);
 const isWatch = args.includes('--watch');
 
 build({
-  entryPoints: ['src/app.js', 'src/styles.css'],
+  entryPoints: ['src/app.ts', 'src/styles.css'],
   outdir: 'dist',
   bundle: true,
   sourcemap: true,

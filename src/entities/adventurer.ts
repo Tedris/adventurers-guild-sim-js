@@ -215,17 +215,18 @@ export function getFameLevel(fame: number): { name: string; bonus: number; curre
   };
 }
 
-export function generateRecruitmentPool(count: number = 1, state?: { fame?: number; legacyPerks?: LegacyPerk[] }): Adventurer[] {
+export function generateRecruitmentPool(count: number = 1, state?: { fame?: number; legacyPerks?: LegacyPerk[]; upgrades?: Record<string, number> }): Adventurer[] {
   const pool: Adventurer[] = [];
   const fame = state?.fame ?? 0;
   const fameLevel = getFameLevel(fame);
   const fameStatBonus = Math.floor(fameLevel.bonus * 6);
+  const jobPostingsLevel = Math.max(0, state?.upgrades?.job_postings ?? 0);
 
   for (let i = 0; i < count; i++) {
     const adventurer = defaultAdventurer();
     adventurer.rank = 'Novice';
     for (const stat of Object.keys(adventurer.stats) as (keyof Stats)[]) {
-      adventurer.stats[stat] = Math.min(MAX_STAT, adventurer.stats[stat] + fameStatBonus);
+      adventurer.stats[stat] = Math.min(MAX_STAT, Math.max(MIN_STAT, adventurer.stats[stat] + fameStatBonus + jobPostingsLevel));
     }
     if (state?.legacyPerks && state.legacyPerks.length > 0) {
       const withPerks = applyLegacyPerks(adventurer, state.legacyPerks);
@@ -234,6 +235,10 @@ export function generateRecruitmentPool(count: number = 1, state?: { fame?: numb
     adventurer.aptitudes = calculateAptitudes(adventurer);
     pool.push(adventurer);
   }
+  if (jobPostingsLevel > 0) {
+    console.debug(`[Adventurer] Restock: +${jobPostingsLevel} Job Postings bonus applied for ${count} adventurers`);
+  }
+
   return pool;
 }
 

@@ -18,6 +18,7 @@ const testFiles = [
   'src/save-load.test.js',
   'src/data-integrity.test.js',
   'src/personality-traits.test.js',
+  'src/quest-templates.test.js',
 ];
 
 // List of Node.js test scripts (run separately, not bundled)

@@ -15,8 +15,7 @@ import {
   prefersReducedMotion,
 } from './click-effects.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Keyframe = Record<string, any>;
+type Keyframe = Record<string, string | number | null | undefined>;
 
 export type FlashColor = 'green' | 'red' | 'gold';
 export type SoundName = 'click' | 'success' | 'failure';
@@ -31,7 +30,7 @@ export function initAudio(): void {
   try {
     const ctx = getAudioContext();
     if (ctx.state === 'suspended') {
-      ctx.resume();
+      ctx.resume().catch(() => {});
     }
   } catch {
     // Audio not available — silently skip
@@ -80,18 +79,26 @@ export function playScreenFlash(color: FlashColor): void {
     };
 
     flash.style.backgroundColor = colorMap[color] || colorMap.gold;
-    document.body.appendChild(flash);
+    try {
+      document.body.appendChild(flash);
+    } catch {
+      return;
+    }
 
-    flash.animate(
+    try {
+      flash.animate(
       [
         { opacity: 0 },
         { opacity: 1 },
         { opacity: 0 },
       ],
       { duration: 300, easing: 'ease-out' }
-    ).onfinish = () => {
+      ).onfinish = () => {
+        if (flash.parentNode) flash.parentNode.removeChild(flash);
+      };
+    } catch {
       if (flash.parentNode) flash.parentNode.removeChild(flash);
-    };
+    }
   } catch {
     // Silent fail — screen flash is non-critical
   }
@@ -107,7 +114,11 @@ export function playSound(soundName: SoundName): void {
   if (typeof document === 'undefined') return;
   try {
     if (soundName === 'click') {
-      playClickSound(null);
+      try {
+        playClickSound(null);
+      } catch {
+        // Click sound not available — silently skip
+      }
     } else if (soundName === 'success' || soundName === 'failure') {
       // Sound placeholder — wire to Web Audio API when tones are defined
     }
@@ -134,7 +145,7 @@ export function playScreenShake(element: HTMLElement, duration?: number, amplitu
       triggerScreenShake(element);
     } else {
       // Custom shake with specified params
-      const safeAmplitude = Number.isFinite(amplitude) ? amplitude : 3;
+      const safeAmplitude = amplitude === undefined || !Number.isFinite(amplitude) || amplitude < 0 ? 3 : amplitude;
       const safeDuration = Number.isFinite(duration) ? duration : 150;
       const keyframes = generateShakeKeyframes(safeAmplitude);
       element.animate(keyframes, {

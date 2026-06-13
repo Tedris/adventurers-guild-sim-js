@@ -12,6 +12,8 @@ import type {
   MoraleResult,
   DepartureResult,
   QuestProgressResult,
+  TickResult,
+  GameState,
 } from '../types.js';
 
 import { calculateQuestSuccessRate, calculateQuestOutcome } from './party.js';
@@ -101,7 +103,7 @@ export function getAvailableUpgrades(state: {
 // ─── Tick Processor ────────────────────────────────────
 
 export function checkMorale(
-  state: { adventurers?: Adventurer[]; day?: number },
+  state: Partial<GameState>,
   tickCount: number
 ): MoraleResult {
   const adventurers = state.adventurers || [];
@@ -122,7 +124,7 @@ export function checkMorale(
 }
 
 export function checkDepartures(
-  state: { adventurers?: Adventurer[] }
+  state: Partial<GameState>
 ): DepartureResult {
   const adventurers = state.adventurers || [];
   const departed: Adventurer[] = [];
@@ -140,23 +142,19 @@ export function checkDepartures(
 }
 
 export function processQuestProgress(
-  state: {
-    activeQuest?: Record<string, unknown> | null;
-    quests?: Quest[];
-    questTickCount?: number;
-  },
+  state: GameState,
   tickCount: number
 ): QuestProgressResult {
   const activeQuest = state.activeQuest;
   const quests = state.quests || [];
 
-  if (!activeQuest || (activeQuest as Record<string, unknown>).status !== 'active') {
+  if (!activeQuest || activeQuest.status !== 'active') {
     return { updatedQuests: quests, completedQuests: [], failedQuests: [] };
   }
 
   // Use quest data from activeQuest
-  const quest = (activeQuest as Record<string, unknown>).questData as Quest | undefined
-    || quests.find(q => q.id === (activeQuest as Record<string, unknown>).questId as string);
+  const quest = activeQuest.questData
+    || quests.find(q => q.id === activeQuest.questId);
   if (!quest) {
     return { updatedQuests: quests, completedQuests: [], failedQuests: [] };
   }
@@ -173,35 +171,43 @@ export function processQuestProgress(
 }
 
 export function processTick(
-  state: Record<string, unknown>,
+  state: GameState,
   tickCount: number = 1
-): Record<string, unknown> {
-  let newState: Record<string, unknown> = {
+): TickResult {
+  let newState: TickResult = {
     ...state,
     day: (state.day as number) + tickCount,
   };
 
   // Check morale
-  const morale = checkMorale(newState as { adventurers?: Adventurer[] }, tickCount);
+  const morale = checkMorale(newState, tickCount);
   newState = { ...newState, adventurers: morale.adjustedAdventurers };
 
   // Check departures
-  const departures = checkDepartures(newState as { adventurers?: Adventurer[] });
+  const departures = checkDepartures(newState);
   newState = { ...newState, adventurers: departures.remaining };
 
   // Process quest progress
-  const quests = processQuestProgress(newState as {
-    activeQuest?: Record<string, unknown> | null;
-    quests?: Quest[];
-    questTickCount?: number;
-  }, tickCount);
-  newState = {
+  const quests = processQuestProgress(newState as GameState, tickCount);
+  const updatedActiveQuest = quests.completedQuests.length > 0 && newState.activeQuest
+    ? { ...newState.activeQuest, status: 'complete' as const, result: { success: true, gold: 0, experience: 0, moraleAdjustment: 0 } as const }
+    : newState.activeQuest;
+
+  const finalState: TickResult = {
     ...newState,
+    day: newState.day,
+    gold: newState.gold,
+    fame: newState.fame,
+    adventurers: newState.adventurers,
+    party: newState.party,
+    questCount: newState.questCount,
+    fameMilestonesReached: newState.fameMilestonesReached,
+    notifications: newState.notifications,
+    activeQuest: updatedActiveQuest,
     questTickCount: ((newState.questTickCount as number) ?? 0) + tickCount,
-    activeQuest: quests.completedQuests.length > 0
-      ? { ...(newState.activeQuest as Record<string, unknown>), status: 'complete', result: { success: true } }
-      : newState.activeQuest,
+    equipmentBonus: newState.equipmentBonus,
+    fameMultiplier: newState.fameMultiplier,
   };
 
-  return newState;
+  return finalState;
 }

@@ -4,16 +4,27 @@
 // Handles page visibility changes (pauses when tab is hidden).
 
 import { TICK_INTERVAL_MS } from './entities/economy.js';
+import type { StoreAction } from './types.js';
+
+/**
+ * Minimal store interface for ticker integration.
+ */
+interface GameStore {
+  dispatch: (action: StoreAction) => boolean;
+}
 
 /**
  * Game ticker — fires TICK actions at regular intervals.
  * Pauses automatically when the page visibility changes to hidden.
  */
 export class GameTicker {
-  /**
-   * @param {Object} store - The game store with dispatch method
-   */
-  constructor(store) {
+  private _store: GameStore | null;
+  private _intervalId: ReturnType<typeof setInterval> | null;
+  private _isRunning: boolean;
+  private _wasPausedBeforeVisibilityChange: boolean;
+  public _visibilityHandler?: () => void;
+
+  constructor(store: GameStore) {
     this._store = store;
     this._intervalId = null;
     this._isRunning = false;
@@ -23,7 +34,7 @@ export class GameTicker {
   /**
    * Start the ticker. If already running, does nothing.
    */
-  start() {
+  start(): void {
     if (this._isRunning) return;
 
     this._isRunning = true;
@@ -37,7 +48,7 @@ export class GameTicker {
   /**
    * Stop the ticker. If not running, does nothing.
    */
-  stop() {
+  stop(): void {
     if (!this._isRunning) return;
 
     this._isRunning = false;
@@ -50,7 +61,7 @@ export class GameTicker {
   /**
    * Toggle running state.
    */
-  toggle() {
+  toggle(): void {
     if (this._isRunning) {
       this.stop();
     } else {
@@ -62,7 +73,7 @@ export class GameTicker {
    * Check if ticker is currently running.
    * @returns {boolean}
    */
-  isRunning() {
+  isRunning(): boolean {
     return this._isRunning;
   }
 
@@ -70,7 +81,7 @@ export class GameTicker {
    * Clean up ticker and remove all event listeners.
    * Call this on page unload.
    */
-  destroy() {
+  destroy(): void {
     this.stop();
     this._store = null;
   }
@@ -78,14 +89,14 @@ export class GameTicker {
 
 /**
  * Create and start a game ticker with automatic visibility-based pause/resume.
- * @param {Object} store - The game store with dispatch method
+ * @param store - The game store with dispatch method
  * @returns {GameTicker} The ticker instance
  */
-export function createGameTicker(store) {
+export function createGameTicker(store: GameStore): GameTicker {
   const ticker = new GameTicker(store);
 
   // Handle page visibility changes
-  const handleVisibilityChange = () => {
+  const handleVisibilityChange: () => void = () => {
     if (document.visibilityState === 'hidden') {
       // Pause when tab is hidden
       ticker.stop();
@@ -102,7 +113,7 @@ export function createGameTicker(store) {
 
   // Override destroy to also remove visibility listener
   const originalDestroy = ticker.destroy.bind(ticker);
-  ticker.destroy = () => {
+  ticker.destroy = (): void => {
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     originalDestroy();
   };

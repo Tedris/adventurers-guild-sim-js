@@ -8,16 +8,21 @@
 
 // ─── Audio Context (singleton) ──────────────────────
 
-let audioContext = null;
+let audioContext: AudioContext | null = null;
 
 /**
  * Get or create the shared Web Audio API context.
  * Must be called from a user gesture (click) context.
  * @returns {AudioContext}
  */
-export function getAudioContext() {
+export function getAudioContext(): AudioContext {
   if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const Ctor: typeof AudioContext = typeof window !== 'undefined' && 'AudioContext' in window
+      ? (window.AudioContext as typeof AudioContext)
+      : 'webkitAudioContext' in window
+        ? (window as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+        : undefined as unknown as typeof AudioContext;
+    audioContext = new Ctor();
   }
 
   // Browser may suspend the context until user interaction
@@ -33,11 +38,11 @@ export function getAudioContext() {
  * Short frequency burst with quick decay.
  * @param {AudioContext} ctx — Web Audio context
  */
-export function playClickSound(ctx) {
+export function playClickSound(ctx: AudioContext | null): void {
   const context = ctx || getAudioContext();
 
-  const oscillator = context.createOscillator();
-  const gainNode = context.createGain();
+  const oscillator: OscillatorNode = context.createOscillator();
+  const gainNode: GainNode = context.createGain();
 
   oscillator.connect(gainNode);
   gainNode.connect(context.destination);
@@ -65,8 +70,8 @@ export function playClickSound(ctx) {
  * @param {string} text — Display text (e.g., "+1G")
  * @returns {HTMLElement} The floating text element
  */
-export function createFloatingText(container, x, y, text) {
-  const el = document.createElement('div');
+export function createFloatingText(container: HTMLElement, x: number, y: number, text: string): HTMLElement {
+  const el: HTMLElement = document.createElement('div');
   el.className = 'floating-text';
   el.textContent = text;
   el.style.position = 'fixed';
@@ -85,7 +90,7 @@ export function createFloatingText(container, x, y, text) {
   // Animate upward and fade out using WAAPI
   if (!prefersReducedMotion()) {
     try {
-      const animation = el.animate(
+      const animation: Animation = el.animate(
         [
           { transform: 'translateY(0) scale(1)', opacity: 1 },
           { transform: 'translateY(-50px) scale(1.2)', opacity: 0.7 },
@@ -110,7 +115,7 @@ export function createFloatingText(container, x, y, text) {
   } else {
     // For reduced motion: fade out quickly without movement
     try {
-      const animation = el.animate(
+      const animation: Animation = el.animate(
         [
           { opacity: 1 },
           { opacity: 0 },
@@ -144,10 +149,10 @@ export function createFloatingText(container, x, y, text) {
  * @param {HTMLElement} element — Element to shake
  * @returns {Animation} WAAPI animation handle
  */
-export function triggerScreenShake(element) {
+export function triggerScreenShake(element: HTMLElement): Animation {
   if (prefersReducedMotion()) {
     // Return a no-op animation
-    const noop = element.animate([], { duration: 0 });
+    const noop: Animation = element.animate([], { duration: 0 });
     noop.cancel();
     return noop;
   }
@@ -178,7 +183,7 @@ export function triggerScreenShake(element) {
  * Respects prefers-reduced-motion media query.
  * @returns {boolean}
  */
-export function prefersReducedMotion() {
+export function prefersReducedMotion(): boolean {
   return (
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
