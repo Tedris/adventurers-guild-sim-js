@@ -406,8 +406,8 @@ Promise.all([
   });
 
   test('UPGRADE_GUILD rejects insufficient gold', () => {
-    const store = createStore({ gold: 200, adventurers: [], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 }, quests: [], activeQuest: null, upgrades: { office: 0, equipment: 0, job_postings: 0 } });
-    const result = store.dispatch({ type: 'UPGRADE_GUILD', payload: { upgradeType: 'office', gold: 10 } });
+    const store = createStore({ gold: 20, adventurers: [], recruitmentPool: [], party: { id: 'p1', adventurerIds: [], synergyScore: 0, aptitudeBonus: 0 }, quests: [], activeQuest: null, upgrades: { office: 0, equipment: 0, job_postings: 0 } });
+    const result = store.dispatch({ type: 'UPGRADE_GUILD', payload: { upgradeType: 'office', gold: 50 } });
     assert(result === false, 'UPGRADE_GUILD should reject insufficient gold');
   });
 

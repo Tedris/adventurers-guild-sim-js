@@ -476,16 +476,6 @@ export function renderQuestCard(
     if (meetsSizeRequirement && partySize > 0) {
       const sendHandler = () => {
         if (dispatch) {
-          const activeQ = state.activeQuest;
-          if (
-            activeQ &&
-            activeQ.questId === quest.id
-          ) {
-            console.warn(
-              `[Render] Quest "${quest.name}" already active — complete it first.`,
-            );
-            return;
-          }
           dispatch({
             type: 'SEND_QUEST',
             payload: { questId: quest.id },

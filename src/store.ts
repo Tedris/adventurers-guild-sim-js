@@ -371,8 +371,8 @@ function handleUpgradeGuild(state: GameState, payload: { upgradeType: UpgradeTyp
   const currentLevel = upgrades[upgradeType] ?? 0;
   const cost = calculateUpgradeCost(upgradeType, currentLevel);
 
-  if (goldPaid < cost) {
-    console.warn(`[Store] UPGRADE_GUILD rejected: insufficient gold (need ${cost}, have ${goldPaid})`);
+  if ((state.gold ?? 0) < cost) {
+    console.warn(`[Store] UPGRADE_GUILD rejected: insufficient gold (need ${cost}, have ${(state.gold ?? 0)})`);
     return state;
   }
 
@@ -536,8 +536,8 @@ function handleTick(state: GameState, payload?: { tickCount?: number }): GameSta
       questCount: (tickResult.questCount || 0) + 1,
       fameMilestonesReached: newMilestones,
       notifications: tickNotifications,
-      activeQuest: state.activeQuest ? {
-        ...state.activeQuest,
+      activeQuest: tickResult.activeQuest ? {
+        ...tickResult.activeQuest,
         status: succeeded ? 'complete' : 'failed',
         result: outcome,
       } : null,
@@ -574,7 +574,7 @@ function handleEventFired(state: GameState, payload: { eventId: string; title: s
     title,
     description,
     category,
-    choices: choices ? choices.map(c => ({ label: c.label, index: choices.indexOf(c) })) : [],
+    choices: choices ? choices.map((c, i) => ({ label: c.label, index: i })) : [],
     timestamp: state.day || 0,
     resolved: false,
   };
@@ -652,7 +652,7 @@ function handleEventResolved(state: GameState, payload: { eventId: string; choic
 // ─── Exhaustiveness Check ──────────────────────────────
 
 function assertNever(x: never): never {
-  throw new Error(`Unexpected action type: ${JSON.stringify(x)}`);
+  throw new Error(`Unexpected action type: ${String(x)}`);
 }
 
 /**
