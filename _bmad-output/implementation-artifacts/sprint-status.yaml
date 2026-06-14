@@ -98,3 +98,13 @@ development_status:
   7-2-show-bonus-source-breakdown: backlog
   7-3-clickable-stat-attribution: backlog
   epic-7-retrospective: optional
+
+  # Epic 8: Backlog — Deferred Bug Fixes & Improvements
+  epic-8: backlog
+  8-1-fix-event-cards-use-dispatch: backlog
+  8-2-fix-merge-state-preserve-non-payload-fields: backlog
+  8-3-consume-subscribe-cleanup-fix-listener-leaks: backlog
+  8-4-remove-innerhtml-clear-pattern: backlog
+  8-5-verify-morale-aptitude-functionality: backlog
+  8-6-add-economy-calibration-test-suite: backlog
+  epic-8-retrospective: optional

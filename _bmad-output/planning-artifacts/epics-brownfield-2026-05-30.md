@@ -692,6 +692,141 @@ So that I can identify which adventurer is providing which bonus.
 
 ---
 
+## Epic 8: Backlog — Deferred Bug Fixes & Improvements
+
+**User outcome:** All known bugs and quality improvements identified during code reviews are tracked and resolved, preventing technical debt accumulation.
+
+**FRs covered:** N/A (maintenance backlog)
+
+**Notes:** This epic collects all deferred items from code reviews of Epics 1-4. Items are prioritized by severity. The goal is to prevent the "deferred pile-up" pattern where too many items accumulate without resolution. Each story should be completed before the next epic starts to keep technical debt manageable.
+
+**Deferred items source:** `deferred-work.md`, Epic 3 retrospective, Epic 4 retrospective, story-by-story deferred notes.
+
+---
+
+### Story 8.1: Fix event cards to use dispatch instead of window.dispatchEvent
+
+As a developer,
+I can have event cards use the store dispatch system consistently with other card types,
+So that event choice handling follows a single pattern and is testable in isolation.
+
+**Acceptance Criteria:**
+
+**Given** `renderEventCard` in `card.ts` currently uses `window.dispatchEvent` for choice handling
+**When** event cards are rendered with a dispatch callback
+**Then** event choices dispatch `EVENT_RESOLVED` actions through the store instead of `window.dispatchEvent`
+**And** `tab.ts` calls `renderCard('event', event, state, undefined, dispatch)` with dispatch passed through
+**And** event choice callbacks in `renderEventCard` use `dispatch({ type: 'EVENT_RESOLVED', payload: { eventId, choiceIndex: i } })`
+
+**Given** event cards still use `window.dispatchEvent` as fallback
+**When** no dispatch callback is provided
+**Then** the event card falls back to `window.dispatchEvent` for backward compatibility
+
+---
+
+### Story 8.2: Fix MERGE_STATE to preserve non-payload state fields
+
+As a developer,
+I can have MERGE_STATE intelligently merge state rather than replace it entirely,
+So that partial state updates don't lose important game state.
+
+**Acceptance Criteria:**
+
+**Given** `handleMergeState` in `store.ts` currently does `structuredClone(payload)` (total replacement)
+**When** MERGE_STATE is dispatched with a partial state object
+**Then** the merge preserves non-payload fields that are present in the current state (e.g., events, activeQuest, party)
+**And** payload fields override current state values
+**And** the behavior is documented as a shallow merge, not a deep merge
+
+**Given** MERGE_STATE is dispatched with a full state object
+**Then** the behavior is identical to the current full replacement
+
+**Given** a consumer needs full replacement
+**Then** they can merge `payload` with `currentState` before dispatching MERGE_STATE
+
+---
+
+### Story 8.3: Consume store subscribe cleanup and fix listener leaks
+
+As a developer,
+I can have all store subscriptions cleaned up properly and no event listener leaks,
+So that memory usage stays bounded over long play sessions.
+
+**Acceptance Criteria:**
+
+**Given** `app.ts` discards the unsubscribe function from `store.subscribe()`
+**When** the app mounts
+**Then** the unsubscribe function is stored and called on page unload (beforeunload event)
+
+**Given** `_visibilityHandler` on `GameTicker` is public
+**When** the ticker is used
+**Then** the property is private (rename to `_visibilityHandler` → `_visibilityHandler` is already private, just remove `public` modifier)
+
+**Given** IndexedDB connection is opened
+**When** the page is suspended and resumed after a long time
+**Then** the IndexedDB connection is re-opened (connection state is validated)
+
+**Given** `save-load.ts` auto-save
+**When** the first dispatch fires
+**Then** auto-save is not triggered (only on non-initial state changes)
+
+---
+
+### Story 8.4: Remove innerHTML = '' pattern in favor of safe DOM clearing
+
+As a developer,
+I can have all view rendering use safe DOM clearing that preserves event listeners,
+So that listener tracking system handles cleanup without innerHTML destroying tracked listeners.
+
+**Acceptance Criteria:**
+
+**Given** multiple view functions in `tab.ts` use `container.innerHTML = ''`
+**When** the view is rendered
+**Then** the existing content's listeners are detached via `detachAllListeners` before innerHTML clearing
+**And** the pattern is documented as a requirement in renderView comments
+
+**Given** the listener tracking system exists
+**When** any view uses innerHTML = ''
+**Then** it first calls detachAllListeners on the container (or its children)
+
+---
+
+### Story 8.5: Verify morale aptitude functionality
+
+As a developer,
+I can verify whether morale aptitude is functional or a no-op flavor value,
+So that the team has a clear decision on whether to implement or remove it.
+
+**Acceptance Criteria:**
+
+**Given** the morale system has aptitude-related calculations
+**When** I trace through morale calculation code paths
+**Then** the output clearly documents whether morale aptitude has any gameplay effect
+
+**Given** the current behavior is documented
+**When** a decision is made (keep, implement, or remove)
+**Then** the appropriate story is created to address it
+
+---
+
+### Story 8.6: Add economy calibration test suite
+
+As a developer,
+I can have a test suite that validates economy balance (upgrade costs, gold income, quest rewards),
+So that economy changes are caught by tests and don't break game balance.
+
+**Acceptance Criteria:**
+
+**Given** the current upgrade costs (office: 50, equipment: 30, job_postings: 15) and scaling (1.5x per level)
+**When** a test suite validates economy balance
+**Then** the suite checks: gold income vs cost ratios at different game stages, quest reward fairness, restock economy, upgrade affordability progression
+
+**Given** economy calibration data (BAL-01, BAL-02)
+**When** the test suite runs
+**Then** it flags any economy parameter that falls outside reasonable bounds
+
+---
+
 ## Epic-to-Requirement Traceability
 
 | Epic | Requirements | FR Coverage |
@@ -703,6 +838,7 @@ So that I can identify which adventurer is providing which bonus.
 | Epic 5: Navigation & Tooltips | NAV-01, NAV-02, TOOLTIP-01-03 | NAV-01, NAV-02, TOOLTIP-01, TOOLTIP-02, TOOLTIP-03 |
 | Epic 6: Party Management | PARTY-01, PARTY-02, PARTY-03, PARTY-04 | PARTY-01, PARTY-02, PARTY-03, PARTY-04 |
 | Epic 7: Interaction Quality | INTERACT-01-03, STATS-01, STATS-02 | INTERACT-01, INTERACT-02, INTERACT-03, STATS-01, STATS-02 |
+| Epic 8: Backlog — Deferred Fixes | DEF-01 through DEF-06 | N/A |
 
 ### Original GSD FR Coverage (for reference — already built)
 
@@ -729,6 +865,8 @@ Epic 5: Navigation & Tooltips (depends on Epic 3 — clean types)
 Epic 6: Party Management (depends on Epic 5 for tab structure)
     ↕ parallel
 Epic 7: Interaction Quality (Phase 19 parallel to Phase 17-18)
+    ↓
+Epic 8: Backlog — Deferred Fixes (after all features stable)
 ```
 
 **Recommended sprint order:**
@@ -738,7 +876,9 @@ Epic 7: Interaction Quality (Phase 19 parallel to Phase 17-18)
 4. Epic 5: Navigation & Tooltips — Phases 15-16
 5. Epic 6: Party Management — Phases 17-18
 6. Epic 7: Interaction Quality — Phases 19-20 (can start after Phase 15)
-7. Epic 4: Tech Debt — can start after Epic 3, complete after Epics 5-7 (after features are stable)
+7. Epic 8: Backlog — Deferred Fixes — run after all features stable to clear accumulated deferred items
+8. Epic 4: Tech Debt — can start after Epic 3, complete after Epics 5-7 (after features are stable)
+9. Epic 9: Prestige Reset System — future milestone (out of scope for v1.3)
 
 ---
 
@@ -753,7 +893,8 @@ Epic 7: Interaction Quality (Phase 19 parallel to Phase 17-18)
 | 5: Navigation & Tooltips | 4 | 4 stories |
 | 6: Party Management | 4 | 4 stories |
 | 7: Interaction Quality | 3 | 3 stories |
-| **Total** | **24 stories** | **7 epics** |
+| 8: Backlog — Deferred Fixes | 6 | 6 stories |
+| **Total** | **30 stories** | **8 epics** |
 
 ---
 
