@@ -14,11 +14,15 @@ import {
 } from '../entities/index.js';
 import { renderCard, trackEventListener, detachAllListeners } from './card.js';
 import type { CardType, DispatchFn } from './card.js';
+import { hideTooltip, showFameMechanicTooltip, showWageMechanicTooltip, showEvolutionMechanicTooltip, isTooltipVisible, positionTooltip } from './tooltip.js';
+import { CLASS_EVOLUTIONS } from '../entities/index.js';
 import { showConfirmModal } from './event-display.js';
 import {
   slideInFromRight,
   fadeOutAndShrink,
   playAnimation,
+  playAnimationAsync,
+  prefersReducedMotion,
   tabSlideTransition,
   upgradeSuccessAnimation,
 } from '../animation.js';
@@ -75,26 +79,70 @@ const VIEW_ORDER: Record<ViewName, number> = {
 const _lastView = new Map<string, ViewName>();
 
 /**
+ * Animation lock: prevents reentrant tab clicks during active transitions.
+ * Set to true when a WAAPI transition is in progress, preventing new transitions
+ * from starting until the current one completes.
+ */
+let _isTransitioning = false;
+
+/**
+ * Render view content to a detached DOM fragment.
+ * Handles safe cleanup of listeners and virtual lists before rendering new content.
+ * The fragment is returned for DOM swapping with WAAPI animations.
+ */
+function _renderToFragment(viewName: ViewName, state: GameState, dispatch?: DispatchFn): HTMLElement {
+  // Create a detached container for new content
+  const fragment = document.createElement('div');
+  fragment.className = 'tab-content';
+
+  // Clean up listeners from the existing game-content container before rendering new content
+  const realContainer = document.getElementById('game-content');
+  if (realContainer) {
+    // Destroy any virtual list on the current container before clearing
+    const existingVL = _virtualLists.get(realContainer);
+    if (existingVL) {
+      existingVL.destroy();
+      _virtualLists.delete(realContainer);
+    }
+
+    // Detach all tracked event listeners from old container
+    detachAllListeners(realContainer);
+  }
+
+  // Render the view into the detached fragment
+  _executeView(viewName, state, dispatch, fragment);
+
+  return fragment;
+}
+
+/**
  * Dispatch rendering to the correct view based on tab name.
+ * Uses WAAPI container swapping for smooth transitions with proper event listener retention.
  */
 export function renderView(viewName: ViewName, state: GameState, dispatch?: DispatchFn): void {
+  // Hide any floating tooltip before tab switching
+  hideTooltip();
+
   const container = document.getElementById('game-content');
+
+  // If no container exists (e.g., during SSR or initial setup), render directly
   if (!container) {
+    // Already called hideTooltip() above, so direct body renders are safe
     switch (viewName) {
       case 'dashboard':
-        return renderDashboard(state, dispatch);
+        return renderDashboard(document.body, state, dispatch);
       case 'roster':
-        return renderRoster(state, dispatch);
+        return renderRoster(document.body, state, dispatch);
       case 'recruitment':
-        return renderRecruitment(state, dispatch);
+        return renderRecruitment(document.body, state, dispatch);
       case 'quests':
-        return renderQuestBoard(state, dispatch);
+        return renderQuestBoard(document.body, state, dispatch);
       case 'events':
-        return renderEvents(state, dispatch);
+        return renderEvents(document.body, state, dispatch);
       case 'upgrades':
-        return renderUpgrades(state, dispatch);
+        return renderUpgrades(document.body, state, dispatch);
       default:
-        return renderDashboard(state, dispatch);
+        return renderDashboard(document.body, state, dispatch);
     }
   }
 
@@ -103,9 +151,16 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
 
   // If no previous view (first render), render directly without transition
   if (!lastView) {
-    _executeView(viewName, state, dispatch);
+    _executeView(viewName, state, dispatch, container);
     return;
   }
+
+  // Animation lock: prevent reentrant tab clicks during active transitions
+  if (_isTransitioning) {
+    return;
+  }
+
+  _isTransitioning = true;
 
   // Determine transition direction
   const currentIndex = VIEW_ORDER[lastView] ?? 0;
@@ -113,59 +168,87 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
   const direction: 'left' | 'right' = newIndex > currentIndex ? 'left' : 'right';
   const transitions = tabSlideTransition(direction);
 
-  // Capture old content for out-animation
-  const oldContent = container.innerHTML;
+  // Render new view to a detached fragment
+  const newContainer = _renderToFragment(viewName, state, dispatch);
 
-  // Render new view
-  _executeView(viewName, state, dispatch);
-
-  // Animate old content out and new content in
-  if (oldContent !== '') {
-    // Create temporary container for out-animation
-    const tempOut = document.createElement('div');
-    tempOut.innerHTML = oldContent;
-    container.appendChild(tempOut);
-
-    const outAnim = playAnimation(tempOut, transitions.out);
-    outAnim.addEventListener('finish', () => {
-      tempOut.remove();
-    });
-
-    // Animate in the new content (first child of container after old content removal)
-    const newContent = container.firstElementChild;
-    if (newContent && newContent instanceof HTMLElement) {
-      newContent.style.opacity = '0';
-      newContent.style.transform = direction === 'left'
-        ? 'translateX(30px)'
-        : 'translateX(-30px)';
-      const inAnim = playAnimation(newContent, transitions.in);
-      inAnim.addEventListener('finish', () => {
-        newContent.style.opacity = '';
-        newContent.style.transform = '';
-      });
+  // If user prefers reduced motion, do an instant swap with no animation
+  if (prefersReducedMotion()) {
+    container.appendChild(newContainer);
+    const oldContainer = container.firstElementChild as HTMLElement;
+    if (oldContainer instanceof HTMLElement) {
+      detachAllListeners(oldContainer);
+      oldContainer.remove();
     }
+    newContainer.style.position = '';
+    newContainer.style.top = '';
+    newContainer.style.left = '';
+    newContainer.style.width = '';
+    _isTransitioning = false;
+    return;
   }
+
+  // Apply transition state class to container
+  container.classList.add('tab-transitioning');
+
+  // Set up both containers for WAAPI animation as absolute children
+  container.appendChild(newContainer);
+  const oldContainer = container.firstElementChild as HTMLElement;
+
+  if (oldContainer instanceof HTMLElement) {
+    oldContainer.classList.add('tab-content');
+    oldContainer.style.position = 'absolute';
+    oldContainer.style.top = '0';
+    oldContainer.style.left = '0';
+    oldContainer.style.width = '100%';
+  }
+
+  newContainer.style.position = 'absolute';
+  newContainer.style.top = '0';
+  newContainer.style.left = '0';
+  newContainer.style.width = '100%';
+
+  // Play both animations in parallel using WAAPI and wait for both to complete
+  Promise.all([
+    playAnimationAsync(oldContainer, transitions.out),
+    playAnimationAsync(newContainer, transitions.in),
+  ]).finally(() => {
+    if (oldContainer.parentNode) {
+      detachAllListeners(oldContainer);
+      oldContainer.remove();
+    }
+    // Clean up inline styles after animation completes
+    newContainer.style.position = '';
+    newContainer.style.top = '';
+    newContainer.style.left = '';
+    newContainer.style.width = '';
+    container.classList.remove('tab-transitioning');
+    _isTransitioning = false;
+  });
 }
 
 /**
  * Execute the view rendering without animation (internal).
+ * @param targetContainer — Container to render into (actual DOM element or detached fragment)
  */
-function _executeView(viewName: ViewName, state: GameState, dispatch?: DispatchFn): void {
+function _executeView(viewName: ViewName, state: GameState, dispatch?: DispatchFn, targetContainer?: HTMLElement): void {
+  const container = targetContainer ?? document.getElementById('game-content');
+  if (!container) return;
+
   switch (viewName) {
     case 'dashboard':
-      return renderDashboard(state, dispatch);
+      return renderDashboard(container, state, dispatch);
     case 'roster':
-      return renderRoster(state, dispatch);
+      return renderRoster(container, state, dispatch);
     case 'recruitment':
-      return renderRecruitment(state, dispatch);
+      return renderRecruitment(container, state, dispatch);
     case 'quests':
-      return renderQuestBoard(state, dispatch);
+      return renderQuestBoard(container, state, dispatch);
     case 'events':
-      return renderEvents(state, dispatch);
+      return renderEvents(container, state, dispatch);
     case 'upgrades':
-      return renderUpgrades(state, dispatch);
+      return renderUpgrades(container, state, dispatch);
     default:
-      return renderDashboard(state, dispatch);
+      return renderDashboard(container, state, dispatch);
   }
 }
 
@@ -173,13 +256,15 @@ function _executeView(viewName: ViewName, state: GameState, dispatch?: DispatchF
 
 /**
  * Render notification cards in the dashboard.
+ * @param referenceContainer — The main content container (used as insertion point for notifications)
  */
-export function renderNotifications(state: GameState, dispatch?: DispatchFn): void {
+export function renderNotifications(referenceContainer: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
   const notifications = state.notifications || [];
   if (notifications.length === 0) return;
 
-  const container = document.getElementById('game-content');
-  if (!container) return;
+  // If rendering to the actual game-content, insert notifications before existing content
+  const actualContainer = document.getElementById('game-content');
+  const insertionTarget = (actualContainer === referenceContainer) ? actualContainer : referenceContainer;
 
   const notifContainer = document.createElement('div');
   notifContainer.id = 'notifications-container';
@@ -210,12 +295,12 @@ export function renderNotifications(state: GameState, dispatch?: DispatchFn): vo
     notifContainer.appendChild(notifCard);
   }
 
-  const existing = container.querySelector('#notifications-container') as HTMLElement;
+  const existing = insertionTarget.querySelector('#notifications-container') as HTMLElement;
   if (existing) {
     detachAllListeners(existing);
     existing.remove();
   }
-  container.insertBefore(notifContainer, container.firstChild);
+  insertionTarget.insertBefore(notifContainer, insertionTarget.firstChild);
 }
 
 // ─── Dashboard View ────────────────────────────────────
@@ -223,13 +308,13 @@ export function renderNotifications(state: GameState, dispatch?: DispatchFn): vo
 /**
  * Dashboard view — overview cards (office level, active quest, party status, recent events).
  */
-export function renderDashboard(state: GameState, dispatch?: DispatchFn): void {
-  const container = document.getElementById('game-content');
-  if (!container) return;
+export function renderDashboard(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
+  // Safe DOM clearing: detach all tracked listeners before clearing
+  detachAllListeners(container);
   container.innerHTML = '';
 
   // Notifications
-  renderNotifications(state, dispatch);
+  renderNotifications(container, state, dispatch);
 
   // Office level card
   const officeLevel = calculateOfficeLevel(state);
@@ -238,8 +323,42 @@ export function renderDashboard(state: GameState, dispatch?: DispatchFn): void {
 
   // Fame card
   const fameLevel = getFameLevel(state.fame || 0);
-  const fameCard = createFameCard(fameLevel);
+  const fameCard = createFameCard(fameLevel, state);
   container.appendChild(fameCard);
+
+  // Evolution counter
+  const discoveredClasses = new Set<string>();
+  for (const a of state.adventurers || []) {
+    if (a.evolved && a.evolvedClass) {
+      discoveredClasses.add(a.evolvedClass);
+    }
+  }
+  const discoveredCount = discoveredClasses.size;
+  const totalCount = CLASS_EVOLUTIONS.length;
+
+  const evolutionCard = document.createElement('div');
+  evolutionCard.className = 'card evolution-counter';
+  evolutionCard.innerHTML = `
+    <h3>Evolution</h3>
+    <span class="evolution-count">${discoveredCount}/${totalCount} found</span>
+  `;
+
+  // Evolution tooltip
+  const evolutionMouseEnterHandler = (ev: MouseEvent) => {
+    showEvolutionMechanicTooltip(state, CLASS_EVOLUTIONS, ev.clientX, ev.clientY);
+  };
+  const evolutionMouseLeaveHandler = () => {
+    hideTooltip();
+  };
+  const evolutionMouseMoveHandler = (ev: MouseEvent) => {
+    if (!isTooltipVisible()) return;
+    positionTooltip(ev.clientX, ev.clientY);
+  };
+  trackEventListener(evolutionCard, 'mouseenter', evolutionMouseEnterHandler as EventListener);
+  trackEventListener(evolutionCard, 'mouseleave', evolutionMouseLeaveHandler as EventListener);
+  trackEventListener(evolutionCard, 'mousemove', evolutionMouseMoveHandler as EventListener);
+
+  container.appendChild(evolutionCard);
 
   // Active quest card (if any)
   if (state.activeQuest && state.activeQuest.status === 'active') {
@@ -280,10 +399,7 @@ export function renderDashboard(state: GameState, dispatch?: DispatchFn): void {
  * Roster view — adventurer cards for all rostered adventurers.
  * Uses virtual list rendering when adventurer count > 20 for performance.
  */
-export function renderRoster(state: GameState, dispatch?: DispatchFn): void {
-  const container = document.getElementById('game-content');
-  if (!container) return;
-
+export function renderRoster(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
   const { adventurers, party } = state;
   const partyIds = new Set(party?.adventurerIds || []);
 
@@ -308,6 +424,10 @@ export function renderRoster(state: GameState, dispatch?: DispatchFn): void {
 function renderRosterStandard(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
   const { adventurers, party } = state;
   const partyIds = new Set(party?.adventurerIds || []);
+
+  // Safe DOM clearing: detach all tracked listeners before clearing
+  detachAllListeners(container);
+  container.innerHTML = '';
 
   // Capture old cards before clearing (for animation of removed adventurers)
   const oldCards = _oldCards.get(container) || [];
@@ -472,6 +592,10 @@ function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?
   const { adventurers, party } = state;
   const partyIds = new Set(party?.adventurerIds || []);
 
+  // Safe DOM clearing: detach all tracked listeners before clearing
+  detachAllListeners(container);
+  container.innerHTML = '';
+
   // Party status bar (rendered once outside the virtual list)
   const partyBar = document.createElement('div');
   partyBar.className = 'card party-status-card';
@@ -620,11 +744,12 @@ function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?
 /**
  * Recruitment view — recruitment pool with hire buttons and restock option.
  */
-export function renderRecruitment(state: GameState, dispatch?: DispatchFn): void {
-  const container = document.getElementById('game-content');
-  if (!container) return;
-
+export function renderRecruitment(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
   const { recruitmentPool, gold } = state;
+
+  // Safe DOM clearing: detach all tracked listeners before clearing
+  detachAllListeners(container);
+  container.innerHTML = '';
 
   // Capture old cards before clearing (for animation of removed adventurers)
   const oldCards = _oldCards.get(container) || [];
@@ -633,8 +758,6 @@ export function renderRecruitment(state: GameState, dispatch?: DispatchFn): void
       .map((card) => card.getAttribute('data-adventurer-id'))
       .filter((id): id is string => id !== null),
   );
-
-  container.innerHTML = '';
 
   // Restock button
   const restockSection = document.createElement('div');
@@ -742,9 +865,9 @@ export function renderRecruitment(state: GameState, dispatch?: DispatchFn): void
 /**
  * Quest Board view — available quest cards.
  */
-export function renderQuestBoard(state: GameState, dispatch?: DispatchFn): void {
-  const container = document.getElementById('game-content');
-  if (!container) return;
+export function renderQuestBoard(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
+  // Safe DOM clearing: detach all tracked listeners before clearing
+  detachAllListeners(container);
   container.innerHTML = '';
 
   // Use stored quests from state (generated at startup or via RESTOCK_QUESTS)
@@ -775,9 +898,9 @@ export function renderQuestBoard(state: GameState, dispatch?: DispatchFn): void 
 /**
  * Events view — unresolved events first, then resolved events.
  */
-export function renderEvents(state: GameState, _dispatch?: DispatchFn): void {
-  const container = document.getElementById('game-content');
-  if (!container) return;
+export function renderEvents(container: HTMLElement, state: GameState, _dispatch?: DispatchFn): void {
+  // Safe DOM clearing: detach all tracked listeners before clearing
+  detachAllListeners(container);
   container.innerHTML = '';
 
   const { events } = state;
@@ -808,9 +931,9 @@ export function renderEvents(state: GameState, _dispatch?: DispatchFn): void {
 /**
  * Upgrades view — upgrade cards with costs and effects.
  */
-export function renderUpgrades(state: GameState, dispatch?: DispatchFn): void {
-  const container = document.getElementById('game-content');
-  if (!container) return;
+export function renderUpgrades(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
+  // Safe DOM clearing: detach all tracked listeners before clearing
+  detachAllListeners(container);
   container.innerHTML = '';
 
   const upgrades = getAvailableUpgrades(state);
@@ -920,7 +1043,7 @@ export function createOfficeCard(levelData: OfficeLevelResult): HTMLElement {
 /**
  * Create a fame level card element.
  */
-export function createFameCard(fameData: FameLevelResult): HTMLElement {
+export function createFameCard(fameData: FameLevelResult, state?: GameState): HTMLElement {
   const card = document.createElement('div');
   card.className = 'card fame-card';
   card.innerHTML = `
@@ -933,6 +1056,23 @@ export function createFameCard(fameData: FameLevelResult): HTMLElement {
       fameData.nextLevel ? `Next: ${fameData.nextLevel}` : 'Max Fame'
     }</span>
   `;
+
+  if (state) {
+    const fameMouseEnterHandler = (ev: MouseEvent) => {
+      showFameMechanicTooltip(state, ev.clientX, ev.clientY);
+    };
+    const fameMouseLeaveHandler = () => {
+      hideTooltip();
+    };
+    const fameMouseMoveHandler = (ev: MouseEvent) => {
+      if (!isTooltipVisible()) return;
+      positionTooltip(ev.clientX, ev.clientY);
+    };
+    trackEventListener(card, 'mouseenter', fameMouseEnterHandler as EventListener);
+    trackEventListener(card, 'mouseleave', fameMouseLeaveHandler as EventListener);
+    trackEventListener(card, 'mousemove', fameMouseMoveHandler as EventListener);
+  }
+
   return card;
 }
 
@@ -964,5 +1104,21 @@ export function createPartyStatusCard(state: GameState): HTMLElement {
         : '<p class="empty-hint">No party selected</p>'
     }
   `;
+
+  // Wage pressure tooltip on the card
+  const wageMouseEnterHandler = (ev: MouseEvent) => {
+    showWageMechanicTooltip(state, ev.clientX, ev.clientY);
+  };
+  const wageMouseLeaveHandler = () => {
+    hideTooltip();
+  };
+  const wageMouseMoveHandler = (ev: MouseEvent) => {
+    if (!isTooltipVisible()) return;
+    positionTooltip(ev.clientX, ev.clientY);
+  };
+  trackEventListener(card, 'mouseenter', wageMouseEnterHandler as EventListener);
+  trackEventListener(card, 'mouseleave', wageMouseLeaveHandler as EventListener);
+  trackEventListener(card, 'mousemove', wageMouseMoveHandler as EventListener);
+
   return card;
 }

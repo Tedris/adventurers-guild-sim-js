@@ -32,10 +32,11 @@ if (tabCode.includes("getElementById('game-content')")) {
   passed = false;
 }
 
-if (tabCode.includes("innerHTML = ''") || tabCode.includes("innerHTML=''")) {
-  console.log('  ✓ tab.ts clears #game-content before rendering');
+// Check for safe DOM clearing pattern: detachAllListeners before innerHTML clearing
+if (tabCode.includes("detachAllListeners") && tabCode.includes("innerHTML = ''")) {
+  console.log('  ✓ tab.ts uses safe DOM clearing (detachAllListeners + innerHTML)');
 } else {
-  console.error('  ✗ tab.ts does not clear #game-content');
+  console.error('  ✗ tab.ts missing safe DOM clearing pattern');
   passed = false;
 }
 

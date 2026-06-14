@@ -111,6 +111,35 @@ if (appCode.includes('./render/index.js')) {
   passed = false;
 }
 
+// ─── Verify quest tooltip exports (Story 5-3) ───
+console.log('\n--- Quest Tooltip Exports ---');
+const tooltipPath = join(__dirname, 'src', 'render', 'tooltip.ts');
+const tooltipCode = readFileSync(tooltipPath, 'utf-8');
+checkContent('tooltip.ts', tooltipPath, [
+  'export function showQuestTooltip',
+  'export function computeQuestTooltipContent',
+], 'quest tooltip exports');
+
+// ─── Verify quest card hover listeners (Story 5-3) ───
+console.log('\n--- Quest Card Hover Events ---');
+const cardPath = join(__dirname, 'src', 'render', 'card.ts');
+const cardCode = readFileSync(cardPath, 'utf-8');
+checkContent('card.ts', cardPath, [
+  'showQuestTooltip',
+  'mouseenter',
+  'mouseleave',
+  'mousemove',
+], 'quest tooltip hover integration');
+
+// ─── Verify quest tooltip CSS (Story 5-3) ───
+console.log('\n--- Quest Tooltip CSS ---');
+const cssPath = join(__dirname, 'src', 'styles.css');
+const cssCode = readFileSync(cssPath, 'utf-8');
+checkContent('styles.css', cssPath, [
+  '#27AE60',
+  'quest-tooltip',
+], 'quest tooltip styling');
+
 // ─── Verify threat mitigation T-04-01 ───
 console.log('\n--- Threat Mitigation ---');
 if (appCode.includes('document.importNode') || 
@@ -125,8 +154,8 @@ if (readFileSync(join(__dirname, 'src', 'render', 'card.ts'), 'utf-8').includes(
 
 // ─── Verify TypeScript compliance ───
 console.log('\n--- TypeScript Compliance ---');
-const cardCode = readFileSync(join(__dirname, 'src', 'render', 'card.ts'), 'utf-8');
-if (!cardCode.includes(': any')) {
+const cardTSCode = readFileSync(join(__dirname, 'src', 'render', 'card.ts'), 'utf-8');
+if (!cardTSCode.includes(': any')) {
   console.log('  ✓ No "any" types in card.ts');
 } else {
   console.error('  ✗ Found "any" types in card.ts');

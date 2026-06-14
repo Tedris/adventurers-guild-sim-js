@@ -23,6 +23,13 @@ import {
   PERSONALITY_TRAIT_TABLE,
 } from '../entities/index.js';
 import {
+  showTooltip,
+  hideTooltip,
+  positionTooltip,
+  isTooltipVisible,
+  showQuestTooltip,
+} from './tooltip.js';
+import {
   positiveEventFeedback,
   negativeEventFeedback,
   neutralEventFeedback,
@@ -325,6 +332,21 @@ export function renderAdventurerCard(
     }
   }
 
+  // Tooltip hover events (Story 5-2)
+  const mouseEnterHandler = (ev: MouseEvent) => {
+    showTooltip(adventurer, ev.clientX, ev.clientY);
+  };
+  const mouseLeaveHandler = () => {
+    hideTooltip();
+  };
+  const mouseMoveHandler = (ev: MouseEvent) => {
+    if (!isTooltipVisible()) return;
+    positionTooltip(ev.clientX, ev.clientY);
+  };
+  trackEventListener(frag, 'mouseenter', mouseEnterHandler as EventListener);
+  trackEventListener(frag, 'mouseleave', mouseLeaveHandler as EventListener);
+  trackEventListener(frag, 'mousemove', mouseMoveHandler as EventListener);
+
   return frag;
 }
 
@@ -497,6 +519,21 @@ export function renderQuestCard(
       : questFailureAnimation();
     playAnimation(frag, animConfig);
   }
+
+  // Tooltip hover events (Story 5-3)
+  const questMouseEnterHandler = (ev: MouseEvent) => {
+    showQuestTooltip(quest, state, ev.clientX, ev.clientY);
+  };
+  const questMouseLeaveHandler = () => {
+    hideTooltip();
+  };
+  const questMouseMoveHandler = (ev: MouseEvent) => {
+    if (!isTooltipVisible()) return;
+    positionTooltip(ev.clientX, ev.clientY);
+  };
+  trackEventListener(frag, 'mouseenter', questMouseEnterHandler as EventListener);
+  trackEventListener(frag, 'mouseleave', questMouseLeaveHandler as EventListener);
+  trackEventListener(frag, 'mousemove', questMouseMoveHandler as EventListener);
 
   return frag;
 }

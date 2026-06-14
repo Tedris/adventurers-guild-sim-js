@@ -1092,3 +1092,173 @@ body {
 .virtual-list-container * {
   contain: layout style;
 }
+
+/* ─── Tooltip System (Phase 16) ─────────────────────────────── */
+
+#tooltip-container {
+  position: fixed;
+  z-index: 999;
+  pointer-events: none;
+  transition: opacity 0.15s ease-out, visibility 0.15s ease-out;
+  opacity: 0;
+  visibility: hidden;
+}
+
+#tooltip-container.tooltip-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tooltip-container {
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 6px;
+  padding: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  min-width: 180px;
+  max-width: 280px;
+  font-family: 'Press Start 2P', monospace;
+}
+
+.tooltip-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #ffd700;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip-body {
+  padding: 8px 10px;
+}
+
+.tooltip-section {
+  margin-bottom: 6px;
+}
+
+.tooltip-section:last-child {
+  margin-bottom: 0;
+}
+
+.tooltip-label {
+  font-size: 0.55rem;
+  color: #95a5a6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.55rem;
+  color: #eee;
+  padding: 1px 0;
+  line-height: 1.6;
+}
+
+.tooltip-stat-label {
+  color: #95a5a6;
+  min-width: 30px;
+}
+
+.tooltip-stat-value {
+  font-weight: 600;
+}
+
+.tooltip-trait-name {
+  color: #e94560;
+  font-size: 0.5rem;
+}
+
+.tooltip-bonus-value {
+  font-weight: 600;
+  font-size: 0.5rem;
+}
+
+.tooltip-bonus-value.bonus-positive {
+  color: #27ae60;
+}
+
+.tooltip-bonus-value.bonus-negative {
+  color: #e74c3c;
+}
+
+.tooltip-origin-name {
+  color: #3498db;
+  font-size: 0.5rem;
+}
+
+/* ─── Quest Tooltip Variants ──────────────────────────── */
+
+#tooltip-container.quest-tooltip .tooltip-title {
+  color: #27AE60;
+  border-bottom-color: rgba(39, 174, 96, 0.2);
+}
+
+#tooltip-container.quest-tooltip .tooltip-container {
+  border-color: rgba(39, 174, 96, 0.3);
+}
+
+/* ─── Mechanic Tooltip Variants ───────────────────────────── */
+
+#tooltip-container.mechanic-tooltip.fame-tooltip .tooltip-title {
+  color: #FFD700;
+  border-bottom-color: rgba(255, 215, 0, 0.2);
+}
+
+#tooltip-container.mechanic-tooltip.fame-tooltip .tooltip-container {
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+#tooltip-container.mechanic-tooltip.wage-tooltip .tooltip-title {
+  color: #E74C3C;
+  border-bottom-color: rgba(231, 76, 60, 0.2);
+}
+
+#tooltip-container.mechanic-tooltip.wage-tooltip .tooltip-container {
+  border-color: rgba(231, 76, 60, 0.3);
+}
+
+#tooltip-container.mechanic-tooltip.evolution-tooltip .tooltip-title {
+  color: #3498DB;
+  border-bottom-color: rgba(52, 152, 219, 0.2);
+}
+
+#tooltip-container.mechanic-tooltip.evolution-tooltip .tooltip-container {
+  border-color: rgba(52, 152, 219, 0.3);
+}
+
+/* ─── Evolution Counter Card ────────────────────────────── */
+
+.evolution-counter {
+  text-align: center;
+}
+
+.evolution-count {
+  display: block;
+  font-size: 0.9em;
+  color: #3498DB;
+  font-weight: bold;
+  margin-top: 4px;
+}
+
+/* ─── Tab Transition Animations ─────────────────────────────── */
+
+#game-content.tab-transitioning {
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#game-content.tab-transitioning .tab-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
