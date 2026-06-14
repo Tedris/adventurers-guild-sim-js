@@ -54,13 +54,13 @@ function updateHeaderStats(state: GameState, dayDisplay: HTMLElement | null, gol
  * Called on every store dispatch for full re-render (D-07).
  * @param state - Current game state
  */
-function render(state: GameState, dayDisplay: HTMLElement | null, goldDisplay: HTMLElement | null, fameDisplay: HTMLElement | null): void {
+function render(state: GameState, dayDisplay: HTMLElement | null, goldDisplay: HTMLElement | null, fameDisplay: HTMLElement | null, dispatch?: (action: StoreAction) => boolean): void {
   // Update header stats
   updateHeaderStats(state, dayDisplay, goldDisplay, fameDisplay);
 
   // Render current view
   const viewName = getValidViewName(state._currentView) ?? currentView;
-  renderView(viewName, state);
+  renderView(viewName, state, dispatch);
 }
 
 /**
@@ -98,9 +98,6 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   // Step 3: Create store with entity defaults
   const store = createStore(initialState);
 
-  // Expose store globally for UI components to dispatch actions
-  window.__guildStore = store;
-
   // Step 4: Enable auto-save FIRST (before any dispatch)
   // This ensures MERGE_STATE dispatch triggers persistence (T-05-03 mitigation)
   enableAutoSave(store);
@@ -109,7 +106,7 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   const ticker = createGameTicker(store);
 
   // Step 5: Subscribe for rendering
-  store.subscribe((state, _action) => { render(state, dayDisplay, goldDisplay, fameDisplay); });
+  store.subscribe((state, _action) => { render(state, dayDisplay, goldDisplay, fameDisplay, store.dispatch); });
 
   // Step 6: Tab navigation wiring (Phase 4-02)
   const navTabs: NodeListOf<HTMLElement> = document.querySelectorAll('.nav-tab');
@@ -127,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
 
       // Render the new view
       const state = store.getState();
-      renderView(currentView, state);
+      renderView(currentView, state, store.dispatch);
     });
   });
 
@@ -135,9 +132,7 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   const nextDayBtn: HTMLElement | null = document.getElementById('btn-next-day');
   if (nextDayBtn) {
     nextDayBtn.addEventListener('click', (): void => {
-      if (window.__guildStore) {
-        window.__guildStore.dispatch({ type: 'TICK', payload: { tickCount: 1 } });
-      }
+      store.dispatch({ type: 'TICK', payload: { tickCount: 1 } });
     });
   }
 
@@ -145,17 +140,15 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   const saveBtn: HTMLElement | null = document.getElementById('btn-save');
   if (saveBtn) {
     saveBtn.addEventListener('click', async (): Promise<void> => {
-      if (window.__guildStore) {
-        const state: GameState = window.__guildStore.getState();
-        try {
-          await saveState(state);
-          saveBtn.textContent = 'Saved!';
-          setTimeout(() => { saveBtn.textContent = 'Save Game'; }, 1500);
-        } catch (e: unknown) {
-          console.error('[App] Manual save failed:', e);
-          saveBtn.textContent = 'Save Failed';
-          setTimeout(() => { saveBtn.textContent = 'Save Game'; }, 1500);
-        }
+      const state: GameState = store.getState();
+      try {
+        await saveState(state);
+        saveBtn.textContent = 'Saved!';
+        setTimeout(() => { saveBtn.textContent = 'Save Game'; }, 1500);
+      } catch (e: unknown) {
+        console.error('[App] Manual save failed:', e);
+        saveBtn.textContent = 'Save Failed';
+        setTimeout(() => { saveBtn.textContent = 'Save Game'; }, 1500);
       }
     });
   }
@@ -178,12 +171,10 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
           setTimeout(() => { loadBtn.textContent = 'Load Game'; }, 1500);
           return;
          }
-        if (window.__guildStore) {
-          window.__guildStore.dispatch({ type: 'MERGE_STATE', payload: loadedState });
-          const view = getValidViewName(loadedState._currentView);
-          currentView = view ?? 'dashboard';
-          render(window.__guildStore.getState(), dayDisplay, goldDisplay, fameDisplay);
-        }
+        store.dispatch({ type: 'MERGE_STATE', payload: loadedState });
+        const view = getValidViewName(loadedState._currentView);
+        currentView = view ?? 'dashboard';
+        render(store.getState(), dayDisplay, goldDisplay, fameDisplay, store.dispatch);
         loadBtn.textContent = 'Loaded!';
         setTimeout(() => { loadBtn.textContent = 'Load Game'; }, 1500);
       } catch (e: unknown) {
@@ -201,11 +192,9 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
       if (!confirm('Start a new game? This will erase your current progress.')) return;
       try {
         await clearStore();
-        if (window.__guildStore) {
-          window.__guildStore.dispatch({ type: 'MERGE_STATE', payload: gameDefaults() as unknown as GameState });
-          currentView = 'dashboard';
-          render(window.__guildStore.getState(), dayDisplay, goldDisplay, fameDisplay);
-        }
+        store.dispatch({ type: 'MERGE_STATE', payload: gameDefaults() as unknown as GameState });
+        currentView = 'dashboard';
+        render(store.getState(), dayDisplay, goldDisplay, fameDisplay, store.dispatch);
         newGameBtn.textContent = 'New Game!';
         setTimeout(() => { newGameBtn.textContent = 'New Game'; }, 1500);
       } catch (e: unknown) {
@@ -226,18 +215,18 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
       // Restore view from saved state or default
       const view = getValidViewName(savedState._currentView);
       currentView = view ?? 'dashboard';
-      render(store.getState(), dayDisplay, goldDisplay, fameDisplay);
+render(store.getState(), dayDisplay, goldDisplay, fameDisplay, store.dispatch);
      } else {
-       store.dispatch({ type: 'MERGE_STATE', payload: savedState });
-       console.log('Loaded saved game state');
-       // Restore view from saved state
-       const view = getValidViewName(savedState._currentView);
-       currentView = view ?? 'dashboard';
-       render(store.getState(), dayDisplay, goldDisplay, fameDisplay);
-     }
+        store.dispatch({ type: 'MERGE_STATE', payload: savedState });
+        console.log('Loaded saved game state');
+        // Restore view from saved state
+        const view = getValidViewName(savedState._currentView);
+        currentView = view ?? 'dashboard';
+        render(store.getState(), dayDisplay, goldDisplay, fameDisplay, store.dispatch);
+      }
    } else {
-     console.log('No saved state found — starting fresh');
-     // Initial render for fresh start (no dispatch occurs, so render manually)
-     render(store.getState(), dayDisplay, goldDisplay, fameDisplay);
-   }
+      console.log('No saved state found — starting fresh');
+      // Initial render for fresh start (no dispatch occurs, so render manually)
+      render(store.getState(), dayDisplay, goldDisplay, fameDisplay, store.dispatch);
+    }
 });

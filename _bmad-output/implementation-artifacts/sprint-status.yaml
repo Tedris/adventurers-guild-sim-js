@@ -1,5 +1,5 @@
 # generated: 2026-05-31
-# last_updated: 2026-06-13T18:00:00
+# last_updated: 2026-06-13T20:00:00
 # project: adventurers-guild-sim-js
 # project_key: NOKEY
 # tracking_system: file-system
@@ -71,9 +71,9 @@ development_status:
   epic-3-retrospective: done
 
   # Epic 4: Tech Debt Reduction
-  epic-4: backlog
-  4-1-extract-store-action-handlers-from-god-reducer: backlog
-  4-2-replace-global-store-access-in-render-functions: backlog
+  epic-4: done
+  4-1-extract-store-action-handlers-from-god-reducer: done
+  4-2-replace-global-store-access-in-render-functions: done
   epic-4-retrospective: optional
 
   # Epic 5: Navigation & Tooltips (v1.3 Phases 15-16)

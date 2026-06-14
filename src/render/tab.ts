@@ -13,7 +13,7 @@ import {
   generateRecruitmentPool,
 } from '../entities/index.js';
 import { renderCard, trackEventListener, detachAllListeners } from './card.js';
-import type { CardType } from './card.js';
+import type { CardType, DispatchFn } from './card.js';
 import { showConfirmModal } from './event-display.js';
 import {
   slideInFromRight,
@@ -77,24 +77,24 @@ const _lastView = new Map<string, ViewName>();
 /**
  * Dispatch rendering to the correct view based on tab name.
  */
-export function renderView(viewName: ViewName, state: GameState): void {
+export function renderView(viewName: ViewName, state: GameState, dispatch?: DispatchFn): void {
   const container = document.getElementById('game-content');
   if (!container) {
     switch (viewName) {
       case 'dashboard':
-        return renderDashboard(state);
+        return renderDashboard(state, dispatch);
       case 'roster':
-        return renderRoster(state);
+        return renderRoster(state, dispatch);
       case 'recruitment':
-        return renderRecruitment(state);
+        return renderRecruitment(state, dispatch);
       case 'quests':
-        return renderQuestBoard(state);
+        return renderQuestBoard(state, dispatch);
       case 'events':
-        return renderEvents(state);
+        return renderEvents(state, dispatch);
       case 'upgrades':
-        return renderUpgrades(state);
+        return renderUpgrades(state, dispatch);
       default:
-        return renderDashboard(state);
+        return renderDashboard(state, dispatch);
     }
   }
 
@@ -103,7 +103,7 @@ export function renderView(viewName: ViewName, state: GameState): void {
 
   // If no previous view (first render), render directly without transition
   if (!lastView) {
-    _executeView(viewName, state);
+    _executeView(viewName, state, dispatch);
     return;
   }
 
@@ -117,7 +117,7 @@ export function renderView(viewName: ViewName, state: GameState): void {
   const oldContent = container.innerHTML;
 
   // Render new view
-  _executeView(viewName, state);
+  _executeView(viewName, state, dispatch);
 
   // Animate old content out and new content in
   if (oldContent !== '') {
@@ -150,22 +150,22 @@ export function renderView(viewName: ViewName, state: GameState): void {
 /**
  * Execute the view rendering without animation (internal).
  */
-function _executeView(viewName: ViewName, state: GameState): void {
+function _executeView(viewName: ViewName, state: GameState, dispatch?: DispatchFn): void {
   switch (viewName) {
     case 'dashboard':
-      return renderDashboard(state);
+      return renderDashboard(state, dispatch);
     case 'roster':
-      return renderRoster(state);
+      return renderRoster(state, dispatch);
     case 'recruitment':
-      return renderRecruitment(state);
+      return renderRecruitment(state, dispatch);
     case 'quests':
-      return renderQuestBoard(state);
+      return renderQuestBoard(state, dispatch);
     case 'events':
-      return renderEvents(state);
+      return renderEvents(state, dispatch);
     case 'upgrades':
-      return renderUpgrades(state);
+      return renderUpgrades(state, dispatch);
     default:
-      return renderDashboard(state);
+      return renderDashboard(state, dispatch);
   }
 }
 
@@ -174,7 +174,7 @@ function _executeView(viewName: ViewName, state: GameState): void {
 /**
  * Render notification cards in the dashboard.
  */
-export function renderNotifications(state: GameState): void {
+export function renderNotifications(state: GameState, dispatch?: DispatchFn): void {
   const notifications = state.notifications || [];
   if (notifications.length === 0) return;
 
@@ -193,8 +193,8 @@ export function renderNotifications(state: GameState): void {
     closeBtn.className = 'notification-close';
     closeBtn.textContent = '\u00d7';
     const closeHandler = () => {
-      if (window.__guildStore) {
-        window.__guildStore.dispatch({
+      if (dispatch) {
+        dispatch({
           type: 'CLEAR_NOTIFICATION',
           payload: { notificationId: notif.id },
         });
@@ -223,13 +223,13 @@ export function renderNotifications(state: GameState): void {
 /**
  * Dashboard view — overview cards (office level, active quest, party status, recent events).
  */
-export function renderDashboard(state: GameState): void {
+export function renderDashboard(state: GameState, dispatch?: DispatchFn): void {
   const container = document.getElementById('game-content');
   if (!container) return;
   container.innerHTML = '';
 
   // Notifications
-  renderNotifications(state);
+  renderNotifications(state, dispatch);
 
   // Office level card
   const officeLevel = calculateOfficeLevel(state);
@@ -248,6 +248,7 @@ export function renderDashboard(state: GameState): void {
       state.activeQuest.questData,
       state,
       'dashboard',
+      dispatch,
     );
     if (questCard) {
       questCard.classList.add('active-quest-card');
@@ -264,7 +265,7 @@ export function renderDashboard(state: GameState): void {
   if (events.length > 0) {
     const recentEvents = events.filter((e) => !e.resolved).slice(-3).reverse();
     for (const event of recentEvents) {
-      const eventCard = renderCard('event' as CardType, event as unknown as EventTemplate, state);
+      const eventCard = renderCard('event' as CardType, event as unknown as EventTemplate, state, undefined, dispatch);
       if (eventCard) {
         eventCard.classList.add('event-card');
         container.appendChild(eventCard);
@@ -279,7 +280,7 @@ export function renderDashboard(state: GameState): void {
  * Roster view — adventurer cards for all rostered adventurers.
  * Uses virtual list rendering when adventurer count > 20 for performance.
  */
-export function renderRoster(state: GameState): void {
+export function renderRoster(state: GameState, dispatch?: DispatchFn): void {
   const container = document.getElementById('game-content');
   if (!container) return;
 
@@ -295,16 +296,16 @@ export function renderRoster(state: GameState): void {
 
   // Check if virtualization should be used
   if (adventurers.length > VIRTUAL_LIST_THRESHOLD) {
-    renderRosterVirtual(container, state);
+    renderRosterVirtual(container, state, dispatch);
   } else {
-    renderRosterStandard(container, state);
+    renderRosterStandard(container, state, dispatch);
   }
 }
 
 /**
  * Render roster using standard DOM rendering (for small guilds ≤ 20 adventurers).
  */
-function renderRosterStandard(container: HTMLElement, state: GameState): void {
+function renderRosterStandard(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
   const { adventurers, party } = state;
   const partyIds = new Set(party?.adventurerIds || []);
 
@@ -357,7 +358,7 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
       partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
       partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
       const partyHandler = () => {
-        if (window.__guildStore) {
+        if (dispatch) {
           const currentParty = state.party.adventurerIds || [];
           let newPartyIds: string[];
           if (isInParty) {
@@ -369,7 +370,7 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
             }
             newPartyIds = [...currentParty, adventurer.id];
           }
-          window.__guildStore.dispatch({
+          dispatch({
             type: 'ASSIGN_PARTY',
             payload: { partyId: party?.id, adventurerIds: newPartyIds },
           });
@@ -396,8 +397,8 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
               showConfirmModal(
                 `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
                 () => {
-                  if (window.__guildStore) {
-                    window.__guildStore.dispatch({
+                  if (dispatch) {
+                    dispatch({
                       type: 'RETIRE',
                       payload: { adventurerId: adventurer.id },
                     });
@@ -409,8 +410,8 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
             showConfirmModal(
               `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
               () => {
-                if (window.__guildStore) {
-                  window.__guildStore.dispatch({
+                if (dispatch) {
+                  dispatch({
                     type: 'RETIRE',
                     payload: { adventurerId: adventurer.id },
                   });
@@ -465,9 +466,9 @@ function renderRosterStandard(container: HTMLElement, state: GameState): void {
 
 /**
  * Render roster using virtual list (for large guilds > 20 adventurers).
- * Only renders visible cards + overscan to keep DOM shallow.
+ * Only renders visible cards + overscan to keep DOM shallow for 100+ items.
  */
-function renderRosterVirtual(container: HTMLElement, state: GameState): void {
+function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
   const { adventurers, party } = state;
   const partyIds = new Set(party?.adventurerIds || []);
 
@@ -527,7 +528,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
       partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
       partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
       const vPartyHandler = () => {
-        if (window.__guildStore) {
+        if (dispatch) {
           const currentParty = state.party.adventurerIds || [];
           let newPartyIds: string[];
           if (isInParty) {
@@ -539,7 +540,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
             }
             newPartyIds = [...currentParty, adventurer.id];
           }
-          window.__guildStore.dispatch({
+          dispatch({
             type: 'ASSIGN_PARTY',
             payload: { partyId: party?.id, adventurerIds: newPartyIds },
           });
@@ -566,8 +567,8 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
               showConfirmModal(
                 `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
                 () => {
-                  if (window.__guildStore) {
-                    window.__guildStore.dispatch({
+                  if (dispatch) {
+                    dispatch({
                       type: 'RETIRE',
                       payload: { adventurerId: adventurer.id },
                     });
@@ -579,8 +580,8 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
             showConfirmModal(
               `Retire ${adventurer.name}? They will leave the guild but leave a legacy perk for future recruits.`,
               () => {
-                if (window.__guildStore) {
-                  window.__guildStore.dispatch({
+                if (dispatch) {
+                  dispatch({
                     type: 'RETIRE',
                     payload: { adventurerId: adventurer.id },
                   });
@@ -619,7 +620,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState): void {
 /**
  * Recruitment view — recruitment pool with hire buttons and restock option.
  */
-export function renderRecruitment(state: GameState): void {
+export function renderRecruitment(state: GameState, dispatch?: DispatchFn): void {
   const container = document.getElementById('game-content');
   if (!container) return;
 
@@ -652,9 +653,9 @@ export function renderRecruitment(state: GameState): void {
   // Restock handler
   const restockBtn = restockSection.querySelector('.btn-restock');
   const restockHandler = () => {
-    if (window.__guildStore) {
+    if (dispatch) {
       const newPool = generateRecruitmentPool(3);
-      window.__guildStore.dispatch({
+      dispatch({
         type: 'RESTOCK',
         payload: {
           count: 3,
@@ -681,7 +682,7 @@ export function renderRecruitment(state: GameState): void {
   let recruitmentOrphanedCount = 0;
 
   for (const adventurer of recruitmentPool) {
-    const card = renderCard('adventurer' as CardType, adventurer, state);
+    const card = renderCard('adventurer' as CardType, adventurer, state, undefined, dispatch);
     if (!card) continue;
     card.classList.add('recruit-card');
     card.setAttribute('data-adventurer-id', adventurer.id);
@@ -690,8 +691,8 @@ export function renderRecruitment(state: GameState): void {
     hireBtn.className = 'btn-hire';
     hireBtn.textContent = 'Join Guild';
     const hireHandler = () => {
-      if (window.__guildStore) {
-        window.__guildStore.dispatch({
+      if (dispatch) {
+        dispatch({
           type: 'HIRE',
           payload: { adventurerId: adventurer.id },
         });
@@ -741,7 +742,7 @@ export function renderRecruitment(state: GameState): void {
 /**
  * Quest Board view — available quest cards.
  */
-export function renderQuestBoard(state: GameState): void {
+export function renderQuestBoard(state: GameState, dispatch?: DispatchFn): void {
   const container = document.getElementById('game-content');
   if (!container) return;
   container.innerHTML = '';
@@ -751,8 +752,8 @@ export function renderQuestBoard(state: GameState): void {
   if (quests.length === 0) {
     // Fallback: generate quests if pool is empty
     const newQuests = getFameGatedQuestPool(state, 3);
-    if (window.__guildStore && newQuests.length > 0) {
-       window.__guildStore.dispatch({
+    if (dispatch && newQuests.length > 0) {
+       dispatch({
          type: 'RESTOCK_QUESTS',
          payload: { quests: newQuests },
        } as const);
@@ -761,7 +762,7 @@ export function renderQuestBoard(state: GameState): void {
   }
 
   for (const quest of quests) {
-    const card = renderCard('quest' as CardType, quest, state);
+    const card = renderCard('quest' as CardType, quest, state, undefined, dispatch);
     if (card) {
       card.classList.add('quest-card');
       container.appendChild(card);
@@ -774,7 +775,7 @@ export function renderQuestBoard(state: GameState): void {
 /**
  * Events view — unresolved events first, then resolved events.
  */
-export function renderEvents(state: GameState): void {
+export function renderEvents(state: GameState, _dispatch?: DispatchFn): void {
   const container = document.getElementById('game-content');
   if (!container) return;
   container.innerHTML = '';
@@ -793,7 +794,7 @@ export function renderEvents(state: GameState): void {
   }
 
   for (const event of allEvents) {
-    const card = renderCard('event' as CardType, event as unknown as EventTemplate, state);
+    const card = renderCard('event' as CardType, event as unknown as EventTemplate, state, undefined, _dispatch);
     if (card) {
       card.classList.add('event-card');
       if (event.resolved) card.classList.add('resolved-event');
@@ -807,7 +808,7 @@ export function renderEvents(state: GameState): void {
 /**
  * Upgrades view — upgrade cards with costs and effects.
  */
-export function renderUpgrades(state: GameState): void {
+export function renderUpgrades(state: GameState, dispatch?: DispatchFn): void {
   const container = document.getElementById('game-content');
   if (!container) return;
   container.innerHTML = '';
@@ -865,8 +866,8 @@ export function renderUpgrades(state: GameState): void {
       showConfirmModal(
         `Spend ⛃ ${upgrade.nextCost} gold to upgrade ${upgrade.name} to Level ${upgrade.currentLevel + 1}?`,
         () => {
-          if (window.__guildStore) {
-            window.__guildStore.dispatch({
+          if (dispatch) {
+            dispatch({
               type: 'UPGRADE_GUILD',
               payload: { upgradeType: upgrade.type, gold: upgrade.nextCost },
             });

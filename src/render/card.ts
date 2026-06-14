@@ -16,6 +16,7 @@ import type {
   Stats,
   Equipment,
   EquipmentItem,
+  StoreAction,
 } from '../types.js';
 import {
   getEvolutionStatus,
@@ -75,6 +76,12 @@ export function detachAllListeners(element: HTMLElement): void {
 export type CardType = 'adventurer' | 'quest' | 'event';
 
 /**
+ * Dispatch callback type for render functions.
+ * Compatible with StoreLike.dispatch from event-display.ts.
+ */
+export type DispatchFn = (action: StoreAction) => boolean;
+
+/**
  * Main card renderer dispatcher.
  */
 export function renderCard(
@@ -82,12 +89,13 @@ export function renderCard(
   data: Adventurer | Quest | EventTemplate,
   state: GameState,
   context?: string,
+  dispatch?: DispatchFn,
 ): HTMLElement | null {
   switch (type) {
     case 'adventurer':
-      return renderAdventurerCard(data as Adventurer, state);
+      return renderAdventurerCard(data as Adventurer, state, dispatch);
     case 'quest':
-      return renderQuestCard(data as Quest, state, context);
+      return renderQuestCard(data as Quest, state, context, dispatch);
     case 'event':
       return renderEventCard(data as EventTemplate, state);
     default: {
@@ -140,6 +148,7 @@ function getEquipSlot(
 export function renderAdventurerCard(
   adventurer: Adventurer,
   state: GameState,
+  dispatch?: DispatchFn,
 ): HTMLElement | null {
   const frag = createCardElement('adventurer-card-template');
   if (!frag) return null;
@@ -238,8 +247,8 @@ export function renderAdventurerCard(
     evolveBtn.className = 'btn-evolve';
     evolveBtn.textContent = 'Evolve Class!';
     const evolveHandler = () => {
-      if (window.__guildStore) {
-        window.__guildStore.dispatch({
+      if (dispatch) {
+        dispatch({
           type: 'EVOLVE_CLASS',
           payload: { adventurerId: adventurer.id },
         });
@@ -328,6 +337,7 @@ export function renderQuestCard(
   quest: Quest,
   state: GameState,
   context: string = 'board',
+  dispatch?: DispatchFn,
 ): HTMLElement | null {
   const frag = createCardElement('quest-card-template');
   if (!frag) return null;
@@ -465,10 +475,8 @@ export function renderQuestCard(
     );
     if (meetsSizeRequirement && partySize > 0) {
       const sendHandler = () => {
-        if (window.__guildStore) {
-          const state = window.__guildStore.getState();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const activeQ = (state as any).activeQuest;
+        if (dispatch) {
+          const activeQ = state.activeQuest;
           if (
             activeQ &&
             activeQ.questId === quest.id
@@ -478,7 +486,7 @@ export function renderQuestCard(
             );
             return;
           }
-          window.__guildStore.dispatch({
+          dispatch({
             type: 'SEND_QUEST',
             payload: { questId: quest.id },
           });
