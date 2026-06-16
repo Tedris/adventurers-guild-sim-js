@@ -3,7 +3,7 @@
 // View rendering and navigation logic extracted from render.js.
 // Handles dashboard, roster, recruitment, quests, events, and upgrades views.
 
-import type { GameState, Adventurer, OfficeLevelResult, FameLevelResult, EventTemplate } from '../types.js';
+import type { GameState, Adventurer, OfficeLevelResult, FameLevelResult, EventTemplate, Quest, Stats } from '../types.js';
 import {
   calculateOfficeLevel,
   getFameLevel,
@@ -11,6 +11,11 @@ import {
   getUpgradeEffect,
   getFameGatedQuestPool,
   generateRecruitmentPool,
+  calculateStatContribution,
+  calculatePartyEffectiveStat,
+  calculateQuestSuccessRate,
+  calculateSynergyScore,
+  PERSONALITY_TRAIT_TABLE,
 } from '../entities/index.js';
 import { renderCard, trackEventListener, detachAllListeners } from './card.js';
 import type { CardType, DispatchFn } from './card.js';
@@ -54,6 +59,170 @@ const VIRTUAL_LIST_THRESHOLD = 20;
  * Estimated from CSS: padding + header + stats + morale + equipment + footer.
  */
 const CARD_ROW_HEIGHT = 220;
+
+// ─── Drag-and-Drop Helpers ─────────────────────────────
+
+/**
+ * MIME type for drag-and-drop data transfer.
+ */
+const DND_ADVENTURER_ID_TYPE = 'application/adventurer-id';
+
+/**
+ * Global drag-in-progress flag — set to true when any drag is active.
+ * Prevents virtual list card recycling from interfering with active drags.
+ */
+let _isDragging = false;
+
+/**
+ * Create a drag ghost element for HTML5 drag-and-drop.
+ * The ghost is a clone of the source card with reduced opacity and shadow.
+ * Visual styles are applied via .drag-ghost CSS class; only positioning
+ * is set inline to keep the ghost off-screen until setDragImage captures it.
+ */
+function createDragGhost(source: HTMLElement): HTMLElement {
+  const ghost = source.cloneNode(true) as HTMLElement;
+  ghost.style.position = 'fixed';
+  ghost.style.top = '-9999px';
+  ghost.style.left = '-9999px';
+  ghost.classList.add('drag-ghost');
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+/**
+ * Clean up the drag ghost element.
+ */
+function cleanupDragGhost(): void {
+  const ghost = document.querySelector('.drag-ghost');
+  if (ghost) {
+    ghost.remove();
+  }
+}
+
+/**
+ * Remove the 'dragging' class from all roster cards.
+ * Called when drag ends or is cancelled.
+ */
+function clearDraggingClasses(): void {
+  document.querySelectorAll('.roster-card.dragging').forEach((el) => {
+    el.classList.remove('dragging');
+  });
+}
+
+/**
+ * Attach drag-and-drop event handlers to a roster card element.
+ * Makes the card draggable and sets up drag ghost creation.
+ */
+function attachDragSourceHandlers(
+  card: HTMLElement,
+  adventurerId: string,
+  dispatch?: DispatchFn,
+  state?: GameState,
+  partyId?: string,
+): void {
+  card.setAttribute('draggable', 'true');
+
+  const dragStartHandler = (e: DragEvent) => {
+    _isDragging = true;
+    const dt = e.dataTransfer;
+    if (!dt) return;
+
+    dt.effectAllowed = 'move';
+    dt.setData(DND_ADVENTURER_ID_TYPE, adventurerId);
+
+    card.classList.add('dragging');
+
+    // Create visual drag ghost
+    const ghost = createDragGhost(card);
+    // Set ghost position relative to cursor (50px right, 20px down from top-left of cursor)
+    e.dataTransfer.setDragImage(ghost, 50, 20);
+    // Clean up ghost after a frame (let the browser capture the image)
+    requestAnimationFrame(() => {
+      cleanupDragGhost();
+    });
+  };
+
+  const dragEndHandler = () => {
+    _isDragging = false;
+    card.classList.remove('dragging');
+  };
+
+  trackEventListener(card, 'dragstart', dragStartHandler);
+  trackEventListener(card, 'dragend', dragEndHandler);
+}
+
+/**
+ * Attach drag-and-drop event handlers to a party member item in the overview panel.
+ * Makes the party member slot a drop target for adding adventurers.
+ */
+function attachDropTargetHandlers(
+  memberItem: HTMLElement,
+  targetAction: 'add' | 'remove',
+  dispatch?: DispatchFn,
+  state?: GameState,
+  partyId?: string,
+): void {
+  memberItem.setAttribute('data-party-drop', targetAction);
+  memberItem.draggable = false; // prevent re-dragging from panel
+
+  const dragOverHandler = (e: DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'move';
+    memberItem.classList.add('drag-over');
+  };
+
+  const dragLeaveHandler = () => {
+    memberItem.classList.remove('drag-over');
+  };
+
+  const dropHandler = (e: DragEvent) => {
+    e.preventDefault();
+    memberItem.classList.remove('drag-over');
+
+    const dt = e.dataTransfer;
+    if (!dt) return;
+
+    const adventurerId = dt.getData(DND_ADVENTURER_ID_TYPE);
+    if (!adventurerId) return;
+
+    // Verify this is our drag type
+    const hasOurDragType = Array.from(dt.types || []).some(
+      (t) => t === DND_ADVENTURER_ID_TYPE,
+    );
+    if (!hasOurDragType) return;
+
+    if (!dispatch || !state || !partyId) return;
+
+    const currentParty = state.party?.adventurerIds || [];
+
+    if (targetAction === 'add') {
+      // Only add if not already in party and under max size
+      if (!currentParty.includes(adventurerId) && currentParty.length < 3) {
+        dispatch({
+          type: 'ASSIGN_PARTY',
+          payload: {
+            partyId,
+            adventurerIds: [...currentParty, adventurerId],
+          },
+        });
+      }
+    } else if (targetAction === 'remove') {
+      dispatch({
+        type: 'ASSIGN_PARTY',
+        payload: {
+          partyId,
+          adventurerIds: currentParty.filter((id) => id !== adventurerId),
+        },
+      });
+    }
+
+    clearDraggingClasses();
+  };
+
+  trackEventListener(memberItem, 'dragover', dragOverHandler);
+  trackEventListener(memberItem, 'dragleave', dragLeaveHandler);
+  trackEventListener(memberItem, 'drop', dropHandler);
+}
 
 // ─── View Types ────────────────────────────────────────
 
@@ -467,10 +636,13 @@ function renderRosterStandard(container: HTMLElement, state: GameState, dispatch
   const newCards: HTMLElement[] = [];
 
   for (const adventurer of adventurers) {
-    const card = renderCard('adventurer' as CardType, adventurer, state);
+    const card = renderCard('adventurer' as CardType, adventurer, state, undefined, dispatch);
     if (card) {
       card.classList.add('roster-card');
       card.setAttribute('data-adventurer-id', adventurer.id);
+
+      // Make card draggable for drag-and-drop party building (Story 6.3)
+      attachDragSourceHandlers(card, adventurer.id, dispatch, state, party?.id);
 
       // Assign to party / Remove from party button
       const isInParty = partyIds.has(adventurer.id);
@@ -626,7 +798,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?
   container.appendChild(virtualContainer);
 
   // Destroy existing virtual list if present
-  const existingVL = _virtualLists.get(virtualContainer);
+  const existingVL = _virtualLists.get(container);
   if (existingVL) {
     existingVL.destroy();
   }
@@ -640,11 +812,14 @@ function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?
     overscanCount: 3,
     gap: 12,
     renderCard: (index, adventurer) => {
-      const card = renderCard('adventurer' as CardType, adventurer, state);
+      const card = renderCard('adventurer' as CardType, adventurer, state, undefined, dispatch);
       if (!card) return null;
 
       card.classList.add('roster-card', 'virtual-card');
       card.setAttribute('data-adventurer-id', adventurer.id);
+
+      // Make card draggable for drag-and-drop party building (Story 6.3)
+      attachDragSourceHandlers(card, adventurer.id, dispatch, state, party?.id);
 
       // Assign to party / Remove from party button
       const isInParty = partyIds.has(adventurer.id);
@@ -726,14 +901,20 @@ function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?
       playAnimation(element, anim);
     },
     onCardLeave: (element) => {
+      // Skip cleanup if a drag is in progress — virtual list should not
+      // interfere with active drag-and-drop interactions.
+      if (_isDragging) {
+        return;
+      }
+      element.classList.remove('dragging');
       detachAllListeners(element);
       const anim = fadeOutAndShrink(200);
       playAnimation(element, anim);
     },
   });
 
-  // Store the virtual list instance
-  _virtualLists.set(virtualContainer, virtualList);
+  // Store the virtual list instance keyed by outer container for consistent destroy
+  _virtualLists.set(container, virtualList);
 
   // Initial render
   virtualList.update(adventurers, state);
@@ -880,6 +1061,14 @@ export function renderQuestBoard(container: HTMLElement, state: GameState, dispa
          type: 'RESTOCK_QUESTS',
          payload: { quests: newQuests },
        } as const);
+    }
+    // Render the newly generated quests directly
+    for (const quest of newQuests) {
+      const card = renderCard('quest' as CardType, quest, state, undefined, dispatch);
+      if (card) {
+        card.classList.add('quest-card');
+        container.appendChild(card);
+      }
     }
     return;
   }
@@ -1121,4 +1310,404 @@ export function createPartyStatusCard(state: GameState): HTMLElement {
   trackEventListener(card, 'mousemove', wageMouseMoveHandler as EventListener);
 
   return card;
+}
+
+// ─── Party Overview Panel ──────────────────────────────
+
+const STAT_LABELS: Record<keyof Stats, string> = {
+  str: 'STR',
+  dex: 'DEX',
+  int: 'INT',
+  vit: 'VIT',
+  lck: 'LCK',
+};
+
+/**
+ * Create the party overview panel that slides in from the right when a quest card is dispatched.
+ * Shows combined party stats, aptitude summary, and quest success rate.
+ * @param quest — The quest being dispatched to
+ * @param state — Current game state
+ * @param dispatch — Dispatch function for state changes
+ * @returns The panel element, or null if no quest provided
+ */
+export function createPartyOverviewPanel(quest: Quest | null, state: GameState, dispatch?: DispatchFn): HTMLElement | null {
+  if (!quest) return null;
+
+  const panel = document.createElement('div');
+  panel.className = 'party-overview-panel';
+  panel.setAttribute('data-panel', 'party-overview');
+
+  const party = state.party || {};
+  const adventurerIds = party.adventurerIds || [];
+  const partyAdventurers = state.adventurers.filter((a) => adventurerIds.includes(a.id));
+
+  // Header — quest name + difficulty
+  const header = document.createElement('div');
+  header.className = 'party-overview-header';
+  const difficultyStars = '\u2605'.repeat(quest.difficulty ?? 1) + '\u2606'.repeat(Math.max(0, 5 - (quest.difficulty ?? 1)));
+  const questNameEl = document.createElement('span');
+  questNameEl.className = 'panel-quest-name';
+  questNameEl.textContent = quest.name;
+  const difficultyEl = document.createElement('span');
+  difficultyEl.className = 'panel-quest-difficulty';
+  difficultyEl.textContent = difficultyStars;
+  header.appendChild(questNameEl);
+  header.appendChild(difficultyEl);
+  panel.appendChild(header);
+
+  // If no adventurers selected, show placeholder
+  if (partyAdventurers.length === 0) {
+    const emptyState = document.createElement('div');
+    emptyState.className = 'party-overview-empty';
+    emptyState.textContent = 'Select adventurers to view party stats';
+    panel.appendChild(emptyState);
+    return panel;
+  }
+
+  // Party members list
+  const membersSection = document.createElement('div');
+  membersSection.className = 'party-members-section';
+  membersSection.innerHTML = '<h4>Party Members</h4>';
+  const membersList = document.createElement('ul');
+  membersList.className = 'party-members-list';
+  for (const adventurer of partyAdventurers) {
+    const memberItem = document.createElement('li');
+    memberItem.className = 'party-member-item';
+    memberItem.setAttribute('data-adventurer-id', adventurer.id);
+    memberItem.textContent = `${adventurer.name} (${adventurer.evolvedClass || adventurer.class})`;
+
+    // Make party member items drop targets for removing adventurers via drag (Story 6.3)
+    attachDropTargetHandlers(memberItem, 'remove', dispatch, state, party?.id);
+
+    membersList.appendChild(memberItem);
+  }
+  membersSection.appendChild(membersList);
+  panel.appendChild(membersSection);
+
+  // Synergy section
+  const synergySection = document.createElement('div');
+  synergySection.className = 'synergy-section';
+  synergySection.innerHTML = '<h4>Party Synergy</h4>';
+
+  const synergyResult = calculateSynergyScore(partyAdventurers, quest);
+  const { uniqueClasses, bonus: diversityBonus } = { uniqueClasses: new Set(partyAdventurers.map(a => a.evolvedClass || a.class)).size, bonus: synergyResult.diversityBonus };
+
+  // Determine synergy state
+  let synergyClass = 'synergy-positive';
+  let synergyLabel = 'Positive synergy';
+  let synergyColor = '#27AE60';
+  const allSameClass = uniqueClasses === 1;
+  if (allSameClass && partyAdventurers.length > 1) {
+    synergyClass = 'synergy-redundant';
+    synergyLabel = 'Class redundancy detected';
+    synergyColor = '#E74C3C';
+  } else if (diversityBonus === 0) {
+    synergyClass = 'synergy-neutral';
+    synergyLabel = 'No diversity bonus';
+    synergyColor = '#FF9800';
+  }
+
+  const diversityRow = document.createElement('div');
+  diversityRow.className = `diversity-indicator ${synergyClass}`;
+  diversityRow.innerHTML = `
+    <span class="diversity-label">Class Diversity:</span>
+    <span class="diversity-value">${uniqueClasses} unique class${uniqueClasses !== 1 ? 'es' : ''}</span>
+    <span class="diversity-bonus">${diversityBonus > 0 ? '+' : ''}${Math.round(diversityBonus * 100)}% bonus</span>
+  `;
+  synergySection.appendChild(diversityRow);
+
+  // Synergy status label
+  const statusLabel = document.createElement('div');
+  statusLabel.className = `synergy-status ${synergyClass}`;
+  statusLabel.textContent = synergyLabel;
+  synergySection.appendChild(statusLabel);
+
+  // Trait synergy notes
+  const traitSynergyNotes = document.createElement('div');
+  traitSynergyNotes.className = 'trait-synergy-notes';
+
+  const activeTraits = new Map<string, number>();
+  for (const adventurer of partyAdventurers) {
+    const traitNames = adventurer.personality?.traits || [];
+    for (const traitName of traitNames) {
+      if (PERSONALITY_TRAIT_TABLE[traitName]) {
+        const def = PERSONALITY_TRAIT_TABLE[traitName];
+        if (def.quest_success > 0) {
+          activeTraits.set(traitName, (activeTraits.get(traitName) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  if (activeTraits.size > 0) {
+    traitSynergyNotes.innerHTML = '<div class="trait-synergy-header">Trait Synergies:</div>';
+    for (const [traitName, count] of activeTraits.entries()) {
+      const def = PERSONALITY_TRAIT_TABLE[traitName];
+      if (def && def.quest_success > 0) {
+        const note = document.createElement('div');
+        note.className = 'trait-synergy-note';
+        const bonusValue = def.quest_success;
+        // Extract quest type from description, fallback to 'quest' if format doesn't match
+        const match = def.description.match(/(\d+)% (.+) quest/);
+        const questType = match ? match[2] : 'quest';
+        note.textContent = `+${bonusValue * count} ${questType} bonus from ${traitName} trait`;
+        traitSynergyNotes.appendChild(note);
+      }
+    }
+    synergySection.appendChild(traitSynergyNotes);
+  }
+
+  // Total synergy summary
+  const totalSynergyRow = document.createElement('div');
+  totalSynergyRow.className = 'total-synergy';
+  totalSynergyRow.textContent = `Total Synergy: +${Math.round(synergyResult.synergyScore * 100)}% bonus applied to quest success`;
+  synergySection.appendChild(totalSynergyRow);
+
+  panel.appendChild(synergySection);
+
+  // Combined stats section
+  const statsSection = document.createElement('div');
+  statsSection.className = 'combined-stats-section';
+  statsSection.innerHTML = '<h4>Combined Stats</h4>';
+  const statsContainer = document.createElement('div');
+  statsContainer.className = 'combined-stats';
+
+  const reqStats: Stats = quest.requirements?.minStats ?? { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
+  const statKeys: (keyof Stats)[] = ['str', 'dex', 'int', 'vit', 'lck'];
+
+  for (const stat of statKeys) {
+    const total = calculatePartyEffectiveStat(partyAdventurers, quest, stat as string);
+    const required = reqStats[stat] ?? 0;
+    const statRow = document.createElement('div');
+    statRow.className = `stat-row ${total >= required ? 'stat-met' : 'stat-shortfall'}`;
+    const checkMark = total >= required ? '\u2713' : '\u2717';
+    statRow.innerHTML = `
+      <span class="stat-label">${STAT_LABELS[stat]}</span>
+      <span class="stat-value">${total}</span>
+      <span class="stat-required">/ ${required}</span>
+      <span class="stat-check">${checkMark}</span>
+    `;
+    statsContainer.appendChild(statRow);
+  }
+
+  statsSection.appendChild(statsContainer);
+  panel.appendChild(statsSection);
+
+  // Aptitude summary section
+  const aptitudeSection = document.createElement('div');
+  aptitudeSection.className = 'aptitude-summary-section';
+  aptitudeSection.innerHTML = '<h4>Aptitude Summary</h4>';
+  const preferredClasses = quest.requirements?.preferredClasses || [];
+  if (preferredClasses.length > 0) {
+    const classList = document.createElement('ul');
+    classList.className = 'preferred-classes-list';
+    for (const cls of preferredClasses) {
+      const classItem = document.createElement('li');
+      classItem.className = 'preferred-class-item';
+      classItem.textContent = cls;
+      classList.appendChild(classItem);
+    }
+    aptitudeSection.appendChild(classList);
+  } else {
+    const noClasses = document.createElement('p');
+    noClasses.className = 'no-preference-hint';
+    noClasses.textContent = 'No class preferences for this quest';
+    aptitudeSection.appendChild(noClasses);
+  }
+  panel.appendChild(aptitudeSection);
+
+  // Success rate section
+  const successRateSection = document.createElement('div');
+  successRateSection.className = 'success-rate-section';
+  const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
+  let rateClass = 'medium';
+  if (successRate >= 70) {
+    rateClass = 'high';
+  } else if (successRate < 40) {
+    rateClass = 'low';
+  }
+  successRateSection.innerHTML = `
+    <h4>Quest Success Rate</h4>
+    <div class="success-rate ${rateClass}">${successRate}%</div>
+  `;
+  panel.appendChild(successRateSection);
+
+  // Action buttons
+  const actionsSection = document.createElement('div');
+  actionsSection.className = 'panel-actions';
+
+  const dispatchBtn = document.createElement('button');
+  dispatchBtn.className = 'btn-panel-dispatch';
+  dispatchBtn.textContent = 'Dispatch Party';
+  const dispatchHandler = () => {
+    if (dispatch) {
+      dispatch({
+        type: 'SEND_QUEST',
+        payload: { questId: quest.id },
+      });
+      // Close the panel
+      closePartyOverviewPanel();
+    }
+  };
+  trackEventListener(dispatchBtn, 'click', dispatchHandler);
+  actionsSection.appendChild(dispatchBtn);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn-panel-cancel';
+  cancelBtn.textContent = 'Cancel';
+  const cancelHandler = () => {
+    closePartyOverviewPanel();
+  };
+  trackEventListener(cancelBtn, 'click', cancelHandler);
+  actionsSection.appendChild(cancelBtn);
+
+  panel.appendChild(actionsSection);
+
+  // Attach dispatch callback for real-time updates
+  if (dispatch) {
+    const unsubscribe = (newState: GameState, action: { type: string }) => {
+      // Re-render on any action that could modify party composition or stats
+      if (['ASSIGN_PARTY', 'UPDATE_ADVENTURER', 'ADD_ADVENTURER', 'REMOVE_ADVENTURER', 'EQUIP_ITEM'].includes(action.type)) {
+        renderPartyOverviewPanel(quest, newState, dispatch);
+      }
+    };
+    // Store unsubscribe reference on the panel for cleanup
+    (panel as any)._panelUnsubscribe = unsubscribe;
+  }
+
+  return panel;
+}
+
+/**
+ * Render the party overview panel as a side panel overlay.
+ * Slides in from the right side of the screen.
+ */
+export function renderPartyOverviewPanel(quest: Quest | null, state: GameState, dispatch?: DispatchFn): void {
+  // Remove existing panel if any
+  const existingPanel = document.querySelector('.party-over-panel') as HTMLElement | null;
+  if (existingPanel) {
+    const existingBackdrop = existingPanel.querySelector('.modal-backdrop');
+    if (existingBackdrop) {
+      detachAllListeners(existingBackdrop as HTMLElement);
+      existingBackdrop.remove();
+    }
+    existingPanel.remove();
+  }
+
+  if (!quest) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'party-over-panel';
+  overlay.setAttribute('data-overlay', 'party-overview');
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop party-over-backdrop';
+
+  // Make backdrop a drop zone for returning adventurers to roster (Story 6.3)
+  const dropZoneHandler = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dt = e.dataTransfer;
+    if (!dt) return;
+
+    const adventurerId = dt.getData(DND_ADVENTURER_ID_TYPE);
+    if (!adventurerId) return;
+
+    const hasOurDragType = Array.from(dt.types || []).some(
+      (t) => t === DND_ADVENTURER_ID_TYPE,
+    );
+    if (!hasOurDragType) return;
+
+    if (!dispatch || !state || !state.party?.id) return;
+
+    const currentParty = state.party.adventurerIds || [];
+    dispatch({
+      type: 'ASSIGN_PARTY',
+      payload: {
+        partyId: state.party.id,
+        adventurerIds: currentParty.filter((id) => id !== adventurerId),
+      },
+    });
+
+    clearDraggingClasses();
+  };
+
+  const dragOverBackdropHandler = (e: DragEvent) => {
+    e.preventDefault();
+    backdrop.classList.add('drag-over');
+  };
+
+  const dragLeaveBackdropHandler = () => {
+    backdrop.classList.remove('drag-over');
+  };
+
+  trackEventListener(backdrop, 'dragover', dragOverBackdropHandler);
+  trackEventListener(backdrop, 'dragleave', dragLeaveBackdropHandler);
+  trackEventListener(backdrop, 'drop', dropZoneHandler);
+
+  const panel = createPartyOverviewPanel(quest, state, dispatch);
+  if (!panel) return;
+
+  backdrop.appendChild(panel);
+  overlay.appendChild(backdrop);
+  document.body.appendChild(overlay);
+
+  // Animate in — target the inner panel, not the full-viewport backdrop
+  if (!prefersReducedMotion()) {
+    const anim = slideInFromRight(250);
+    const animHandle = playAnimation(panel, anim);
+  }
+
+  // Close on backdrop click (not during drag-over)
+  const backdropClickHandler = (ev: MouseEvent) => {
+    if ((ev.target as HTMLElement) === backdrop && !backdrop.classList.contains('drag-over')) {
+      closePartyOverviewPanel();
+    }
+  };
+  trackEventListener(backdrop, 'click', backdropClickHandler as EventListener);
+
+  // Close on Escape key — stored as a closure variable for targeted removal
+  let _escapeHandler: EventListener | null = null;
+  _escapeHandler = (ev: KeyboardEvent) => {
+    if (ev.key === 'Escape') {
+      closePartyOverviewPanel();
+    }
+  };
+  (document as unknown as HTMLElement).addEventListener('keydown', _escapeHandler as EventListener);
+  trackEventListener(document as unknown as HTMLElement, 'keydown', _escapeHandler as EventListener);
+
+  // Store unsubscribe reference on overlay for cleanup during close
+  (overlay as any)._panelUnsubscribe = (panel as any)._panelUnsubscribe;
+  (overlay as any)._escapeHandler = _escapeHandler;
+}
+
+/**
+ * Close the party overview panel overlay.
+ */
+export function closePartyOverviewPanel(): void {
+  const overlay = document.querySelector('.party-over-panel') as HTMLElement | null;
+  if (!overlay || !document.body.contains(overlay)) return;
+
+  // Clean up unsubscribe callback to prevent memory leaks
+  const unsubscribe = (overlay as any)._panelUnsubscribe;
+  if (typeof unsubscribe === 'function') {
+    unsubscribe();
+    (overlay as any)._panelUnsubscribe = undefined;
+  }
+
+  // Remove the targeted escape key handler from document
+  const escapeHandler = (overlay as any)._escapeHandler;
+  if (escapeHandler) {
+    (document as unknown as HTMLElement).removeEventListener('keydown', escapeHandler);
+    (overlay as any)._escapeHandler = null;
+  }
+  // Also remove from tracked listeners
+  detachAllListeners(document as unknown as HTMLElement);
+
+  const backdrop = overlay.querySelector('.party-over-backdrop') as HTMLElement | null;
+  if (backdrop) {
+    detachAllListeners(backdrop);
+  }
+  overlay.remove();
 }

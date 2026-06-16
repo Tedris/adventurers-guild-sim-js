@@ -1,5 +1,5 @@
 # generated: 2026-05-31
-# last_updated: 2026-06-13T20:00:00
+# last_updated: 2026-06-15T12:00:00
 # project: adventurers-guild-sim-js
 # project_key: NOKEY
 # tracking_system: file-system
@@ -77,18 +77,18 @@ development_status:
   epic-4-retrospective: optional
 
   # Epic 5: Navigation & Tooltips (v1.3 Phases 15-16)
-  epic-5: backlog
-  5-1-rebuild-tab-switching-with-smooth-transitions: backlog
-  5-2-implement-rich-adventurer-card-tooltips: backlog
-  5-3-implement-quest-card-tooltips: backlog
-  5-4-implement-contextual-mechanic-tooltips: backlog
+  epic-5: done
+  5-1-rebuild-tab-switching-with-smooth-transitions: done
+  5-2-implement-rich-adventurer-card-tooltips: done
+  5-3-implement-quest-card-tooltips: done
+  5-4-implement-contextual-mechanic-tooltips: done
   epic-5-retrospective: optional
 
   # Epic 6: Party Management (v1.3 Phases 17-18)
-  epic-6: backlog
-  6-1-build-party-overview-panel: backlog
-  6-2-add-party-synergy-display: backlog
-  6-3-implement-drag-and-drop-party-building: backlog
+  epic-6: in-progress
+  6-1-build-party-overview-panel: done
+  6-2-add-party-synergy-display: done
+  6-3-implement-drag-and-drop-party-building: done
   6-4-implement-party-composition-validation: backlog
   epic-6-retrospective: optional
 

@@ -25,6 +25,7 @@ const testFiles = [
 const scriptTests = [
   'test-listener-cleanup.mjs',
   'test-render.mjs',
+  'test-drag-drop.mjs',
 ];
 
 let failed = false;

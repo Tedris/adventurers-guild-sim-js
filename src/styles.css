@@ -1262,3 +1262,351 @@ body {
   left: 0;
   width: 100%;
 }
+
+/* ─── Party Overview Panel ──────────────────────────── */
+
+.party-over-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+}
+
+.party-over-panel .modal-backdrop {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 100vw;
+}
+
+.party-over-panel .modal-backdrop .modal-content {
+  max-width: 100%;
+  padding: 0;
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+.party-over-panel .party-overview-panel {
+  background: var(--color-surface);
+  border-radius: var(--card-radius);
+  padding: 16px;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.party-overview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.party-overview-header .panel-quest-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.party-overview-header .panel-quest-difficulty {
+  color: #ffd700;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+}
+
+.party-overview-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.party-members-section h4,
+.combined-stats-section h4,
+.aptitude-summary-section h4,
+.success-rate-section h4 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.party-members-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.party-member-item {
+  font-size: 0.85rem;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--color-text);
+}
+
+.combined-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.stat-row.stat-met {
+  background: rgba(39, 174, 96, 0.15);
+  color: #27AE60;
+}
+
+.stat-row.stat-shortfall {
+  background: rgba(231, 76, 60, 0.15);
+  color: #E74C3C;
+}
+
+.stat-label {
+  font-weight: 600;
+  min-width: 30px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.stat-value {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.stat-required {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.stat-check {
+  margin-left: auto;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.preferred-classes-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.preferred-class-item {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(233, 69, 96, 0.2);
+  color: #e94560;
+  border: 1px solid rgba(233, 69, 96, 0.3);
+}
+
+.no-preference-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.success-rate-section .success-rate {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.success-rate-section .success-rate.high {
+  color: #27AE60;
+}
+
+.success-rate-section .success-rate.medium {
+  color: #FF9800;
+}
+
+.success-rate-section .success-rate.low {
+  color: #E74C3C;
+}
+
+.synergy-section {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.diversity-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.diversity-label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.diversity-value {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.diversity-bonus {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.synergy-status {
+  font-size: 0.8rem;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.synergy-positive {
+  color: #27AE60;
+}
+
+.synergy-neutral {
+  color: #FF9800;
+}
+
+.synergy-redundant {
+  color: #E74C3C;
+}
+
+.trait-synergy-notes {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.trait-synergy-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
+.trait-synergy-note {
+  font-size: 0.8rem;
+  padding: 3px 0;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.total-synergy {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 6px 8px;
+  background: rgba(52, 152, 219, 0.15);
+  border-radius: 4px;
+  color: #3498DB;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel-actions button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-panel-dispatch {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.btn-panel-dispatch:hover {
+  background: #c7354f;
+}
+
+.btn-panel-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+}
+
+.btn-panel-cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Drag-and-Drop Styling (Story 6.3) ──────────────── */
+
+/* Drag ghost — the clone that follows cursor */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0.7;
+  transform: scale(0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+/* Source card during drag */
+.roster-card.dragging {
+  opacity: 0.4;
+  border-color: var(--color-accent);
+}
+
+/* Drop zone highlight */
+.party-member-item.drag-over,
+.party-over-backdrop.drag-over {
+  border-color: var(--color-accent);
+  background: rgba(52, 152, 219, 0.2);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+}
+
+/* Cursor feedback for draggable cards */
+.roster-card[draggable="true"] {
+  cursor: grab;
+}
+
+.roster-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Virtual cards with drag support */
+.roster-card.virtual-card[draggable="true"] {
+  cursor: grab;
+}
+
+.roster-card.virtual-card[draggable="true"]:active {
+  cursor: grabbing;
+}

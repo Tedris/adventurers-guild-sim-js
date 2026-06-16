@@ -106,7 +106,13 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   const ticker = createGameTicker(store);
 
   // Step 5: Subscribe for rendering
-  store.subscribe((state, _action) => { render(state, dayDisplay, goldDisplay, fameDisplay, store.dispatch); });
+  const unsubscribe = store.subscribe((state, _action) => { render(state, dayDisplay, goldDisplay, fameDisplay, store.dispatch); });
+
+  // Cleanup subscription on page unload to prevent memory leaks
+  window.addEventListener('beforeunload', () => {
+    unsubscribe();
+    ticker.stop();
+  });
 
   // Step 6: Tab navigation wiring (Phase 4-02)
   const navTabs: NodeListOf<HTMLElement> = document.querySelectorAll('.nav-tab');

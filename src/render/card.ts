@@ -497,15 +497,10 @@ export function renderQuestCard(
     );
     if (meetsSizeRequirement && partySize > 0) {
       const sendHandler = () => {
-        if (dispatch) {
-          dispatch({
-            type: 'SEND_QUEST',
-            payload: { questId: quest.id },
-          });
-          // Brief scale pulse for visual feedback
-          const anim = scalePulse(200);
-          playAnimation(frag, anim);
-        }
+        // Open the party overview panel instead of sending immediately
+        import('./tab.js').then(({ renderPartyOverviewPanel }) => {
+          renderPartyOverviewPanel(quest, state, dispatch);
+        });
       };
       trackEventListener(sendBtn, 'click', sendHandler);
     }

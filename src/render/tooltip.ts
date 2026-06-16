@@ -644,6 +644,7 @@ export function showQuestTooltip(quest: Quest, state: GameState, x: number, y: n
  */
 export function positionTooltip(x: number, y: number): void {
   if (!_tooltipEl) return;
+  if (!_tooltipEl.classList.contains('tooltip-visible')) return;
 
   // Cancel any pending frame to avoid race conditions
   if (_positionDebounceId) {

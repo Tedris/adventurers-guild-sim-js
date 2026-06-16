@@ -131,7 +131,7 @@ function handleAssignParty(state: GameState, payload: { partyId?: string; advent
   }
 
   const partyAdventurers = state.adventurers.filter(a => adventurerIds.includes(a.id));
-  const { synergyScore } = calculateSynergyScore(partyAdventurers, (quest || null) as unknown as Record<string, unknown> | null);
+  const { synergyScore } = calculateSynergyScore(partyAdventurers, (quest || null) as Quest | null);
 
   return {
     ...state,
@@ -272,32 +272,23 @@ function handleSendQuest(state: GameState, payload: { questId: string; partyId?:
   };
 }
 
-function handleCompleteQuest(state: GameState, payload: { questId: string }): GameState {
-  const { questId } = payload;
+// ─── Shared Quest Completion Helper ────────────────────
 
-  if (!state.activeQuest || state.activeQuest.questId !== questId || state.activeQuest.status !== 'active') {
-    console.warn('[Store] COMPLETE_QUEST rejected: no active quest found');
-    return state;
-  }
+interface QuestCompletionContext {
+  state: GameState;
+  quest: Quest;
+  partyAdventurers: Adventurer[];
+  successRate: number;
+  succeeded: boolean;
+  outcome: ReturnType<typeof calculateQuestOutcome>;
+  newFame: number;
+  milestoneArrivals: Adventurer[];
+  newMilestones: number[];
+  notifications: Array<{ id: string; message: string; timestamp: number }>;
+}
 
-  const quest = state.activeQuest.questData || state.quests.find(q => q.id === questId) || { id: questId };
-  const partyAdventurers = state.adventurers.filter(a =>
-    (state.party?.adventurerIds || []).includes(a.id)
-  );
-
-  const successRate = calculateQuestSuccessRate(partyAdventurers, quest as unknown as Record<string, unknown>);
-  const equipmentBonus = state.equipmentBonus || 0;
-  const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
-  const succeeded = Math.random() * 100 < successRateWithBonus;
-
-  const outcome = calculateQuestOutcome(partyAdventurers, quest as unknown as Record<string, unknown>, succeeded);
-
-  const newGold = Math.max(0, (state.gold ?? 0) + outcome.gold);
-
-  const fameGain = calculateFameGain(state);
-  const fameMultiplier = state.fameMultiplier || 1;
-  const actualFameGain = Math.floor(fameGain * fameMultiplier);
-  const newFame = (state.fame || 0) + actualFameGain;
+function completeQuestLogic(ctx: QuestCompletionContext): GameState {
+  const { state, quest, partyAdventurers, successRate, succeeded, outcome, newFame, milestoneArrivals, newMilestones, notifications } = ctx;
 
   const updatedAdventurers = state.adventurers.map(a => {
     let newMorale = a.morale;
@@ -311,37 +302,20 @@ function handleCompleteQuest(state: GameState, payload: { questId: string }): Ga
     };
   });
 
-  const milestonesReached = state.fameMilestonesReached || [];
-  const milestoneArrivals = [];
-  const newMilestones = [...milestonesReached];
-  for (const milestone of FAME_MILESTONE_ARRIVALS) {
-    if (newFame >= milestone.fame && !milestonesReached.includes(milestone.fame)) {
-      const arrivals = generateMilestoneArrivals(state, milestone.fame);
-      milestoneArrivals.push(...arrivals);
-      newMilestones.push(milestone.fame);
-    }
-  }
-
   const newAdventurers = [...updatedAdventurers, ...milestoneArrivals];
-  const newPartyAdventurerIds = newFame >= 10 && (state.party?.adventurerIds || []).length < 2
-    ? [...(state.party?.adventurerIds || []), ...(milestoneArrivals.slice(0, 1).map(a => a.id))]
-    : milestoneArrivals.length > 0 && (state.party?.adventurerIds || []).length < 2
-      ? [...(state.party?.adventurerIds || []), milestoneArrivals[0].id]
-      : state.party?.adventurerIds || [];
 
-  let notifications = [...(state.notifications || [])];
-  if (milestoneArrivals.length > 0) {
-    const arrivalNames = milestoneArrivals.map(a => a.name).join(', ');
-    notifications.push({
-      id: generateId(),
-      message: `A new adventurer has arrived at your guild: ${arrivalNames}!`,
-      timestamp: Date.now(),
-    });
+  // Auto-add milestone arrivals to party (with max size guard)
+  let newPartyAdventurerIds: string[];
+  if (milestoneArrivals.length > 0 && (state.party?.adventurerIds || []).length < MAX_PARTY_SIZE) {
+    const firstArrivalId = milestoneArrivals[0].id;
+    newPartyAdventurerIds = [...(state.party?.adventurerIds || []), firstArrivalId];
+  } else {
+    newPartyAdventurerIds = state.party?.adventurerIds || [];
   }
 
   return {
     ...state,
-    gold: newGold,
+    gold: Math.max(0, (state.gold ?? 0) + outcome.gold),
     adventurers: newAdventurers,
     party: {
       ...state.party,
@@ -357,6 +331,54 @@ function handleCompleteQuest(state: GameState, payload: { questId: string }): Ga
       result: outcome,
     },
   };
+}
+
+function handleCompleteQuest(state: GameState, payload: { questId: string }): GameState {
+  const { questId } = payload;
+
+  if (!state.activeQuest || state.activeQuest.questId !== questId || state.activeQuest.status !== 'active') {
+    console.warn('[Store] COMPLETE_QUEST rejected: no active quest found');
+    return state;
+  }
+
+  const quest = state.activeQuest.questData || state.quests.find(q => q.id === questId) || { id: questId };
+  const partyAdventurers = state.adventurers.filter(a =>
+    (state.party?.adventurerIds || []).includes(a.id)
+  );
+
+  const successRate = calculateQuestSuccessRate(partyAdventurers, quest as Quest);
+  const equipmentBonus = state.equipmentBonus || 0;
+  const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
+  const succeeded = Math.random() * 100 < successRateWithBonus;
+  const outcome = calculateQuestOutcome(partyAdventurers, quest as Quest, succeeded);
+
+  const fameGain = calculateFameGain(state);
+  const fameMultiplier = state.fameMultiplier || 1;
+  const actualFameGain = Math.floor(fameGain * fameMultiplier);
+  const newFame = (state.fame || 0) + actualFameGain;
+
+  const milestonesReached = state.fameMilestonesReached || [];
+  const milestoneArrivals: Adventurer[] = [];
+  const newMilestones = [...milestonesReached];
+  for (const milestone of FAME_MILESTONE_ARRIVALS) {
+    if (newFame >= milestone.fame && !milestonesReached.includes(milestone.fame)) {
+      const arrivals = generateMilestoneArrivals(state, milestone.fame);
+      milestoneArrivals.push(...arrivals);
+      newMilestones.push(milestone.fame);
+    }
+  }
+
+  const notifications: Array<{ id: string; message: string; timestamp: number }> = [...(state.notifications || [])];
+  if (milestoneArrivals.length > 0) {
+    const arrivalNames = milestoneArrivals.map(a => a.name).join(', ');
+    notifications.push({
+      id: generateId(),
+      message: `A new adventurer has arrived at your guild: ${arrivalNames}!`,
+      timestamp: Date.now(),
+    });
+  }
+
+  return completeQuestLogic({ state, quest, partyAdventurers, successRate, succeeded, outcome, newFame, milestoneArrivals, newMilestones, notifications });
 }
 
 function handleUpgradeGuild(state: GameState, payload: { upgradeType: UpgradeType; gold: number }): GameState {
@@ -461,30 +483,33 @@ function handleTick(state: GameState, payload?: { tickCount?: number }): GameSta
 
   const activeQuest = tickResult.activeQuest;
   if (activeQuest && activeQuest.status === 'complete') {
-    const quest = activeQuest.questData || state.quests.find(q => q.id === activeQuest.questId);
+    // Use questData from tickResult (which contains the quest data at time of send)
+    const quest = activeQuest.questData as Quest;
     const partyAdventurers = state.adventurers.filter(a =>
       (state.party?.adventurerIds || []).includes(a.id)
     );
+
     const autoCompleted = activeQuest.result?.success === true;
     let succeeded: boolean;
     let outcome: ReturnType<typeof calculateQuestOutcome>;
     if (autoCompleted) {
       succeeded = true;
-      outcome = calculateQuestOutcome(partyAdventurers, quest as unknown as Record<string, unknown>, true);
+      outcome = calculateQuestOutcome(partyAdventurers, quest, true);
     } else {
-      const successRate = calculateQuestSuccessRate(partyAdventurers, quest as unknown as Record<string, unknown>);
+      const successRate = calculateQuestSuccessRate(partyAdventurers, quest);
       const equipmentBonus = tickResult.equipmentBonus || 0;
       const successRateWithBonus = Math.min(95, successRate + equipmentBonus * 100);
       succeeded = Math.random() * 100 < successRateWithBonus;
-      outcome = calculateQuestOutcome(partyAdventurers, quest as unknown as Record<string, unknown>, succeeded);
+      outcome = calculateQuestOutcome(partyAdventurers, quest, succeeded);
     }
-    const newGold = Math.max(0, (tickResult.gold ?? 0) + outcome.gold);
+
     const fameGain = calculateFameGain(tickResult);
     const fameMultiplier = tickResult.fameMultiplier || 1;
     const actualFameGain = Math.floor(fameGain * fameMultiplier);
     const newFame = (tickResult.fame || 0) + actualFameGain;
+
     const milestonesReached = tickResult.fameMilestonesReached || [];
-    const milestoneArrivals = [];
+    const milestoneArrivals: Adventurer[] = [];
     const newMilestones = [...milestonesReached];
     for (const milestone of FAME_MILESTONE_ARRIVALS) {
       if (newFame >= milestone.fame && !milestonesReached.includes(milestone.fame)) {
@@ -494,14 +519,7 @@ function handleTick(state: GameState, payload?: { tickCount?: number }): GameSta
       }
     }
 
-    const allAdventurers = [...tickResult.adventurers, ...milestoneArrivals];
-    const newPartyAdventurerIds = newFame >= 10 && tickResult.party.adventurerIds.length < 2
-      ? [...tickResult.party.adventurerIds, ...(milestoneArrivals.slice(0, 1).map(a => a.id))]
-      : milestoneArrivals.length > 0 && tickResult.party.adventurerIds.length < 2
-        ? [...tickResult.party.adventurerIds, milestoneArrivals[0].id]
-        : tickResult.party.adventurerIds;
-
-    let tickNotifications = [...(tickResult.notifications || [])];
+    const tickNotifications: Array<{ id: string; message: string; timestamp: number }> = [...(tickResult.notifications || [])];
     if (milestoneArrivals.length > 0) {
       const arrivalNames = milestoneArrivals.map(a => a.name).join(', ');
       tickNotifications.push({
@@ -523,19 +541,34 @@ function handleTick(state: GameState, payload?: { tickCount?: number }): GameSta
       }
     }
 
+    // Delegate to shared completion logic
+    const completedState = completeQuestLogic({
+      state,
+      quest,
+      partyAdventurers,
+      successRate: calculateQuestSuccessRate(partyAdventurers, quest),
+      succeeded,
+      outcome,
+      newFame,
+      milestoneArrivals,
+      newMilestones,
+      notifications: tickNotifications,
+    });
+
     return {
-      ...state,
       ...tickResult,
-      gold: newGold,
-      adventurers: allAdventurers,
+      ...completedState,
+      // Override tickResult-specific fields
+      gold: completedState.gold,
+      adventurers: [...tickResult.adventurers, ...milestoneArrivals],
       party: {
         ...tickResult.party,
-        adventurerIds: newPartyAdventurerIds,
+        adventurerIds: completedState.party.adventurerIds,
       },
-      fame: newFame,
+      fame: completedState.fame,
       questCount: (tickResult.questCount || 0) + 1,
-      fameMilestonesReached: newMilestones,
-      notifications: tickNotifications,
+      fameMilestonesReached: completedState.fameMilestonesReached,
+      notifications: completedState.notifications,
       activeQuest: tickResult.activeQuest ? {
         ...tickResult.activeQuest,
         status: succeeded ? 'complete' : 'failed',
@@ -617,7 +650,6 @@ function handleEventResolved(state: GameState, payload: { eventId: string; choic
       const departedId = sorted[i].id;
       updatedAdventurers = updatedAdventurers.filter(a => a.id !== departedId);
     }
-    departureCount -= updatedAdventurers.length < sorted.length ? Math.min(departureCount, sorted.length - updatedAdventurers.length) : 0;
   }
 
   if (resolution.delta.retirementTriggered) {
@@ -733,12 +765,12 @@ export function createStore(initialState: GameState, validators: Record<ActionTy
  * @returns {Function} Action creator that returns { type, payload }
  */
 export function createAction(type: ActionType, payloadFn?: (payload: unknown) => unknown) {
-  return {
-    [type](payload: unknown) {
-      return {
-        type,
-        payload: typeof payloadFn === 'function' ? payloadFn(payload) : payload,
-      };
-    },
-  }[type];
+  const action = Object.create(null);
+  action[type as string] = (payload: unknown) => {
+    return {
+      type,
+      payload: typeof payloadFn === 'function' ? payloadFn(payload) : payload,
+    };
+  };
+  return action[type as string];
 }

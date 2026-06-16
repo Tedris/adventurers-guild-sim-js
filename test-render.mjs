@@ -82,6 +82,9 @@ checkContent('tab.ts', join(__dirname, 'src', 'render', 'tab.ts'), [
   'export function createPartyStatusCard',
   'export function renderNotifications',
   'export function formatUpgradeEffects',
+  'export function createPartyOverviewPanel',
+  'export function renderPartyOverviewPanel',
+  'export function closePartyOverviewPanel',
 ], 'function exports');
 
 // ─── Check event-display.ts exports ───
@@ -139,6 +142,69 @@ checkContent('styles.css', cssPath, [
   '#27AE60',
   'quest-tooltip',
 ], 'quest tooltip styling');
+
+// ─── Verify party overview panel exports (Story 6-1) ───
+console.log('\n--- Party Overview Panel Exports (Story 6-1) ---');
+const tabCode = readFileSync(join(__dirname, 'src', 'render', 'tab.ts'), 'utf-8');
+checkContent('tab.ts', join(__dirname, 'src', 'render', 'tab.ts'), [
+  'export function createPartyOverviewPanel',
+  'export function renderPartyOverviewPanel',
+  'export function closePartyOverviewPanel',
+], 'party overview panel exports');
+
+// ─── Verify quest card dispatch flow updated (Story 6-1) ───
+console.log('\n--- Quest Card Dispatch Flow (Story 6-1) ---');
+const cardCode2 = readFileSync(join(__dirname, 'src', 'render', 'card.ts'), 'utf-8');
+checkContent('card.ts', join(__dirname, 'src', 'render', 'card.ts'), [
+  "import('./tab.js').then(({ renderPartyOverviewPanel })",
+  'renderPartyOverviewPanel(quest, state, dispatch)',
+], 'quest card panel integration');
+
+// ─── Verify party overview panel CSS (Story 6-1) ───
+console.log('\n--- Party Overview Panel CSS (Story 6-1) ---');
+const cssCode2 = readFileSync(join(__dirname, 'src', 'styles.css'), 'utf-8');
+checkContent('styles.css', join(__dirname, 'src', 'styles.css'), [
+  '.party-overview-panel',
+  '.party-over-panel',
+  '.combined-stats',
+  '.stat-row',
+  '.stat-met',
+  '.stat-shortfall',
+  '.success-rate',
+  '.success-rate-section .success-rate.high',
+  '.success-rate-section .success-rate.medium',
+  '.success-rate-section .success-rate.low',
+], 'party overview panel styling');
+
+// ─── Verify party synergy display (Story 6-2) ───
+console.log('\n--- Party Synergy Display (Story 6-2) ---');
+const tabCode2 = readFileSync(join(__dirname, 'src', 'render', 'tab.ts'), 'utf-8');
+checkContent('tab.ts', join(__dirname, 'src', 'render', 'tab.ts'), [
+  'calculateSynergyScore',
+  'PERSONALITY_TRAIT_TABLE',
+  'synergy-section',
+  'diversity-indicator',
+  'synergy-positive',
+  'synergy-neutral',
+  'synergy-redundant',
+  'trait-synergy-notes',
+  'trait-synergy-note',
+  'total-synergy',
+], 'synergy display implementation');
+
+// ─── Verify party synergy CSS (Story 6-2) ───
+console.log('\n--- Party Synergy CSS (Story 6-2) ---');
+const cssCode3 = readFileSync(join(__dirname, 'src', 'styles.css'), 'utf-8');
+checkContent('styles.css', join(__dirname, 'src', 'styles.css'), [
+  '.synergy-section',
+  '.synergy-positive',
+  '.synergy-neutral',
+  '.synergy-redundant',
+  '.trait-synergy-note',
+  '.trait-synergy-notes',
+  '.total-synergy',
+  '.diversity-indicator',
+], 'party synergy styling');
 
 // ─── Verify threat mitigation T-04-01 ───
 console.log('\n--- Threat Mitigation ---');

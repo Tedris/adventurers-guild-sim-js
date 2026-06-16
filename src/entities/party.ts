@@ -2,7 +2,7 @@
 // ===========================================
 // Party management: creation, validation, and synergy calculation.
 
-import type { Adventurer, SynergyResult, ValidationResult } from '../types.js';
+import type { Adventurer, Quest, SynergyResult, ValidationResult } from '../types.js';
 import { generateId } from './adventurer.js';
 
 // ─── Constants ─────────────────────────────────────────
@@ -85,15 +85,15 @@ export function calculateAptitudeBonus(
 
 export function calculateSynergyScore(
   adventurers: Adventurer[],
-  quest?: Record<string, unknown> | null
+  quest?: Quest | null
 ): SynergyResult {
   const { bonus: diversityBonus } = calculateClassDiversity(adventurers);
 
   let aptitudeBonus = 0;
   if (quest && typeof quest.requirements === 'object' && quest.requirements !== null) {
-    const req = quest.requirements as Record<string, unknown>;
+    const req = quest.requirements;
     if (Array.isArray(req.preferredClasses)) {
-      aptitudeBonus = calculateAptitudeBonus(adventurers, req.preferredClasses as string[]);
+      aptitudeBonus = calculateAptitudeBonus(adventurers, req.preferredClasses);
     }
   }
 
@@ -140,7 +140,7 @@ export function calculateStatContribution(
 
 export function calculatePartyEffectiveStat(
   adventurers: Adventurer[],
-  quest: Record<string, unknown>,
+  quest: Quest,
   statName: string
 ): number {
   let effective = calculateStatContribution(adventurers, statName);
@@ -161,17 +161,21 @@ export function calculatePartyEffectiveStat(
 
 export function calculateQuestSuccessRate(
   adventurers: Adventurer[],
-  quest: Record<string, unknown>
+  quest: Quest
 ): number {
-  const req = quest.requirements as Record<string, unknown> | undefined;
-  const minStats = (req?.minStats as Record<string, number>) || {};
-  const statNames = Object.keys(minStats);
+  const req = quest.requirements;
+  const minStats = req?.minStats || {};
+  const minStatsRecord = minStats as Record<string, number>;
+  const statNames = Object.keys(minStatsRecord);
 
   if (statNames.length === 0) return 50; // No requirements = 50% chance
 
   let product = 1;
+  let statsWithRequirements = 0;
   for (const statName of statNames) {
-    const required = minStats[statName];
+    const required = minStatsRecord[statName];
+    if (required === 0) continue; // Skip stats with no requirement
+    statsWithRequirements++;
     const effective = calculatePartyEffectiveStat(adventurers, quest, statName);
     const ratio = effective / required;
 
@@ -180,8 +184,11 @@ export function calculateQuestSuccessRate(
     product *= cappedRatio;
   }
 
+  // If all requirements are zero, return neutral 50%
+  if (statsWithRequirements === 0) return 50;
+
   // Normalize to 0-100%
-  const normalized = (product / Math.pow(1.5, statNames.length)) * 100;
+  const normalized = (product / Math.pow(1.5, statsWithRequirements)) * 100;
 
   // Clamp to 10-95%
   return Math.max(10, Math.min(95, Math.round(normalized)));
@@ -189,10 +196,10 @@ export function calculateQuestSuccessRate(
 
 export function calculateQuestOutcome(
   adventurers: Adventurer[],
-  quest: Record<string, unknown>,
+  quest: Quest,
   success: boolean
 ): { success: boolean; gold: number; experience: number; moraleAdjustment: number } {
-  const rewards = (quest.rewards as { gold: number; experience: number }) || { gold: 0, experience: 0 };
+  const rewards = quest.rewards || { gold: 0, experience: 0 };
   if (success) {
     const successRate = calculateQuestSuccessRate(adventurers, quest);
     const performanceMultiplier = 1 + (successRate / 100) * 0.5;
