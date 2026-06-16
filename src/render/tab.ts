@@ -16,6 +16,8 @@ import {
   calculateQuestSuccessRate,
   calculateSynergyScore,
   PERSONALITY_TRAIT_TABLE,
+  MAX_PARTY_SIZE,
+  MIN_PARTY_SIZE,
 } from '../entities/index.js';
 import { renderCard, trackEventListener, detachAllListeners } from './card.js';
 import type { CardType, DispatchFn } from './card.js';
@@ -110,6 +112,36 @@ function clearDraggingClasses(): void {
 }
 
 /**
+ * Show a brief validation error message in a panel.
+ * Displays a toast notification and flashes the drop target red.
+ * Auto-dismisses after 1.5 seconds.
+ * @param panel — The panel element to render the toast within
+ * @param message — Error message to display
+ */
+ function showValidationError(panel: HTMLElement, message: string): void {
+  const existingToast = panel.querySelector('.validation-toast');
+  if (existingToast) existingToast.remove();
+
+  if (!panel.style.position || panel.style.position === 'static') {
+    panel.style.position = 'relative';
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'validation-toast';
+  toast.textContent = message;
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'assertive');
+
+  panel.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-8px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 1500);
+}
+
+/**
  * Attach drag-and-drop event handlers to a roster card element.
  * Makes the card draggable and sets up drag ghost creation.
  */
@@ -196,16 +228,38 @@ function attachDropTargetHandlers(
     const currentParty = state.party?.adventurerIds || [];
 
     if (targetAction === 'add') {
-      // Only add if not already in party and under max size
-      if (!currentParty.includes(adventurerId) && currentParty.length < 3) {
-        dispatch({
-          type: 'ASSIGN_PARTY',
-          payload: {
-            partyId,
-            adventurerIds: [...currentParty, adventurerId],
-          },
-        });
+      // Check 1: Duplicate adventurer
+      if (currentParty.includes(adventurerId)) {
+        const errorTarget = memberItem.closest('.party-over-panel') || memberItem.closest('.party-overview-panel') || memberItem.parentElement;
+        if (errorTarget) {
+          showValidationError(errorTarget, 'Adventurer already in party!');
+          errorTarget.classList.add('validation-error');
+          setTimeout(() => errorTarget.classList.remove('validation-error'), 500);
+        }
+        clearDraggingClasses();
+        return;
       }
+
+      // Check 2: Party size limit
+      if (currentParty.length >= MAX_PARTY_SIZE) {
+        const errorTarget = memberItem.closest('.party-over-panel') || memberItem.closest('.party-overview-panel') || memberItem.parentElement;
+        if (errorTarget) {
+          showValidationError(errorTarget, `Party is full (${currentParty.length}/${MAX_PARTY_SIZE})`);
+          errorTarget.classList.add('validation-error');
+          setTimeout(() => errorTarget.classList.remove('validation-error'), 500);
+        }
+        clearDraggingClasses();
+        return;
+      }
+
+      // Both checks passed — proceed with existing dispatch logic
+      dispatch({
+        type: 'ASSIGN_PARTY',
+        payload: {
+          partyId,
+          adventurerIds: [...currentParty, adventurerId],
+        },
+      });
     } else if (targetAction === 'remove') {
       dispatch({
         type: 'ASSIGN_PARTY',
@@ -1540,6 +1594,24 @@ export function createPartyOverviewPanel(quest: Quest | null, state: GameState, 
   dispatchBtn.className = 'btn-panel-dispatch';
   dispatchBtn.textContent = 'Dispatch Party';
   const dispatchHandler = () => {
+    // Validate party size against quest requirements
+    const minSize = quest.requirements?.minPartySize ?? MIN_PARTY_SIZE;
+    const currentSize = state.party?.adventurerIds?.length ?? 0;
+
+    if (currentSize < minSize) {
+      // Show inline warning on dispatch button
+      const warningEl = document.createElement('span');
+      warningEl.className = 'dispatch-btn-warning';
+      warningEl.textContent = `Need at least ${minSize} adventurers`;
+
+      // Remove existing warning if present
+      const existingWarning = dispatchBtn.querySelector('.dispatch-btn-warning');
+      if (existingWarning) existingWarning.remove();
+
+      dispatchBtn.appendChild(warningEl);
+      return;
+    }
+
     if (dispatch) {
       dispatch({
         type: 'SEND_QUEST',

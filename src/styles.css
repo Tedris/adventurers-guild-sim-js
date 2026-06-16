@@ -1610,3 +1610,45 @@ body {
 .roster-card.virtual-card[draggable="true"]:active {
   cursor: grabbing;
 }
+
+/* ─── Validation Error Feedback (Story 6-4) ──────────────── */
+
+.validation-toast {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: #E74C3C;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 100;
+  opacity: 1;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+}
+
+.party-member-item.validation-error,
+.party-over-backdrop.validation-error {
+  border-color: #E74C3C !important;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.3);
+  animation: redBorderFlash 0.5s ease-out;
+}
+
+@keyframes redBorderFlash {
+  0% { border-color: #E74C3C; }
+  50% { border-color: transparent; }
+  100% { border-color: var(--color-accent, #e94560); }
+}
+
+.dispatch-btn-warning {
+  display: block;
+  font-size: 11px;
+  color: #E74C3C;
+  margin-top: 4px;
+  text-align: center;
+}

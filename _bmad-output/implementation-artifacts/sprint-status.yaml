@@ -1,5 +1,5 @@
 # generated: 2026-05-31
-# last_updated: 2026-06-15T12:00:00
+# last_updated: 2026-06-15T14:00:00
 # project: adventurers-guild-sim-js
 # project_key: NOKEY
 # tracking_system: file-system
@@ -89,7 +89,7 @@ development_status:
   6-1-build-party-overview-panel: done
   6-2-add-party-synergy-display: done
   6-3-implement-drag-and-drop-party-building: done
-  6-4-implement-party-composition-validation: backlog
+  6-4-implement-party-composition-validation: done
   epic-6-retrospective: optional
 
   # Epic 7: Interaction Quality (v1.3 Phases 19-20)
