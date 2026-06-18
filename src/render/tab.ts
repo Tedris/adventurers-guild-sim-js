@@ -18,10 +18,12 @@ import {
   PERSONALITY_TRAIT_TABLE,
   MAX_PARTY_SIZE,
   MIN_PARTY_SIZE,
+  computePartyStatBreakdown,
+  computePerAdventurerStatContribution,
 } from '../entities/index.js';
 import { renderCard, trackEventListener, detachAllListeners } from './card.js';
 import type { CardType, DispatchFn } from './card.js';
-import { hideTooltip, showFameMechanicTooltip, showWageMechanicTooltip, showEvolutionMechanicTooltip, isTooltipVisible, positionTooltip } from './tooltip.js';
+import { hideTooltip, showFameMechanicTooltip, showWageMechanicTooltip, showEvolutionMechanicTooltip, showStatBreakdownTooltip, showStatAttributionTooltip, isTooltipVisible, positionTooltip } from './tooltip.js';
 import { CLASS_EVOLUTIONS } from '../entities/index.js';
 import { showConfirmModal } from './event-display.js';
 import {
@@ -61,6 +63,30 @@ const VIRTUAL_LIST_THRESHOLD = 20;
  * Estimated from CSS: padding + header + stats + morale + equipment + footer.
  */
 const CARD_ROW_HEIGHT = 220;
+
+/**
+ * Highlight roster cards matching the given adventurer IDs.
+ * Adds `.highlighted-stat-contributor` class to matching cards.
+ * @param adventurerIds — Array of adventurer IDs to highlight
+ */
+function highlightRosterCards(adventurerIds: string[]): void {
+  const allCards = document.querySelectorAll('.roster-card');
+  for (const card of allCards) {
+    const cardId = card.getAttribute('data-adventurer-id');
+    if (cardId && adventurerIds.includes(cardId)) {
+      card.classList.add('highlighted-stat-contributor');
+    }
+  }
+}
+
+/**
+ * Clear all roster card highlights.
+ */
+function clearRosterHighlights(): void {
+  document.querySelectorAll('.roster-card.highlighted-stat-contributor').forEach((card) => {
+    card.classList.remove('highlighted-stat-contributor');
+  });
+}
 
 // ─── Drag-and-Drop Helpers ─────────────────────────────
 
@@ -1525,9 +1551,18 @@ export function createPartyOverviewPanel(quest: Quest | null, state: GameState, 
   statsSection.innerHTML = '<h4>Combined Stats</h4>';
   const statsContainer = document.createElement('div');
   statsContainer.className = 'combined-stats';
+  statsContainer.setAttribute('data-stat-view-mode', 'breakdown');
+
+  // Clear any stale highlights from previous renders before creating new rows
+  clearRosterHighlights();
 
   const reqStats: Stats = quest.requirements?.minStats ?? { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
   const statKeys: (keyof Stats)[] = ['str', 'dex', 'int', 'vit', 'lck'];
+
+  // Detach listeners from existing stat rows before re-rendering
+  for (const existingRow of statsContainer.querySelectorAll('.stat-row')) {
+    detachAllListeners(existingRow as HTMLElement);
+  }
 
   for (const stat of statKeys) {
     const total = calculatePartyEffectiveStat(partyAdventurers, quest, stat as string);
@@ -1541,6 +1576,29 @@ export function createPartyOverviewPanel(quest: Quest | null, state: GameState, 
       <span class="stat-required">/ ${required}</span>
       <span class="stat-check">${checkMark}</span>
     `;
+    statRow.style.cursor = 'pointer';
+
+    const statRowClickHandler = (e: MouseEvent) => {
+      e.stopPropagation();
+      if (e.shiftKey) {
+        // Shift+click: show attribution tooltip
+        clearRosterHighlights();
+        const contributions = computePerAdventurerStatContribution(partyAdventurers, quest, stat as string);
+        showStatAttributionTooltip(contributions, stat as keyof Stats, quest, e.clientX, e.clientY);
+        highlightRosterCards(contributions.map(c => c.adventurerId));
+      } else {
+        // Regular click: show breakdown tooltip
+        const breakdown = computePartyStatBreakdown(partyAdventurers, quest, stat as string);
+        const tooltip = document.getElementById('tooltip-container');
+        if (tooltip && tooltip.classList.contains('breakdown-tooltip')) {
+          hideTooltip();
+        } else {
+          showStatBreakdownTooltip(breakdown, e.clientX, e.clientY);
+        }
+      }
+    };
+    trackEventListener(statRow, 'click', statRowClickHandler);
+
     statsContainer.appendChild(statRow);
   }
 
@@ -1718,6 +1776,17 @@ export function renderPartyOverviewPanel(quest: Quest | null, state: GameState, 
   trackEventListener(backdrop, 'dragleave', dragLeaveBackdropHandler);
   trackEventListener(backdrop, 'drop', dropZoneHandler);
 
+  // Click outside tooltip to dismiss attribution and clear highlights
+  let _tooltipClickOutsideHandler: EventListener | null = null;
+  _tooltipClickOutsideHandler = (ev: MouseEvent) => {
+    const tooltip = document.getElementById('tooltip-container');
+    if (tooltip && !tooltip.contains(ev.target as Node)) {
+      clearRosterHighlights();
+    }
+  };
+  trackEventListener(document.body, 'click', _tooltipClickOutsideHandler as EventListener);
+  (overlay as any)._tooltipClickOutsideHandler = _tooltipClickOutsideHandler;
+
   const panel = createPartyOverviewPanel(quest, state, dispatch);
   if (!panel) return;
 
@@ -1743,6 +1812,7 @@ export function renderPartyOverviewPanel(quest: Quest | null, state: GameState, 
   let _escapeHandler: EventListener | null = null;
   _escapeHandler = (ev: KeyboardEvent) => {
     if (ev.key === 'Escape') {
+      clearRosterHighlights();
       closePartyOverviewPanel();
     }
   };
@@ -1758,6 +1828,7 @@ export function renderPartyOverviewPanel(quest: Quest | null, state: GameState, 
  * Close the party overview panel overlay.
  */
 export function closePartyOverviewPanel(): void {
+  clearRosterHighlights();
   const overlay = document.querySelector('.party-over-panel') as HTMLElement | null;
   if (!overlay || !document.body.contains(overlay)) return;
 
@@ -1773,6 +1844,12 @@ export function closePartyOverviewPanel(): void {
   if (escapeHandler) {
     (document as unknown as HTMLElement).removeEventListener('keydown', escapeHandler);
     (overlay as any)._escapeHandler = null;
+  }
+  // Also remove the click-outside tooltip handler from document.body
+  const clickOutsideHandler = (overlay as any)._tooltipClickOutsideHandler;
+  if (clickOutsideHandler) {
+    (document.body as unknown as HTMLElement).removeEventListener('click', clickOutsideHandler as EventListener);
+    (overlay as any)._tooltipClickOutsideHandler = null;
   }
   // Also remove from tracked listeners
   detachAllListeners(document as unknown as HTMLElement);

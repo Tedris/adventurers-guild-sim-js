@@ -35,8 +35,10 @@ import('./entities/index.js').then((module) => {
     getSoloEligible,
     calculateStatContribution,
     calculatePartyEffectiveStat,
+    computePartyStatBreakdown,
     calculateQuestSuccessRate,
     calculateQuestOutcome,
+    computePerAdventurerStatContribution,
     generateQuestPool,
     calculateUpgradeCost,
     getAvailableUpgrades,
@@ -466,6 +468,119 @@ import('./entities/index.js').then((module) => {
     const quest = { requirements: { minStats: { str: 10 } } };
     const effective = calculatePartyEffectiveStat(adventurers, quest, 'str');
     assert(effective <= 10, `solo should apply 0.85 penalty, got ${effective}`);
+  });
+
+  test('computePartyStatBreakdown returns correct baseTotal', () => {
+    const adventurers = [
+      defaultAdventurer({ stats: { str: 10, dex: 8, int: 12, vit: 9, lck: 7 } }),
+      defaultAdventurer({ stats: { str: 12, dex: 10, int: 8, vit: 11, lck: 9 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 10 } } };
+    const breakdown = computePartyStatBreakdown(adventurers, quest, 'str');
+    assert(breakdown.baseTotal === 22, `baseTotal should be 22, got ${breakdown.baseTotal}`);
+    assert(breakdown.stat === 'str', 'stat should be str');
+  });
+
+  test('computePartyStatBreakdown returns correct total matching calculatePartyEffectiveStat', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword', stats: { str: 15, dex: 10, int: 10, vit: 10, lck: 10 } }),
+      defaultAdventurer({ class: 'Bow', stats: { str: 12, dex: 10, int: 10, vit: 10, lck: 10 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 10 } } };
+    const breakdown = computePartyStatBreakdown(adventurers, quest, 'str');
+    const effective = calculatePartyEffectiveStat(adventurers, quest, 'str');
+    assert(breakdown.total === effective, `total (${breakdown.total}) should match calculatePartyEffectiveStat (${effective})`);
+  });
+
+  test('computePartyStatBreakdown with equipment bonuses', () => {
+    const adventurers = [
+      defaultAdventurer({
+        stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 },
+        equipment: {
+          weapon: { name: 'Iron Sword', rarity: 'Epic', slot: 'weapon' },
+          armor: { name: 'Chain Mail', rarity: 'Rare', slot: 'armor' },
+          accessory: null,
+        },
+      }),
+    ];
+    const quest = { requirements: { minStats: { str: 10 } } };
+    const breakdown = computePartyStatBreakdown(adventurers, quest, 'str');
+    assert(breakdown.equipmentBonuses.length === 2, `should have 2 equipment bonuses, got ${breakdown.equipmentBonuses.length}`);
+    const epicBonus = breakdown.equipmentBonuses.find(eb => eb.rarity === 'Epic');
+    const rareBonus = breakdown.equipmentBonuses.find(eb => eb.rarity === 'Rare');
+    assert(epicBonus && epicBonus.value === 5, 'Epic bonus should be 5');
+    assert(rareBonus && rareBonus.value === 3, 'Rare bonus should be 3');
+  });
+
+  test('computePartyStatBreakdown solo penalty', () => {
+    const adventurers = [defaultAdventurer({ stats: { str: 20, dex: 10, int: 10, vit: 10, lck: 10 } })];
+    const quest = { requirements: { minStats: { str: 10 } } };
+    const breakdown = computePartyStatBreakdown(adventurers, quest, 'str');
+    assert(breakdown.soloPenalty < 0, `solo penalty should be negative, got ${breakdown.soloPenalty}`);
+    assert(breakdown.soloPenalty === -3, `solo penalty for 20 base should be -3, got ${breakdown.soloPenalty}`);
+    assert(breakdown.total === calculatePartyEffectiveStat(adventurers, quest, 'str'), 'total should match effective stat');
+  });
+
+  test('computePartyStatBreakdown multi-stat coverage', () => {
+    const adventurers = [
+      defaultAdventurer({ class: 'Sword', stats: { str: 15, dex: 8, int: 10, vit: 12, lck: 6 } }),
+      defaultAdventurer({ class: 'Wand', stats: { str: 6, dex: 12, int: 18, vit: 8, lck: 10 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 10, int: 10 } } };
+    for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+      const breakdown = computePartyStatBreakdown(adventurers, quest, stat);
+      assert(breakdown.total === calculatePartyEffectiveStat(adventurers, quest, stat),
+        `total for ${stat} (${breakdown.total}) should match effective stat`);
+    }
+  });
+
+  test('computePartyStatBreakdown traitBonuses and originBonuses are empty', () => {
+    const adventurers = [
+      defaultAdventurer({ stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 } }),
+    ];
+    const quest = { requirements: { minStats: { str: 10 } } };
+    const breakdown = computePartyStatBreakdown(adventurers, quest, 'str');
+    assert(Array.isArray(breakdown.traitBonuses), 'traitBonuses should be an array');
+    assert(breakdown.traitBonuses.length === 0, 'traitBonuses should be empty');
+    assert(Array.isArray(breakdown.originBonuses), 'originBonuses should be an array');
+    assert(breakdown.originBonuses.length === 0, 'originBonuses should be empty');
+  });
+
+  test('computePartyStatBreakdown multi-party with equipment', () => {
+    const adventurers = [
+      defaultAdventurer({
+        class: 'Sword',
+        stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 },
+        equipment: {
+          weapon: { name: 'Steel Blade', rarity: 'Uncommon', slot: 'weapon' },
+          armor: null,
+          accessory: null,
+        },
+      }),
+      defaultAdventurer({
+        class: 'Shield',
+        stats: { str: 12, dex: 8, int: 8, vit: 15, lck: 8 },
+        equipment: {
+          weapon: null,
+          armor: { name: 'Tower Shield', rarity: 'Rare', slot: 'armor' },
+          accessory: { name: 'Ring of Power', rarity: 'Common', slot: 'accessory' },
+        },
+      }),
+      defaultAdventurer({
+        class: 'Bow',
+        stats: { str: 8, dex: 15, int: 10, vit: 8, lck: 12 },
+        equipment: {
+          weapon: { name: 'Hunting Bow', rarity: 'Rare', slot: 'weapon' },
+          armor: { name: 'Leather Armor', rarity: 'Uncommon', slot: 'armor' },
+          accessory: null,
+        },
+      }),
+    ];
+    const quest = { requirements: { minStats: { str: 10, dex: 10 } } };
+    const breakdown = computePartyStatBreakdown(adventurers, quest, 'str');
+    assert(breakdown.baseTotal === 30, `baseTotal should be 30, got ${breakdown.baseTotal}`);
+    assert(breakdown.equipmentBonuses.length === 5, `should have 5 equipment bonuses, got ${breakdown.equipmentBonuses.length}`);
+    assert(breakdown.total === calculatePartyEffectiveStat(adventurers, quest, 'str'), 'total should match effective stat');
   });
 
   test('calculateQuestSuccessRate with perfect stats returns ~95%', () => {
@@ -1710,6 +1825,123 @@ import('./entities/index.js').then((module) => {
     const expectedTracking = 0.9 * 1.4;
     assert(Math.abs(result.aptitudes.tracking - expectedTracking) < 0.001, 'tracking multiplier applied');
     assert(result.evolutionDate !== null, 'should have evolutionDate');
+  });
+
+  // ─── Tests for computePerAdventurerStatContribution ───
+
+  test('computePerAdventurerStatContribution returns correct count for party', () => {
+    const adventurer1 = defaultAdventurer({ stats: { str: 5, dex: 3, int: 4, vit: 6, lck: 2 } });
+    const adventurer2 = defaultAdventurer({ stats: { str: 4, dex: 5, int: 3, vit: 4, lck: 3 } });
+    const adventurer3 = defaultAdventurer({ stats: { str: 6, dex: 4, int: 5, vit: 3, lck: 4 } });
+    const contributions = computePerAdventurerStatContribution([adventurer1, adventurer2, adventurer3], null, 'str');
+    assert(contributions.length === 3, `should return 3 contributions, got ${contributions.length}`);
+    assert(contributions[0].adventurerId === adventurer1.id, 'first adventurer ID should match');
+    assert(contributions[1].adventurerId === adventurer2.id, 'second adventurer ID should match');
+    assert(contributions[2].adventurerId === adventurer3.id, 'third adventurer ID should match');
+  });
+
+  test('computePerAdventurerStatContribution correctly computes baseStat and effectiveStat', () => {
+    const adventurer = defaultAdventurer({ stats: { str: 10, dex: 5, int: 3, vit: 4, lck: 2 } });
+    const contributions = computePerAdventurerStatContribution([adventurer], null, 'str');
+    assert(contributions[0].baseStat === 10, `baseStat should be 10, got ${contributions[0].baseStat}`);
+    assert(contributions[0].equipmentBonus === 0, `equipmentBonus should be 0, got ${contributions[0].equipmentBonus}`);
+    assert(contributions[0].effectiveStat === 10, `effectiveStat should be 10, got ${contributions[0].effectiveStat}`);
+  });
+
+  test('computePerAdventurerStatContribution computes equipment bonus correctly', () => {
+    const adventurer = defaultAdventurer({
+      stats: { str: 5, dex: 3, int: 4, vit: 6, lck: 2 },
+      equipment: {
+        weapon: { name: 'Iron Sword', rarity: 'Uncommon' },
+        armor: { name: 'Leather Armor', rarity: 'Common' },
+        accessory: { name: 'Ruby Ring', rarity: 'Rare' },
+      },
+    });
+    const contributions = computePerAdventurerStatContribution([adventurer], null, 'str');
+    assert(contributions[0].equipmentBonus === 6, `equipmentBonus should be 6 (2+1+3), got ${contributions[0].equipmentBonus}`);
+    assert(contributions[0].effectiveStat === 11, `effectiveStat should be 11 (5+6), got ${contributions[0].effectiveStat}`);
+  });
+
+  test('computePerAdventurerStatContribution correctly computes meetsRequirement', () => {
+    const adventurer1 = defaultAdventurer({ stats: { str: 8, dex: 3, int: 4, vit: 6, lck: 2 } });
+    const adventurer2 = defaultAdventurer({ stats: { str: 4, dex: 5, int: 3, vit: 4, lck: 3 } });
+    const quest = {
+      id: 'test-quest',
+      name: 'Test Quest',
+      difficulty: 3,
+      requirements: {
+        minStats: { str: 8, dex: 0, int: 0, vit: 0, lck: 0 },
+        preferredClasses: [],
+        minPartySize: 2,
+        maxPartySize: 3,
+      },
+      rewards: { gold: 100, experience: 50 },
+      description: 'A test quest',
+    };
+    const contributions = computePerAdventurerStatContribution([adventurer1, adventurer2], quest, 'str');
+    assert(contributions[0].meetsRequirement === true, 'adventurer1 should meet STR requirement');
+    assert(contributions[1].meetsRequirement === false, 'adventurer2 should not meet STR requirement');
+  });
+
+  test('computePerAdventurerStatContribution meetsRequirement with equipment bonus', () => {
+    const adventurer = defaultAdventurer({
+      stats: { str: 6, dex: 3, int: 4, vit: 6, lck: 2 },
+      equipment: {
+        weapon: { name: 'Iron Sword', rarity: 'Uncommon' },
+        armor: null,
+        accessory: null,
+      },
+    });
+    const quest = {
+      id: 'test-quest',
+      name: 'Test Quest',
+      difficulty: 3,
+      requirements: {
+        minStats: { str: 8, dex: 0, int: 0, vit: 0, lck: 0 },
+        preferredClasses: [],
+        minPartySize: 1,
+        maxPartySize: 3,
+      },
+      rewards: { gold: 100, experience: 50 },
+      description: 'A test quest',
+    };
+    const contributions = computePerAdventurerStatContribution([adventurer], quest, 'str');
+    // baseStat=6, equipmentBonus=2, effectiveStat=8, meetsRequirement=true (8 >= 8)
+    assert(contributions[0].meetsRequirement === true, 'adventurer should meet requirement with equipment bonus');
+  });
+
+  test('computePerAdventurerStatContribution returns empty array for empty party', () => {
+    const contributions = computePerAdventurerStatContribution([], null, 'str');
+    assert(contributions.length === 0, `should return empty array for empty party, got ${contributions.length}`);
+  });
+
+  test('computePerAdventurerStatContribution uses 0 requirement when quest is null', () => {
+    const adventurer = defaultAdventurer({ stats: { str: 3, dex: 3, int: 3, vit: 3, lck: 3 } });
+    const contributions = computePerAdventurerStatContribution([adventurer], null, 'str');
+    assert(contributions[0].meetsRequirement === true, 'meetsRequirement should be true when req is 0');
+  });
+
+  test('computePerAdventurerStatContribution effectiveStat matches calculateStatContribution for single adventurer', () => {
+    const adventurer = defaultAdventurer({
+      stats: { str: 7, dex: 4, int: 5, vit: 3, lck: 2 },
+      equipment: {
+        weapon: { name: 'Long Sword', rarity: 'Rare' },
+        armor: { name: 'Chain Mail', rarity: 'Uncommon' },
+        accessory: { name: 'Amulet', rarity: 'Common' },
+      },
+    });
+    const contributions = computePerAdventurerStatContribution([adventurer], null, 'str');
+    const singleStat = calculateStatContribution([adventurer], 'str');
+    assert(contributions[0].effectiveStat === singleStat, `effectiveStat (${contributions[0].effectiveStat}) should match calculateStatContribution (${singleStat})`);
+  });
+
+  test('computePerAdventurerStatContribution handles all five stats', () => {
+    const adventurer = defaultAdventurer({ stats: { str: 1, dex: 2, int: 3, vit: 4, lck: 5 } });
+    for (const stat of ['str', 'dex', 'int', 'vit', 'lck']) {
+      const contributions = computePerAdventurerStatContribution([adventurer], null, stat);
+      assert(contributions[0].baseStat === adventurer.stats[stat], `${stat}: baseStat should match`);
+      assert(contributions[0].effectiveStat === adventurer.stats[stat], `${stat}: effectiveStat should match (no equipment)`);
+    }
   });
 
   // Print summary

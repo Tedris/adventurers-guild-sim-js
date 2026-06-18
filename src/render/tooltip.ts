@@ -5,7 +5,7 @@
 //
 // No game state changes — purely a UI display layer.
 
-import type { Adventurer, GameState, Quest, Stats } from '../types.js';
+import type { Adventurer, GameState, PartyStatBreakdown, PerAdventurerStatContribution, Quest, Stats } from '../types.js';
 import { PERSONALITY_TRAIT_TABLE } from '../entities/index.js';
 import { getDifficultyStars } from './card.js';
 
@@ -223,6 +223,8 @@ export function hideTooltip(): void {
       'wage-tooltip',
       'evolution-tooltip',
       'quest-tooltip',
+      'breakdown-tooltip',
+      'attribution-tooltip',
     );
     _positionDebounceId && cancelAnimationFrame(_positionDebounceId);
     _positionDebounceId = null;
@@ -704,4 +706,184 @@ export function updateTooltipContent(adventurer: Adventurer): void {
  */
 export function isTooltipVisible(): boolean {
   return _tooltipEl !== null && _tooltipEl.classList.contains('tooltip-visible');
+}
+
+// ─── Stat Breakdown Tooltip ────────────────────────────
+
+const BREAKDOWN_TOOLTIP_ACCENT = '#FFD700';
+const BREAKDOWN_TOOLTIP_ACCENT_RGBA = 'rgba(255, 215, 0, 0.2)';
+
+/**
+ * Build stat breakdown tooltip HTML content.
+ */
+export function renderStatBreakdownTooltipContent(breakdown: PartyStatBreakdown): string {
+  const statLabel = breakdown.stat.toUpperCase();
+  let html = '';
+
+  html += `<div class="tooltip-title" style="color: ${BREAKDOWN_TOOLTIP_ACCENT}; border-bottom-color: ${BREAKDOWN_TOOLTIP_ACCENT_RGBA};">${statLabel} Breakdown</div>`;
+  html += `<div class="tooltip-body">`;
+
+  // Base Stats section
+  html += `<div class="tooltip-section">`;
+  html += `<div class="tooltip-label">Base Stats</div>`;
+  html += `<div class="tooltip-row"><span>Party base ${statLabel}:</span> <span>${breakdown.baseTotal}</span></div>`;
+  html += `</div>`;
+
+  // Trait Bonuses section
+  html += `<div class="tooltip-section">`;
+  html += `<div class="tooltip-label">Trait Bonuses</div>`;
+  if (breakdown.traitBonuses.length === 0) {
+    html += `<div class="tooltip-row tooltip-empty">No trait stat bonuses</div>`;
+  } else {
+    for (const tb of breakdown.traitBonuses) {
+      const sign = tb.value >= 0 ? '+' : '';
+      html += `<div class="tooltip-row"><span>${escapeHtml(tb.adventurerName)} — ${escapeHtml(tb.traitName)}:</span> <span class="tooltip-bonus-value ${tb.value >= 0 ? 'bonus-positive' : 'bonus-negative'}">${sign}${tb.value}</span></div>`;
+    }
+  }
+  html += `</div>`;
+
+  // Origin Bonuses section
+  html += `<div class="tooltip-section">`;
+  html += `<div class="tooltip-label">Origin Bonuses</div>`;
+  if (breakdown.originBonuses.length === 0) {
+    html += `<div class="tooltip-row tooltip-empty">No origin stat bonuses</div>`;
+  } else {
+    for (const ob of breakdown.originBonuses) {
+      const sign = ob.value >= 0 ? '+' : '';
+      html += `<div class="tooltip-row"><span>${escapeHtml(ob.adventurerName)} — ${escapeHtml(ob.originName)}:</span> <span class="tooltip-bonus-value ${ob.value >= 0 ? 'bonus-positive' : 'bonus-negative'}">${sign}${ob.value}</span></div>`;
+    }
+  }
+  html += `</div>`;
+
+  // Equipment Bonuses section
+  html += `<div class="tooltip-section">`;
+  html += `<div class="tooltip-label">Equipment Bonuses</div>`;
+  if (breakdown.equipmentBonuses.length === 0) {
+    html += `<div class="tooltip-row tooltip-empty">No equipment stat bonuses</div>`;
+  } else {
+    for (const eb of breakdown.equipmentBonuses) {
+      const sign = eb.value >= 0 ? '+' : '';
+      html += `<div class="tooltip-row"><span>${escapeHtml(eb.adventurerName)} — ${escapeHtml(eb.equipmentName)} ${eb.rarity} ${eb.equipmentSlot}:</span> <span class="tooltip-bonus-value ${eb.value >= 0 ? 'bonus-positive' : 'bonus-negative'}">${sign}${eb.value}</span></div>`;
+    }
+  }
+  html += `</div>`;
+
+  // Synergy Bonus section
+  html += `<div class="tooltip-section">`;
+  html += `<div class="tooltip-label">Synergy Bonus</div>`;
+  if (breakdown.synergyBonus !== 0) {
+    const sign = breakdown.synergyBonus >= 0 ? '+' : '';
+    html += `<div class="tooltip-row"><span>Class diversity + aptitude:</span> <span class="tooltip-bonus-value ${breakdown.synergyBonus >= 0 ? 'bonus-positive' : 'bonus-negative'}">${sign}${breakdown.synergyBonus}</span></div>`;
+  } else {
+    html += `<div class="tooltip-row tooltip-empty">No synergy bonus</div>`;
+  }
+  html += `</div>`;
+
+  // Solo Penalty section (only show if non-zero)
+  if (breakdown.soloPenalty < 0) {
+    html += `<div class="tooltip-section">`;
+    html += `<div class="tooltip-label">Solo Penalty</div>`;
+    html += `<div class="tooltip-row"><span>Solo (×0.85):</span> <span class="tooltip-bonus-value bonus-negative">${breakdown.soloPenalty}</span></div>`;
+    html += `</div>`;
+  }
+
+  // Total row
+  html += `<div class="tooltip-section breakdown-total">`;
+  html += `<div class="tooltip-row"><span>Party ${statLabel}:</span> <span class="breakdown-total-value">${breakdown.total}</span></div>`;
+  html += `</div>`;
+
+  html += `</div>`; // .tooltip-body
+  return html;
+}
+
+/**
+ * Show the stat breakdown tooltip at the given mouse position.
+ */
+export function showStatBreakdownTooltip(breakdown: PartyStatBreakdown, x: number, y: number): void {
+  const container = ensureTooltipContainer();
+  container.innerHTML = renderStatBreakdownTooltipContent(breakdown);
+
+  container.style.left = '0px';
+  container.style.top = '0px';
+  container.classList.add('mechanic-tooltip', 'breakdown-tooltip');
+
+  requestAnimationFrame(() => {
+    container.classList.add('tooltip-visible');
+    positionTooltip(x, y);
+  });
+}
+
+// ─── Stat Attribution Tooltip ────────────────────────────
+
+const ATTRIBUTION_TOOLTIP_ACCENT = '#3498DB';
+const ATTRIBUTION_TOOLTIP_ACCENT_RGBA = 'rgba(52, 152, 219, 0.2)';
+
+/**
+ * Build stat attribution tooltip HTML content.
+ */
+export function renderStatAttributionTooltipContent(
+  contributions: PerAdventurerStatContribution[],
+  statName: keyof Stats,
+  quest: Quest | null
+): string {
+  const statLabel = statName.toUpperCase();
+  let html = '';
+
+  html += `<div class="tooltip-title" style="color: ${ATTRIBUTION_TOOLTIP_ACCENT}; border-bottom-color: ${ATTRIBUTION_TOOLTIP_ACCENT_RGBA};">${statLabel} Attribution</div>`;
+  html += `<div class="tooltip-body">`;
+
+  // Quest requirement header (only when quest is not null)
+  if (quest) {
+    const req = quest.requirements?.minStats?.[statName] ?? 0;
+    if (req > 0) {
+      html += `<div class="tooltip-section quest-req-header">`;
+      html += `<div class="quest-req-text">Quest requires ${statLabel} ≥ ${req}</div>`;
+      html += `</div>`;
+    }
+  }
+
+  // Per-adventurer rows
+  html += `<div class="tooltip-section">`;
+  for (const contrib of contributions) {
+    const checkMark = contrib.meetsRequirement ? '\u2713' : '\u2717';
+    const rowClass = contrib.meetsRequirement ? 'contributor-row' : 'contributor-row contributor-misses';
+    html += `<div class="${rowClass}">`;
+    html += `<span>${escapeHtml(contrib.adventurerName)}</span>`;
+    html += `<span class="contributor-stat">${contrib.effectiveStat}</span>`;
+    html += `<span class="contributor-check">${checkMark}</span>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // Total row
+  const total = contributions.reduce((sum, c) => sum + c.effectiveStat, 0);
+  html += `<div class="tooltip-section breakdown-total">`;
+  html += `<div class="tooltip-row"><span>Party ${statLabel}:</span> <span class="breakdown-total-value">${total}</span></div>`;
+  html += `</div>`;
+
+  html += `</div>`; // .tooltip-body
+  return html;
+}
+
+/**
+ * Show the stat attribution tooltip at the given mouse position.
+ */
+export function showStatAttributionTooltip(
+  contributions: PerAdventurerStatContribution[],
+  statName: keyof Stats,
+  quest: Quest | null,
+  x: number,
+  y: number
+): void {
+  const container = ensureTooltipContainer();
+  container.innerHTML = renderStatAttributionTooltipContent(contributions, statName, quest);
+
+  container.style.left = '0px';
+  container.style.top = '0px';
+  container.classList.add('mechanic-tooltip', 'attribution-tooltip');
+
+  requestAnimationFrame(() => {
+    container.classList.add('tooltip-visible');
+    positionTooltip(x, y);
+  });
 }

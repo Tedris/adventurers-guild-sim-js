@@ -426,6 +426,52 @@ export interface TickResult extends Partial<GameState> {
   fameMultiplier: number;
 }
 
+// ─── Party Stat Breakdown Types ────────────────────────
+
+export interface PartyTraitBonus {
+  adventurerName: string;
+  traitName: string;
+  stat: keyof Stats;
+  value: number;
+}
+
+export interface PartyOriginBonus {
+  adventurerName: string;
+  originName: string;
+  stat: keyof Stats;
+  value: number;
+}
+
+export interface PartyEquipmentBonus {
+  adventurerName: string;
+  equipmentName: string;
+  equipmentSlot: 'weapon' | 'armor' | 'accessory';
+  rarity: string;
+  stat: keyof Stats;
+  value: number;
+}
+
+export interface PartyStatBreakdown {
+  stat: keyof Stats;
+  baseTotal: number;
+  traitBonuses: PartyTraitBonus[];
+  originBonuses: PartyOriginBonus[];
+  equipmentBonuses: PartyEquipmentBonus[];
+  synergyBonus: number;
+  soloPenalty: number;
+  total: number;
+}
+
+export interface PerAdventurerStatContribution {
+  adventurerId: string;
+  adventurerName: string;
+  stat: keyof Stats;
+  baseStat: number;
+  equipmentBonus: number;
+  effectiveStat: number;
+  meetsRequirement: boolean;
+}
+
 // ─── IndexedDB Types ───────────────────────────────────
 
 export interface IndexedDBStateRecord {

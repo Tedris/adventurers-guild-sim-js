@@ -2,7 +2,7 @@
 // ===========================================
 // Party management: creation, validation, and synergy calculation.
 
-import type { Adventurer, Quest, SynergyResult, ValidationResult } from '../types.js';
+import type { Adventurer, PartyEquipmentBonus, PartyOriginBonus, PartyStatBreakdown, PartyTraitBonus, PerAdventurerStatContribution, Quest, SynergyResult, ValidationResult } from '../types.js';
 import { generateId } from './adventurer.js';
 
 // ─── Constants ─────────────────────────────────────────
@@ -155,6 +155,90 @@ export function calculatePartyEffectiveStat(
   effective *= (1 + synergyScore * 0.1);
 
   return Math.floor(effective);
+}
+
+export function computePartyStatBreakdown(
+  adventurers: Adventurer[],
+  quest: Quest | null,
+  statName: string
+): PartyStatBreakdown {
+  const baseTotal = adventurers.reduce((sum, a) => sum + (a.stats?.[statName as keyof Stats] ?? 0), 0);
+
+  const equipmentBonuses: PartyEquipmentBonus[] = [];
+  for (const adventurer of adventurers) {
+    const equipment = adventurer.equipment || {};
+    for (const slot of ['weapon', 'armor', 'accessory'] as const) {
+      const item = equipment[slot];
+      if (item && item.rarity && EQUIPMENT_BONUS[item.rarity]) {
+        equipmentBonuses.push({
+          adventurerName: adventurer.name,
+          equipmentName: item.name,
+          equipmentSlot: slot,
+          rarity: item.rarity,
+          stat: statName as keyof Stats,
+          value: EQUIPMENT_BONUS[item.rarity],
+        });
+      }
+    }
+  }
+
+  const equipmentBonusSum = equipmentBonuses.reduce((sum, eb) => sum + eb.value, 0);
+
+  const { synergyScore } = calculateSynergyScore(adventurers, quest);
+  const synergyBonus = Math.floor((baseTotal + equipmentBonusSum) * synergyScore * 0.1);
+
+  const soloPenalty = adventurers.length === 1 ? -Math.floor((baseTotal + equipmentBonusSum) * 0.15) : 0;
+
+  const total = Math.floor(
+    (baseTotal + equipmentBonusSum + synergyBonus) * (adventurers.length === 1 ? 0.85 : 1)
+  );
+
+  return {
+    stat: statName as keyof Stats,
+    baseTotal,
+    traitBonuses: [],
+    originBonuses: [],
+    equipmentBonuses,
+    synergyBonus,
+    soloPenalty,
+    total,
+  };
+}
+
+export function computePerAdventurerStatContribution(
+  adventurers: Adventurer[],
+  quest: Quest | null,
+  statName: string
+): PerAdventurerStatContribution[] {
+  const req = quest?.requirements?.minStats?.[statName as keyof Stats] ?? 0;
+  const results: PerAdventurerStatContribution[] = [];
+
+  for (const adventurer of adventurers) {
+    const baseStat = adventurer.stats?.[statName as keyof Stats] ?? 0;
+    let equipmentBonus = 0;
+
+    const equipment = adventurer.equipment || {};
+    for (const slot of ['weapon', 'armor', 'accessory'] as const) {
+      const item = equipment[slot];
+      if (item && item.rarity && EQUIPMENT_BONUS[item.rarity]) {
+        equipmentBonus += EQUIPMENT_BONUS[item.rarity];
+      }
+    }
+
+    const effectiveStat = baseStat + equipmentBonus;
+
+    results.push({
+      adventurerId: adventurer.id,
+      adventurerName: adventurer.name,
+      stat: statName as keyof Stats,
+      baseStat,
+      equipmentBonus,
+      effectiveStat,
+      meetsRequirement: effectiveStat >= req,
+    });
+  }
+
+  return results;
 }
 
 // ─── Quest Success ─────────────────────────────────────

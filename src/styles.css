@@ -13,6 +13,53 @@ body {
     Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
 }
 
+/* ─── Base Button Styles (Story 7-1: INTERACT-01, 02, 03) ─────────────────────── */
+
+button {
+  min-height: 44px;
+
+  transition: filter 0.15s ease, transform 0.15s ease, background-color 0.15s ease, outline 0.15s ease;
+}
+
+/* Enforce min-width touch target, excluding tiny/icon/compact buttons */
+button:not(.btn-icon):not(.btn-compact):not(.quest-card button) {
+  min-width: 44px;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+button:hover > img,
+button:hover > svg,
+button:hover > .btn-icon {
+  filter: none;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+button:focus-visible {
+  outline: 2px solid #FFD700;
+  outline-offset: 2px;
+}
+
+button:disabled,
+.btn-disabled {
+  filter: none !important;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button:disabled:hover {
+  filter: none !important;
+}
+
+button:disabled:active {
+  transform: none !important;
+}
+
 /* ===== CSS Custom Properties ===== */
 :root {
   --color-bg: #1a1a2e;
@@ -137,11 +184,18 @@ body {
   font-size: 0.9rem;
   font-weight: 500;
   transition: background-color 0.2s, color 0.2s;
+  min-height: 44px;
+  min-width: 80px;
 }
 
 .nav-tab:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--color-text);
+}
+
+.nav-tab:focus-visible {
+  outline: 2px solid #FFD700;
+  outline-offset: 2px;
 }
 
 .nav-tab.active {
@@ -273,15 +327,7 @@ body {
     padding: 12px;
   }
 
-  /* Touch targets ≥ 44px (D-01) */
-  .nav-tab,
-  .modal-confirm,
-  .modal-cancel,
-  .modal-choice-btn,
-  button {
-    min-height: 44px;
-    min-width: 44px;
-  }
+ 
 }
 
 /* ===== Adventurer Card Variant ===== */
@@ -604,7 +650,8 @@ body {
 }
 
 .event-card .choice-btn {
-  padding: 8px 12px;
+  min-height: 44px;
+  padding: 10px 16px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   background: transparent;
@@ -782,7 +829,7 @@ body {
   background: #6b4423;
   color: #f0e6d3;
   border: none;
-  padding: 4px 8px;
+  padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 8px;
@@ -872,7 +919,7 @@ body {
   background: linear-gradient(135deg, #f0c040, #e8a020);
   color: #1a1a2e;
   border: none;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 8px;
@@ -919,7 +966,7 @@ body {
   background: #4caf50;
   color: white;
   border: none;
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
@@ -940,7 +987,7 @@ body {
   background: var(--color-accent);
   color: white;
   border: none;
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 8px;
@@ -967,7 +1014,7 @@ body {
   background: #2196f3;
   color: white;
   border: none;
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 8px;
@@ -984,7 +1031,7 @@ body {
   background: #ff9800;
   color: white;
   border: none;
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 8px;
@@ -1046,14 +1093,18 @@ body {
 }
 
 .notification-close {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
   background: none;
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
   font-size: 1.1rem;
-  float: right;
-  margin-left: 8px;
-  padding: 0 4px;
 }
 
 .notification-close:hover {
@@ -1097,11 +1148,13 @@ body {
 
 #tooltip-container {
   position: fixed;
-  z-index: 999;
+  z-index: 1001;
   pointer-events: none;
   transition: opacity 0.15s ease-out, visibility 0.15s ease-out;
   opacity: 0;
   visibility: hidden;
+  top: 0;
+  left: 0;
 }
 
 #tooltip-container.tooltip-visible {
@@ -1133,6 +1186,8 @@ body {
 
 .tooltip-body {
   padding: 8px 10px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .tooltip-section {
@@ -1261,6 +1316,14 @@ body {
   top: 0;
   left: 0;
   width: 100%;
+}
+
+#game-content.tab-transitioning button,
+#game-content.tab-transitioning .nav-tab,
+#game-content.tab-transitioning .btn-next-day,
+#game-content.tab-transitioning .btn-toolbar,
+#game-content.tab-transitioning .virtual-list-container {
+  pointer-events: auto;
 }
 
 /* ─── Party Overview Panel ──────────────────────────── */
@@ -1566,6 +1629,24 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* ─── Selection Highlights (Story 7-1: INTERACT-03) ───────────────────────────── */
+
+.roster-card.selected {
+  outline: 2px solid #FFD700;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.15);
+}
+
+.party-member-item.selected {
+  background: rgba(255, 215, 0, 0.1);
+  border-left: 3px solid #FFD700;
+}
+
+.roster-card.drag-over {
+  border: 2px solid #FFD700;
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.3);
+}
+
 /* ─── Drag-and-Drop Styling (Story 6.3) ──────────────── */
 
 /* Drag ghost — the clone that follows cursor */
@@ -1624,7 +1705,7 @@ body {
   border-radius: 4px;
   font-size: 12px;
   font-weight: bold;
-  z-index: 100;
+  z-index: 200;
   opacity: 1;
   transition: opacity 0.3s ease, transform 0.3s ease;
   pointer-events: none;
@@ -1639,6 +1720,14 @@ body {
   animation: redBorderFlash 0.5s ease-out;
 }
 
+.validation-toast + .validation-toast {
+  bottom: 90px;
+}
+
+.validation-toast + .validation-toast + .validation-toast {
+  bottom: 120px;
+}
+
 @keyframes redBorderFlash {
   0% { border-color: #E74C3C; }
   50% { border-color: transparent; }
@@ -1651,4 +1740,102 @@ body {
   color: #E74C3C;
   margin-top: 4px;
   text-align: center;
+}
+
+/* ─── Stat Breakdown Tooltip Styles ─────────────────── */
+
+.tooltip-section {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tooltip-section:last-child {
+  border-bottom: none;
+}
+
+.tooltip-label {
+  font-size: 0.75rem;
+  color: #FFD700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 2px 0;
+}
+
+.bonus-positive {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.bonus-negative {
+  color: #E74C3C;
+  font-weight: 600;
+}
+
+.tooltip-empty {
+  color: #888;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.breakdown-total {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.breakdown-total-value {
+  font-weight: bold;
+  font-size: 1.1em;
+  color: #fff;
+}
+
+/* ─── Stat Attribution Tooltip Styles (Story 7.3) ─────────── */
+
+.contributor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 3px 0;
+}
+
+.contributor-row.contributor-misses {
+  opacity: 0.6;
+}
+
+.contributor-stat {
+  font-weight: 600;
+  color: #fff;
+}
+
+.contributor-check {
+  font-size: 1rem;
+}
+
+.quest-req-header {
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.quest-req-text {
+  font-size: 0.8rem;
+  color: #FFD700;
+  font-style: italic;
+}
+
+/* ─── Roster Card Highlight (Story 7.3) ─────────────────── */
+
+.highlighted-stat-contributor {
+  outline: 2px solid #FFD700;
+  outline-offset: 2px;
 }

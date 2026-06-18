@@ -1,5 +1,6 @@
 # generated: 2026-05-31
-# last_updated: 2026-06-15T14:00:00
+# last_updated: 2026-06-17T00:00:00
+# updated: 7-3-clickable-stat-attribution → done
 # project: adventurers-guild-sim-js
 # project_key: NOKEY
 # tracking_system: file-system
@@ -90,13 +91,13 @@ development_status:
   6-2-add-party-synergy-display: done
   6-3-implement-drag-and-drop-party-building: done
   6-4-implement-party-composition-validation: done
-  epic-6-retrospective: optional
+  epic-6-retrospective: done
 
   # Epic 7: Interaction Quality (v1.3 Phases 19-20)
-  epic-7: backlog
-  7-1-ensure-touch-target-sizes-and-button-feedback: backlog
-  7-2-show-bonus-source-breakdown: backlog
-  7-3-clickable-stat-attribution: backlog
+  epic-7: in-progress
+  7-1-ensure-touch-target-sizes-and-button-feedback: done
+  7-2-show-bonus-source-breakdown: done
+  7-3-clickable-stat-attribution: done
   epic-7-retrospective: optional
 
   # Epic 8: Backlog — Deferred Bug Fixes & Improvements
