@@ -22,7 +22,7 @@ export class GameTicker {
   private _intervalId: ReturnType<typeof setInterval> | null;
   private _isRunning: boolean;
   private _wasPausedBeforeVisibilityChange: boolean;
-  public _visibilityHandler?: () => void;
+  private _visibilityHandler?: () => void;
 
   constructor(store: GameStore) {
     this._store = store;
@@ -77,13 +77,21 @@ export class GameTicker {
     return this._isRunning;
   }
 
-  /**
+ /**
    * Clean up ticker and remove all event listeners.
    * Call this on page unload.
    */
   destroy(): void {
     this.stop();
     this._store = null;
+  }
+
+  /**
+   * Set the visibility change handler reference for cleanup.
+   * Internal method — called by createGameTicker().
+   */
+  _setVisibilityHandler(handler: () => void): void {
+    this._visibilityHandler = handler;
   }
 }
 
@@ -109,7 +117,7 @@ export function createGameTicker(store: GameStore): GameTicker {
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
   // Store reference for cleanup
-  ticker._visibilityHandler = handleVisibilityChange;
+  ticker._setVisibilityHandler(handleVisibilityChange);
 
   // Override destroy to also remove visibility listener
   const originalDestroy = ticker.destroy.bind(ticker);

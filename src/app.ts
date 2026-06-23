@@ -4,7 +4,7 @@
 // Handles: initialization, state restoration, auto-save, rendering
 
 import { createStore } from './store.js';
-import { initStore, loadState, clearStore, enableAutoSave, saveState } from './save-load';
+import { initStore, loadState, clearStore, enableAutoSave, saveState, closeDB } from './save-load';
 import { gameDefaults, getFameLevel } from './entities/index.js';
 import { renderCard, renderView, showConfirmModal, hideModal, showEventModal } from './render/index.js';
 import type { ViewName } from './render/tab.js';
@@ -112,6 +112,14 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   window.addEventListener('beforeunload', () => {
     unsubscribe();
     ticker.stop();
+    closeDB();
+  });
+
+  // Proactively close DB connection when page becomes hidden (long-lived tab suspension)
+  window.addEventListener('visibilitychange', (): void => {
+    if (document.visibilityState === 'hidden') {
+      closeDB();
+    }
   });
 
   // Step 6: Tab navigation wiring (Phase 4-02)
@@ -212,7 +220,8 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   }
 
   // Step 7: Restore saved state via dispatch (triggers auto-save + render)
-  // MERGE_STATE reducer case (in store.js) replaces state with the payload
+  // MERGE_STATE reducer case (in store.ts) shallow merges state with the payload
+  // Nested object fields in payload must be complete replacements — partial nested objects are not supported
   if (savedState) {
     // Validate saved state shape before merging (T-05-01 mitigation)
     const validation: ValidationResult = validateGameShape(savedState);

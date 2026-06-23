@@ -633,7 +633,7 @@ export function renderDashboard(container: HTMLElement, state: GameState, dispat
   if (events.length > 0) {
     const recentEvents = events.filter((e) => !e.resolved).slice(-3).reverse();
     for (const event of recentEvents) {
-      const eventCard = renderCard('event' as CardType, event as unknown as EventTemplate, state, undefined, dispatch);
+      const eventCard = renderCard('event' as CardType, event as unknown as EventTemplate, state, event.eventId, dispatch);
       if (eventCard) {
         eventCard.classList.add('event-card');
         container.appendChild(eventCard);
@@ -685,8 +685,6 @@ function renderRosterStandard(container: HTMLElement, state: GameState, dispatch
       .map((card) => card.getAttribute('data-adventurer-id'))
       .filter((id): id is string => id !== null),
   );
-
-  container.innerHTML = '';
 
   // Party status bar
   const partyBar = document.createElement('div');
@@ -1167,7 +1165,7 @@ export function renderQuestBoard(container: HTMLElement, state: GameState, dispa
 /**
  * Events view — unresolved events first, then resolved events.
  */
-export function renderEvents(container: HTMLElement, state: GameState, _dispatch?: DispatchFn): void {
+export function renderEvents(container: HTMLElement, state: GameState, dispatch?: DispatchFn): void {
   // Safe DOM clearing: detach all tracked listeners before clearing
   detachAllListeners(container);
   container.innerHTML = '';
@@ -1186,7 +1184,7 @@ export function renderEvents(container: HTMLElement, state: GameState, _dispatch
   }
 
   for (const event of allEvents) {
-    const card = renderCard('event' as CardType, event as unknown as EventTemplate, state, undefined, _dispatch);
+    const card = renderCard('event' as CardType, event as unknown as EventTemplate, state, event.eventId, dispatch);
     if (card) {
       card.classList.add('event-card');
       if (event.resolved) card.classList.add('resolved-event');

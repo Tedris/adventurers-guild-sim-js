@@ -612,6 +612,132 @@ Promise.all([
     assert(state.questCount === 5, 'questCount should be preserved');
   });
 
+  // --- Tests for MERGE_STATE ---
+
+  test('MERGE_STATE: partial payload preserves non-payload fields', () => {
+    const store = createStore({ gold: 100, fame: 50, adventurers: [{ id: 'a1', name: 'Test', morale: 70 }], day: 5 });
+    store.dispatch({ type: 'MERGE_STATE', payload: { gold: 200 } });
+    const state = store.getState();
+    assert(state.gold === 200, `gold should be updated to 200, got ${state.gold}`);
+    assert(state.fame === 50, `fame should be preserved (not in payload), got ${state.fame}`);
+    assert(state.adventurers.length === 1, `adventurers should be preserved, got ${state.adventurers.length}`);
+    assert(state.day === 5, `day should be preserved, got ${state.day}`);
+  });
+
+  test('MERGE_STATE: full payload replaces all fields', () => {
+    const store = createStore({ gold: 100, fame: 50, adventurers: [{ id: 'a1', name: 'Test', morale: 70 }], day: 5 });
+    const fullState = { gold: 1, fame: 2, adventurers: [], day: 99 };
+    store.dispatch({ type: 'MERGE_STATE', payload: fullState });
+    const state = store.getState();
+    assert(state.gold === 1, `gold should be 1, got ${state.gold}`);
+    assert(state.fame === 2, `fame should be 2, got ${state.fame}`);
+    assert(state.adventurers.length === 0, `adventurers should be empty, got ${state.adventurers.length}`);
+    assert(state.day === 99, `day should be 99, got ${state.day}`);
+  });
+
+  test('MERGE_STATE: null payload returns current state', () => {
+    const store = createStore({ gold: 100, fame: 50, adventurers: [], day: 5 });
+    store.dispatch({ type: 'MERGE_STATE', payload: null });
+    const state = store.getState();
+    assert(state.gold === 100, `gold should be 100, got ${state.gold}`);
+    assert(state.fame === 50, `fame should be 50, got ${state.fame}`);
+    assert(state.day === 5, `day should be 5, got ${state.day}`);
+  });
+
+  test('MERGE_STATE: undefined payload returns current state', () => {
+    const store = createStore({ gold: 100, fame: 50 });
+    store.dispatch({ type: 'MERGE_STATE', payload: undefined });
+    const state = store.getState();
+    assert(state.gold === 100, `gold should be 100, got ${state.gold}`);
+    assert(state.fame === 50, `fame should be 50, got ${state.fame}`);
+  });
+
+  test('MERGE_STATE: empty object payload preserves all state', () => {
+    const store = createStore({ gold: 100, fame: 50, adventurers: [{ id: 'a1', name: 'Test', morale: 70 }], day: 5 });
+    store.dispatch({ type: 'MERGE_STATE', payload: {} });
+    const state = store.getState();
+    assert(state.gold === 100, `gold should be 100, got ${state.gold}`);
+    assert(state.fame === 50, `fame should be 50, got ${state.fame}`);
+    assert(state.adventurers.length === 1, `adventurers should be preserved, got ${state.adventurers.length}`);
+    assert(state.day === 5, `day should be 5, got ${state.day}`);
+  });
+
+  test('MERGE_STATE: payload fields override current state values', () => {
+    const store = createStore({ gold: 100, fame: 50, day: 5 });
+    store.dispatch({ type: 'MERGE_STATE', payload: { gold: 999, fame: 777 } });
+    const state = store.getState();
+    assert(state.gold === 999, `gold should be overridden to 999, got ${state.gold}`);
+    assert(state.fame === 777, `fame should be overridden to 777, got ${state.fame}`);
+  });
+
+  test('MERGE_STATE: preserves array fields when not in payload', () => {
+    const hero = { id: 'a1', name: 'Hero', class: 'Sword', stats: { str: 10, dex: 10, int: 10, vit: 10, lck: 10 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const store = createStore({ gold: 100, adventurers: [hero], events: [{ eventId: 'e1', title: 'Event', resolved: false, timestamp: 1, category: 'test' }], day: 5 });
+    store.dispatch({ type: 'MERGE_STATE', payload: { gold: 50 } });
+    const state = store.getState();
+    assert(state.adventurers.length === 1, `adventurers should be preserved, got ${state.adventurers.length}`);
+    assert(state.adventurers[0].id === 'a1', 'adventurer id should match');
+    assert(state.events.length === 1, `events should be preserved, got ${state.events.length}`);
+    assert(state.events[0].eventId === 'e1', 'event id should match');
+    assert(state.gold === 50, 'gold should be updated');
+  });
+
+  test('MERGE_STATE: undefined values in payload do not erase existing state fields', () => {
+    const store = createStore({ gold: 100, fame: 50, questRisk: 5, reputation: 10 });
+    store.dispatch({ type: 'MERGE_STATE', payload: { gold: 200, questRisk: undefined, reputation: undefined } });
+    const state = store.getState();
+    assert(state.gold === 200, 'gold should be updated');
+    assert(state.questRisk === 5, 'questRisk should be preserved despite undefined in payload');
+    assert(state.reputation === 10, 'reputation should be preserved despite undefined in payload');
+  });
+
+  test('MERGE_STATE: non-object payload is rejected', () => {
+    const store = createStore({ gold: 100, fame: 50 });
+    store.dispatch({ type: 'MERGE_STATE', payload: null });
+    let state = store.getState();
+    assert(state.gold === 100, 'null payload should return current state');
+    store.dispatch({ type: 'MERGE_STATE', payload: undefined });
+    state = store.getState();
+    assert(state.gold === 100, 'undefined payload should return current state');
+    store.dispatch({ type: 'MERGE_STATE', payload: 'string' });
+    state = store.getState();
+    assert(state.gold === 100, 'string payload should return current state');
+    store.dispatch({ type: 'MERGE_STATE', payload: [1, 2, 3] });
+    state = store.getState();
+    assert(state.gold === 100, 'array payload should return current state');
+    assert(state[0] === undefined, 'numeric indices should not be added from array payload');
+  });
+
+  test('MERGE_STATE: shallow merge — partial nested object replaces entire nested object', () => {
+    const store = createStore({
+      gold: 100,
+      party: { id: 'p1', adventurerIds: ['a1', 'a2'], synergyScore: 10, aptitudeBonus: 3 },
+      activeQuest: null,
+      eventCooldowns: { e1: 5, e2: 10 },
+      upgrades: { office: 2 },
+    });
+    store.dispatch({ type: 'MERGE_STATE', payload: { party: { adventurerIds: ['a3'] } } });
+    const state = store.getState();
+    assert(state.gold === 100, 'gold should be preserved');
+    assert(JSON.stringify(state.party) === JSON.stringify({ adventurerIds: ['a3'] }), 'partial nested object fully replaces — synergyScore and aptitudeBonus are lost');
+    assert(JSON.stringify(state.eventCooldowns) === JSON.stringify({ e1: 5, e2: 10 }), 'eventCooldowns not in payload is preserved');
+    assert(JSON.stringify(state.upgrades) === JSON.stringify({ office: 2 }), 'upgrades not in payload is preserved');
+  });
+
+  test('MERGE_STATE: shallow merge — nested object field in payload replaces, fields not in payload are preserved', () => {
+    const store = createStore({
+      gold: 100,
+      lastRetirement: { adventurerId: 'a1', perk: { id: 'p1', name: 'Veteran' } },
+      lastEvolution: null,
+      eventCooldowns: {},
+    });
+    store.dispatch({ type: 'MERGE_STATE', payload: { lastEvolution: { adventurerId: 'a2', class: 'Sword' } } });
+    const state = store.getState();
+    assert(state.lastEvolution.adventurerId === 'a2', 'lastEvolution should be set from payload');
+    assert(state.lastEvolution.class === 'Sword', 'lastEvolution.class from payload');
+    assert(JSON.stringify(state.lastRetirement) === JSON.stringify({ adventurerId: 'a1', perk: { id: 'p1', name: 'Veteran' } }), 'lastRetirement not in payload is preserved');
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);

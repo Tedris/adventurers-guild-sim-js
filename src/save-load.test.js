@@ -262,8 +262,13 @@ import('./save-load').then((module) => {
   chain = chain.then(() => test('enableAutoSave triggers save on dispatch', () => {
     return initStore().then(() => {
       return clearStore().then(() => {
+        let savedFn = null;
         const mockStore = {
           subscribe: (fn) => {
+            savedFn = fn;
+            // First dispatch — should be skipped
+            fn({ gold: 10 }, { type: 'FIRST' });
+            // Second dispatch — should be saved
             fn({ gold: 42 }, { type: 'GOLD', payload: 42 });
             return () => {};
           },
@@ -302,8 +307,13 @@ import('./save-load').then((module) => {
   chain = chain.then(() => test('enableAutoSave subscribes and calls saveState on state change', () => {
     return initStore().then(() => {
       return clearStore().then(() => {
+        let savedFn = null;
         const mockStore = {
           subscribe: (fn) => {
+            savedFn = fn;
+            // First dispatch — should be skipped
+            fn({ gold: 10, adventurers: [] }, { type: 'FIRST' });
+            // Second dispatch — should be saved
             fn({ gold: 77, adventurers: [] }, { type: 'SET' });
             return () => {};
           },
@@ -312,6 +322,169 @@ import('./save-load').then((module) => {
         return loadState().then((loaded) => {
           assert(loaded !== null, 'state should be auto-saved');
           assert(loaded.gold === 77, 'gold should be 77, got ' + (loaded ? loaded.gold : 'null'));
+        });
+      });
+    });
+  }));
+
+  // --- Auto-save skips first dispatch ---
+
+  chain = chain.then(() => test('enableAutoSave skips auto-save on first dispatch', () => {
+    return initStore().then(() => {
+      return clearStore().then(() => {
+        // First dispatch should be skipped — nothing should be saved
+        const mockStore1 = {
+          subscribe: (fn) => {
+            fn({ gold: 100, adventurers: [] }, { type: 'FIRST' });
+            return () => {};
+          },
+        };
+        enableAutoSave(mockStore1);
+        return loadState().then((loaded) => {
+          assert(loaded === null, 'first dispatch should not trigger auto-save, got ' + JSON.stringify(loaded));
+        });
+      });
+    });
+  }));
+
+  chain = chain.then(() => test('enableAutoSave triggers on second dispatch after first was skipped', () => {
+    return initStore().then(() => {
+      return clearStore().then(() => {
+        let savedFn = null;
+        const mockStore2 = {
+          subscribe: (fn) => {
+            savedFn = fn;
+            // First dispatch — should be skipped
+            fn({ gold: 100, adventurers: [] }, { type: 'FIRST' });
+            // Second dispatch — should be saved
+            fn({ gold: 200, adventurers: ['a1'] }, { type: 'SECOND' });
+            return () => {};
+          },
+        };
+        enableAutoSave(mockStore2);
+        return loadState().then((loaded) => {
+          assert(loaded !== null, 'second dispatch should trigger auto-save');
+          assert(loaded.gold === 200, 'gold should be 200 (second dispatch), got ' + (loaded ? loaded.gold : 'null'));
+        });
+      });
+    });
+  }));
+
+  // --- IndexedDB reconnection on stale connection ---
+
+  chain = chain.then(() => test('saveState reconnects on write failure', () => {
+    return initStore().then(() => {
+      return clearStore().then(() => {
+        // Get the registered DB and replace its transaction method
+        const registeredDB = dbRegistry.get('adventurers-guild');
+        let writeAttempt = 0;
+
+        // Create a separate data map for the failing store
+        const failingData = new Map();
+        const failingNativeGet = Map.prototype.get;
+        const failingNativeSet = Map.prototype.set;
+        const failingNativeDelete = Map.prototype.delete;
+
+        // Create a failing store wrapper
+        const failingStore = Object.assign(failingData, {
+          get(key) {
+            const entry = failingNativeGet.call(failingData, key);
+            let onSuccessCb = null;
+            return {
+              result: entry || null,
+              error: null,
+              get onsuccess() { return onSuccessCb; },
+              set onsuccess(fn) {
+                onSuccessCb = fn;
+                if (fn) fn({ target: { result: this.result } });
+              },
+              get onerror() { return null; },
+              set onerror(fn) {},
+            };
+          },
+          put(valueObj) {
+            writeAttempt++;
+            if (typeof valueObj === 'object' && valueObj !== null && 'key' in valueObj) {
+              failingNativeSet.call(failingData, valueObj.key, valueObj);
+            }
+            // Store callbacks — don't fire yet
+            let onsuccessCb = null;
+            let onerrorCb = null;
+            let _resolved = false;
+            const req = {
+              result: undefined,
+              error: null,
+              get onsuccess() { return onsuccessCb; },
+              set onsuccess(fn) {
+                onsuccessCb = fn;
+                // Simulate real IDB: only one callback fires.
+                // Use queueMicrotask so writeToDB can set both callbacks,
+                // then let the appropriate one fire.
+                if (writeAttempt === 1) {
+                  queueMicrotask(() => {
+                    if (!_resolved) {
+                      _resolved = true;
+                      onerrorCb({ target: { error: new Error('stale connection') } });
+                    }
+                  });
+                } else {
+                  queueMicrotask(() => {
+                    if (!_resolved) {
+                      _resolved = true;
+                      onsuccessCb({ target: { result: undefined } });
+                    }
+                  });
+                }
+              },
+              get onerror() { return onerrorCb; },
+              set onerror(fn) {
+                onerrorCb = fn;
+              },
+            };
+            return req;
+          },
+          delete(key) {
+            failingNativeDelete.call(failingData, key);
+            let onSuccessCb = null;
+            return {
+              result: undefined,
+              get onsuccess() { return onSuccessCb; },
+              set onsuccess(fn) {
+                onSuccessCb = fn;
+                if (fn) fn({ target: { result: undefined } });
+              },
+              get onerror() { return null; },
+              set onerror(fn) {},
+            };
+          },
+        });
+
+        // Store original transaction
+        const originalTransaction = registeredDB.transaction.bind(registeredDB);
+
+        // Replace transaction to return failing store
+        registeredDB.transaction = function(storeNames, mode) {
+          const stores = Array.isArray(storeNames) ? storeNames : [storeNames];
+          if (stores.includes('adventurers-guild')) {
+            return {
+              objectStore(storeName) {
+                return failingStore;
+              },
+            };
+          }
+          return originalTransaction(storeNames, mode);
+        };
+
+        // Now saveState should fail once, reconnect, and succeed
+        return new Promise((resolve, reject) => {
+          saveState({ gold: 42, adventurers: [] }).then(() => {
+            // Verify the state was saved after reconnection
+            return loadState().then((loaded) => {
+              assert(loaded !== null, 'state should be saved after reconnection');
+              assert(loaded.gold === 42, 'gold should be 42 after reconnection, got ' + (loaded ? loaded.gold : 'null'));
+              assert(writeAttempt >= 2, 'should have attempted write at least twice, got ' + writeAttempt);
+            });
+          }).then(resolve).catch(reject);
         });
       });
     });

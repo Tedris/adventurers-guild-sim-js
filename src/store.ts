@@ -37,8 +37,9 @@ function handleGold(state: GameState, gold: number): GameState {
 }
 
 function handleMergeState(state: GameState, payload: GameState): GameState {
-  if (payload == null) return state;
-  return structuredClone(payload);
+  if (payload == null || typeof payload !== 'object' || Array.isArray(payload)) return state;
+  const safePayload = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
+  return { ...state, ...safePayload };
 }
 
 function handleClearNotification(state: GameState, payload: { notificationId: string }): GameState {

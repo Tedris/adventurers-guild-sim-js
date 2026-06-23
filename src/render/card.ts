@@ -104,7 +104,7 @@ export function renderCard(
     case 'quest':
       return renderQuestCard(data as Quest, state, context, dispatch);
     case 'event':
-      return renderEventCard(data as EventTemplate, state);
+      return renderEventCard(data as EventTemplate, state, context, dispatch);
     default: {
       console.warn(`[render] Unknown card type: ${type}`);
       return null;
@@ -541,16 +541,23 @@ export function renderQuestCard(
 export function renderEventCard(
   event: EventTemplate,
   state: GameState,
+  eventId?: string,
+  dispatch?: DispatchFn,
 ): HTMLElement | null {
-  const frag = createCardElement('event-card-template');
-  if (!frag) return null;
+  const cardEl = createCardElement('event-card-template');
+  if (!cardEl) return null;
+
+  // Set data-event-id on the card root element
+  if (eventId) {
+    cardEl.setAttribute('data-event-id', eventId);
+  }
 
   // Title
-  const titleEl = queryEl(frag, '[data-title]');
+  const titleEl = queryEl(cardEl, '[data-title]');
   if (titleEl) titleEl.textContent = event.title || 'Event';
 
   // Category badge (color-coded)
-  const categoryEl = queryEl(frag, '[data-category]');
+  const categoryEl = queryEl(cardEl, '[data-category]');
   if (categoryEl) {
     categoryEl.textContent = event.category || 'Unknown';
     // Color coding: Budget=Crimson, Crisis=Orange, Drama=Purple
@@ -563,11 +570,11 @@ export function renderEventCard(
   }
 
   // Description
-  const descEl = queryEl(frag, '[data-description]');
+  const descEl = queryEl(cardEl, '[data-description]');
   if (descEl) descEl.textContent = event.description || 'No description.';
 
   // Choice buttons
-  const choicesContainer = queryEl(frag, '[data-choices]');
+  const choicesContainer = queryEl(cardEl, '[data-choices]');
   if (choicesContainer && event.choices) {
     for (let i = 0; i < event.choices.length; i++) {
       const choice = event.choices[i];
@@ -576,16 +583,25 @@ export function renderEventCard(
       btn.textContent = choice.label;
       btn.setAttribute('data-choice-index', String(i));
       const choiceHandler = () => {
-        // Dispatch event resolution through the store
-        const eventElement = btn.closest('.card-event');
-        if (eventElement) {
-          const eventId = eventElement.getAttribute('data-event-id');
-          if (eventId) {
-            window.dispatchEvent(
-              new CustomEvent('event-choice', {
-                detail: { eventId, choiceIndex: i },
-              }),
-            );
+        const resolvedEventId = eventId || event.id;
+        // Use dispatch callback if available (store pattern)
+        if (dispatch && resolvedEventId) {
+          dispatch({
+            type: 'EVENT_RESOLVED',
+            payload: { eventId: resolvedEventId, choiceIndex: i },
+          });
+        } else {
+          // Fallback to CustomEvent for backward compatibility
+          const eventElement = btn.closest('.card-event');
+          if (eventElement) {
+            const storedEventId = eventElement.getAttribute('data-event-id') || resolvedEventId;
+            if (storedEventId) {
+              window.dispatchEvent(
+                new CustomEvent('event-choice', {
+                  detail: { eventId: storedEventId, choiceIndex: i },
+                }),
+              );
+            }
           }
         }
       };
@@ -595,7 +611,7 @@ export function renderEventCard(
   }
 
   // Timestamp - EventTemplate doesn't have timestamp; it's set at runtime
-  const timestampEl = queryEl(frag, '[data-timestamp]');
+  const timestampEl = queryEl(cardEl, '[data-timestamp]');
   if (timestampEl) {
     const day = (event as unknown as Record<string, unknown>).timestamp ?? state?.day ?? 0;
     timestampEl.textContent = `Day ${day}`;

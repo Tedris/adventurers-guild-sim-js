@@ -82,6 +82,18 @@ function writeToDB(db: IDBDatabase, value: GameState): Promise<void> {
 /** Cached database handle. */
 let db: IDBDatabase | null = null;
 
+/**
+ * Explicitly close and invalidate the database connection.
+ * Sets db to null so the next operation will re-open.
+ */
+export function closeDB(): void {
+  if (db) {
+    db.close();
+  }
+  db = null;
+  _connecting = null;
+}
+
 /** Promise for in-flight database connection. */
 let _connecting: Promise<IDBDatabase> | null = null;
 
@@ -94,12 +106,16 @@ const AUTO_SAVE_DEBOUNCE_MS = 500;
 /** Whether auto-save is currently enabled. */
 let _autoSaveEnabled = false;
 
+/** Whether the first dispatch has been processed (skip auto-save on initial state). */
+let _firstDispatchDone = false;
+
 /**
  * Initialize the IndexedDB store. Returns the DB handle.
  * Idempotent — subsequent calls return the existing connection.
  * @returns {Promise<IDBDatabase>}
  */
 export async function initStore(): Promise<IDBDatabase> {
+  _firstDispatchDone = false;
   if (db) return db;
   if (_connecting) return _connecting;
   _connecting = openDB().then((dbConn) => {
@@ -117,7 +133,15 @@ export async function initStore(): Promise<IDBDatabase> {
  */
 export async function saveState(state: GameState): Promise<void> {
   if (!db) await initStore();
-  await writeToDB(db!, state);
+  try {
+    await writeToDB(db!, state);
+  } catch (e) {
+    console.warn('[SaveLoad] Write failed, reconnecting...', e);
+    db = null;
+    _connecting = null;
+    await initStore();
+    await writeToDB(db!, state);
+  }
 }
 
 /**
@@ -127,7 +151,15 @@ export async function saveState(state: GameState): Promise<void> {
  */
 export async function loadState(): Promise<GameState | null> {
   if (!db) await initStore();
-  return await readFromDB(db!);
+  try {
+    return await readFromDB(db!);
+  } catch (e) {
+    console.warn('[SaveLoad] Read failed, reconnecting...', e);
+    db = null;
+    _connecting = null;
+    await initStore();
+    return await readFromDB(db!);
+  }
 }
 
 /**
@@ -145,6 +177,8 @@ export async function clearStore(): Promise<void> {
     request.onsuccess = () => {
       _autoSaveEnabled = false;
       _lastAutoSave = 0;
+      _firstDispatchDone = false;
+      closeDB();
       resolve();
     };
     request.onerror = () => reject(request.error);
@@ -165,6 +199,10 @@ export function enableAutoSave(
   if (_autoSaveEnabled) return;
   _autoSaveEnabled = true;
   store.subscribe(async (state: GameState) => {
+    if (!_firstDispatchDone) {
+      _firstDispatchDone = true;
+      return;
+    }
     const now = Date.now();
     if (now - _lastAutoSave < AUTO_SAVE_DEBOUNCE_MS) return;
     _lastAutoSave = now;

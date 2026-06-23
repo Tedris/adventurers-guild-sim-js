@@ -1,6 +1,6 @@
 # generated: 2026-05-31
-# last_updated: 2026-06-17T00:00:00
-# updated: 7-3-clickable-stat-attribution → done
+# last_updated: 2026-06-23T00:00:00
+# updated: epic-8 → in-progress, 8-1-fix-event-cards-use-dispatch → done, 8-2-fix-merge-state-preserve-non-payload-fields → done, 8-3-consume-subscribe-cleanup-fix-listener-leaks → done, 8-4-remove-innerhtml-clear-pattern → done
 # project: adventurers-guild-sim-js
 # project_key: NOKEY
 # tracking_system: file-system
@@ -94,18 +94,18 @@ development_status:
   epic-6-retrospective: done
 
   # Epic 7: Interaction Quality (v1.3 Phases 19-20)
-  epic-7: in-progress
+  epic-7: done
   7-1-ensure-touch-target-sizes-and-button-feedback: done
   7-2-show-bonus-source-breakdown: done
   7-3-clickable-stat-attribution: done
-  epic-7-retrospective: optional
+  epic-7-retrospective: done
 
-  # Epic 8: Backlog — Deferred Bug Fixes & Improvements
-  epic-8: backlog
-  8-1-fix-event-cards-use-dispatch: backlog
-  8-2-fix-merge-state-preserve-non-payload-fields: backlog
-  8-3-consume-subscribe-cleanup-fix-listener-leaks: backlog
-  8-4-remove-innerhtml-clear-pattern: backlog
+ # Epic 8: Backlog — Deferred Bug Fixes & Improvements
+   epic-8: in-progress
+   8-1-fix-event-cards-use-dispatch: done
+  8-2-fix-merge-state-preserve-non-payload-fields: done
+  8-3-consume-subscribe-cleanup-fix-listener-leaks: done
+  8-4-remove-innerhtml-clear-pattern: done
   8-5-verify-morale-aptitude-functionality: backlog
   8-6-add-economy-calibration-test-suite: backlog
   epic-8-retrospective: optional
