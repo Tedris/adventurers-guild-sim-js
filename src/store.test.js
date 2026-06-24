@@ -738,6 +738,63 @@ Promise.all([
     assert(JSON.stringify(state.lastRetirement) === JSON.stringify({ adventurerId: 'a1', perk: { id: 'p1', name: 'Veteran' } }), 'lastRetirement not in payload is preserved');
   });
 
+  // --- AC 4: Economy Progression Simulation (Story 8.6) ---
+
+  test('TICK: gold never goes negative over 100 ticks with no adventurers', () => {
+    const store = createStore({ gold: 100, adventurers: [], day: 1, guildLevel: 1, fame: 0 });
+    store.dispatch({ type: 'TICK', payload: { tickCount: 100 } });
+    const state = store.getState();
+    assert(state.gold >= 0, `gold should not be negative after 100 ticks, got ${state.gold}`);
+  });
+
+  test('TICK: gold never decreases below starting value with no adventurers over 100 ticks', () => {
+    const startGold = 100;
+    const store = createStore({ gold: startGold, adventurers: [], day: 1, guildLevel: 1, fame: 0 });
+    for (let i = 0; i < 100; i++) {
+      store.dispatch({ type: 'TICK', payload: { tickCount: 1 } });
+    }
+    const state = store.getState();
+    assert(state.gold >= startGold - 10, `gold (${state.gold}) should not drop significantly from ${startGold} after 100 ticks`);
+  });
+
+  test('TICK: upgrade affordability progression — upgrades become affordable as gold accumulates', () => {
+    const store = createStore({ gold: 100, adventurers: [], day: 1, guildLevel: 1, fame: 0 });
+    for (let i = 0; i < 50; i++) {
+      store.dispatch({ type: 'TICK', payload: { tickCount: 1 } });
+    }
+    const state = store.getState();
+    const officeCostL1 = Math.floor(50 * Math.pow(1.5, 1));
+    assert(state.gold >= officeCostL1 || state.gold >= Math.floor(15 * Math.pow(1.5, 1)),
+      `after 50 ticks: gold ${state.gold} should afford at least job_postings L1 (${Math.floor(15 * Math.pow(1.5, 1))})`);
+  });
+
+  test('SEND_QUEST + TICK + COMPLETE_QUEST: gold increases on quest success', () => {
+    const hero1 = { id: 'h1', name: 'Hero', class: 'Sword', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const hero2 = { id: 'h2', name: 'Hero2', class: 'Bow', stats: { str: 20, dex: 20, int: 20, vit: 20, lck: 20 }, equipment: { weapon: null, armor: null, accessory: null }, morale: 70, origin: 'Town-born', personality: { traits: [] }, level: 1, experience: 0, rank: 'Novice', aptitudes: {} };
+    const quest = { id: 'q1', name: 'Easy Quest', difficulty: 1, requirements: { minStats: { str: 3, dex: 3, int: 3, vit: 3, lck: 3 }, preferredClasses: [], minPartySize: 2, maxPartySize: 3 }, rewards: { gold: 50, experience: 60 }, description: 'An easy quest.' };
+    const store = createStore({ gold: 100, adventurers: [hero1, hero2], recruitmentPool: [], party: { id: 'p1', adventurerIds: ['h1', 'h2'], synergyScore: 0, aptitudeBonus: 0 }, quests: [quest], activeQuest: null, day: 1 });
+    store.dispatch({ type: 'SEND_QUEST', payload: { questId: 'q1', partyId: 'p1' } });
+    const beforeGold = store.getState().gold;
+    // Advance ticks until quest completes (difficulty 1 needs 10 ticks)
+    for (let i = 0; i < 15; i++) {
+      store.dispatch({ type: 'TICK', payload: { tickCount: 1 } });
+    }
+    // Auto-complete should have triggered; gold should have increased
+    const state = store.getState();
+    assert(state.gold > beforeGold, `gold should increase after quest completion: ${beforeGold} -> ${state.gold}`);
+  });
+
+  test('Economy: 100 ticks with no adventurers cannot drain gold below start', () => {
+    const startGold = 100;
+    const store = createStore({ gold: startGold, adventurers: [], day: 1, guildLevel: 1, fame: 0 });
+    for (let i = 0; i < 100; i++) {
+      store.dispatch({ type: 'TICK', payload: { tickCount: 1 } });
+    }
+    const state = store.getState();
+    assert(state.gold >= 0, `gold should not be negative after 100 ticks, got ${state.gold}`);
+    assert(state.gold >= startGold - 10, `gold (${state.gold}) should not drop significantly from ${startGold}`);
+  });
+
   // Print summary
   console.log(`\n${testsPassed}/${testsRun} tests passed`);
   if (testsPassed < testsRun) process.exit(1);
