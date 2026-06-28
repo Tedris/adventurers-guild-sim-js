@@ -8,9 +8,8 @@
 }
 
 body {
-  line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  line-height: 1.8;
+  font-family: 'Press Start 2P', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiOne Color', 'Segoe UI Symbol', monospace;
 }
 
 /* ─── Base Button Styles (Story 7-1: INTERACT-01, 02, 03) ─────────────────────── */
@@ -41,7 +40,7 @@ button:active {
 }
 
 button:focus-visible {
-  outline: 2px solid #FFD700;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -62,24 +61,105 @@ button:disabled:active {
 
 /* ===== CSS Custom Properties ===== */
 :root {
+  /* Base colors */
   --color-bg: #1a1a2e;
   --color-surface: #16213e;
-  --color-accent: #e94560;
+  --color-surface-elevated: #1e2a4a;
+  --color-overlay: rgba(0, 0, 0, 0.7);
+  --color-backdrop: rgba(0, 0, 0, 0.5);
+
+  /* Text colors */
   --color-text: #eee;
   --color-text-muted: #888;
+  --color-text-on-primary: #fff;
+
+  /* Semantic colors */
+  --color-primary: #ffd700;
+  --color-primary-hover: #e6c200;
+  --color-accent: #e94560;
+  --color-accent-hover: #c7354f;
+  --color-success: #27ae60;
+  --color-success-hover: #1e8c4c;
+  --color-danger: #e74c3c;
+  --color-danger-hover: #c0392b;
+  --color-warning: #ff9800;
+  --color-warning-hover: #e68900;
+  --color-info: #3498db;
+  --color-info-hover: #2980b9;
+
+  /* Rarity colors (UX Spec alignment) */
+  --rarity-common: #95a5a6;
+  --rarity-uncommon: #27ae60;
+  --rarity-rare: #3498db;
+  --rarity-epic: #9b59b6;
+  --rarity-legendary: #ffd700;
+
+  /* Office stage colors */
+  --office-stage-1: #8b5a33;
+  --office-stage-2: #6b4423;
+  --office-stage-3: #2d4a3e;
+
+  /* Disabled states */
+  --color-disabled: #555;
+
+  /* Additional design colors */
+  --color-cream: #f0e6d3;
+  --color-gold-light: #f8d060;
+  --color-gold-medium: #f0b030;
+  --color-gold-accent: #ffaa00;
+  --color-cyan: #4fc3f7;
+  --color-dark-green: #1a3a2e;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 32px;
+
+  /* Preserve existing */
   --card-radius: 8px;
   --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f0f1a;
+    --color-surface: #1a1a2e;
+    --color-text: #f0f0f0;
+    --color-text-muted: #aaa;
+  }
 }
 
 /* ===== Main Game Container ===== */
 #game-container {
   display: grid;
   grid-template-rows: auto 1fr;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr auto;
   gap: 16px;
   padding: 16px;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+#game-header {
+  grid-column: 1 / -1;
+}
+
+#game-nav {
+  grid-column: 1 / -1;
+}
+
+#game-sidebar {
+  grid-column: 2;
+  grid-row: 2;
+  width: 300px;
+  max-width: 35vw;
+  overflow-y: auto;
+}
+
+#game-content {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 /* ===== Header Bar ===== */
@@ -110,7 +190,7 @@ button:disabled:active {
 }
 
 #gold-display {
-  color: #ffd700;
+  color: var(--color-primary);
 }
 
 #fame-display {
@@ -124,7 +204,7 @@ button:disabled:active {
 
 .btn-toolbar {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-on-primary);
   border: none;
   padding: 6px 16px;
   border-radius: 4px;
@@ -135,21 +215,21 @@ button:disabled:active {
 }
 
 .btn-toolbar:hover {
-  background: #c7354f;
+  background: var(--color-accent-hover);
 }
 
 .btn-new-game {
-  background: #4caf50;
+  background: var(--color-success);
 }
 
 .btn-new-game:hover {
-  background: #388e3c;
+  background: var(--color-success-hover);
 }
 
 #header-stats + button,
 #game-header .btn-next-day {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-on-primary);
   border: none;
   padding: 6px 16px;
   border-radius: 4px;
@@ -160,7 +240,7 @@ button:disabled:active {
 }
 
 #game-header .btn-next-day:hover {
-  background: #c7354f;
+  background: var(--color-accent-hover);
 }
 
 /* ===== Navigation Tabs ===== */
@@ -194,13 +274,13 @@ button:disabled:active {
 }
 
 .nav-tab:focus-visible {
-  outline: 2px solid #FFD700;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 .nav-tab.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-on-primary);
 }
 
 /* ===== Main Content Area ===== */
@@ -235,8 +315,9 @@ button:disabled:active {
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 500;
+  line-height: 1.2;
   background: rgba(233, 69, 96, 0.2);
-  color: #e94560;
+  color: var(--color-accent);
   border: 1px solid rgba(233, 69, 96, 0.4);
   cursor: help;
   transition: background-color 0.2s, border-color 0.2s;
@@ -244,29 +325,29 @@ button:disabled:active {
 
 .trait-badge:hover {
   background: rgba(233, 69, 96, 0.3);
-  border-color: #e94560;
+  border-color: var(--color-accent);
 }
 
 .trait-badge.mystical {
   background: rgba(147, 112, 219, 0.2);
-  color: #9370db;
+  color: var(--rarity-epic);
   border-color: rgba(147, 112, 219, 0.4);
 }
 
 .trait-badge.mystical:hover {
   background: rgba(147, 112, 219, 0.3);
-  border-color: #9370db;
+  border-color: var(--rarity-epic);
 }
 
 .trait-badge.disciplined {
   background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
+  color: var(--color-success);
   border-color: rgba(76, 175, 80, 0.4);
 }
 
 .trait-badge.disciplined:hover {
   background: rgba(76, 175, 80, 0.3);
-  border-color: #4caf50;
+  border-color: var(--color-success);
 }
 
 /* ===== Responsive Layout — Mobile (≤480px) ===== */
@@ -323,12 +404,58 @@ button:disabled:active {
   }
 
   /* D-05: Full card content, taller cards */
-  .card {
-    padding: 12px;
-  }
+   .card {
+     padding: 12px;
+   }
 
- 
-}
+   /* Responsive: two-column collapses to single column */
+   #game-sidebar {
+     grid-column: 1;
+     grid-row: 3;
+     width: 100%;
+     max-width: none;
+   }
+
+   #game-content {
+     grid-column: 1;
+     grid-row: 2;
+   }
+
+   /* Tablet: 768px - 1024px sidebar width adjustment */
+ }
+
+ @media (min-width: 768px) and (max-width: 1024px) {
+   #game-sidebar {
+     width: 35%;
+   }
+
+   #game-content {
+     width: 65%;
+   }
+ }
+
+ /* Mobile: below 768px — sidebar stacks below main content */
+ @media (max-width: 767px) {
+   #game-container {
+     grid-template-columns: 1fr;
+   }
+
+   #game-nav {
+     grid-column: 1;
+   }
+
+   #game-content {
+     grid-column: 1;
+     grid-row: 2;
+   }
+
+   #game-sidebar {
+     grid-column: 1;
+     grid-row: 3;
+     width: 100%;
+     max-width: none;
+   }
+ }
 
 /* ===== Adventurer Card Variant ===== */
 
@@ -356,6 +483,7 @@ button:disabled:active {
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
@@ -432,6 +560,7 @@ button:disabled:active {
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 0.65rem;
+  line-height: 1.1;
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -454,9 +583,9 @@ button:disabled:active {
 }
 
 .quest-card .difficulty-stars {
-  color: #ffd700;
+  color: var(--color-primary);
   font-size: 0.9rem;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 .quest-card .quest-description {
@@ -515,7 +644,7 @@ button:disabled:active {
 }
 
 .quest-card .quest-rewards .gold-reward {
-  color: #ffd700;
+  color: var(--color-primary);
 }
 
 .quest-card .quest-rewards .xp-reward {
@@ -538,12 +667,12 @@ button:disabled:active {
 
 .quest-card .party-size-badge.party-size-met {
   background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
+  color: var(--color-success);
 }
 
 .quest-card .party-size-badge.party-size-short {
   background: rgba(255, 152, 0, 0.2);
-  color: #ff9800;
+  color: var(--color-warning);
 }
 
 .quest-card .party-size-badge.party-size-none {
@@ -561,14 +690,14 @@ button:disabled:active {
   border: none;
   border-radius: 4px;
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-on-primary);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .quest-card .quest-action button:disabled {
-  background: #555;
+  background: var(--color-disabled);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -589,7 +718,7 @@ button:disabled:active {
 
 .quest-card .quest-progress .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-accent), #4fc3f7);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-cyan));
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -604,12 +733,12 @@ button:disabled:active {
 /* ===== Active Quest Card ===== */
 
 .event-card {
-  border-left: 3px solid #ff9800;
+  border-left: 3px solid var(--color-warning);
 }
 
 .event-card.resolved-event {
   opacity: 0.6;
-  border-left-color: #4caf50;
+  border-left-color: var(--color-success);
 }
 
 .event-card .event-header {
@@ -632,9 +761,9 @@ button:disabled:active {
   text-transform: uppercase;
 }
 
-.event-card .category-badge.Budget { background: rgba(233, 69, 96, 0.3); color: #e94560; }
-.event-card .category-badge.Crisis { background: rgba(255, 152, 0, 0.3); color: #ff9800; }
-.event-card .category-badge.Drama { background: rgba(156, 39, 176, 0.3); color: #9c27b0; }
+.event-card .category-badge.Budget { background: rgba(233, 69, 96, 0.3); color: var(--color-accent); }
+.event-card .category-badge.Crisis { background: rgba(255, 152, 0, 0.3); color: var(--color-warning); }
+.event-card .category-badge.Drama { background: rgba(156, 39, 176, 0.3); color: var(--rarity-epic); }
 
 .event-card .event-description {
   font-size: 0.85rem;
@@ -720,7 +849,7 @@ button:disabled:active {
 
 .modal-confirm {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-on-primary);
 }
 
 .modal-cancel {
@@ -755,11 +884,11 @@ button:disabled:active {
 
 .office-card,
 .party-status-card {
-  border-left: 3px solid #4caf50;
+  border-left: 3px solid var(--color-success);
 }
 
 .party-status-card {
-  border-left-color: #2196f3;
+  border-left-color: var(--color-info);
 }
 
 .progress-bar {
@@ -819,15 +948,15 @@ button:disabled:active {
 /* ===== Active Quest Highlight ===== */
 
 .active-quest-card {
-  border-left: 3px solid #ffd700;
+  border-left: 3px solid var(--color-primary);
   box-shadow: 0 2px 8px rgba(255, 215, 0, 0.15);
 }
 
 /* ===== Retirement Button ===== */
 
 .btn-retire {
-  background: #6b4423;
-  color: #f0e6d3;
+  background: var(--office-stage-2);
+  color: var(--color-cream);
   border: none;
   padding: 8px 12px;
   border-radius: 4px;
@@ -838,7 +967,7 @@ button:disabled:active {
 }
 
 .btn-retire:hover {
-  background: #8b5a33;
+  background: var(--office-stage-1);
 }
 
 /* ===== Upgrade System (Phase 5) ===== */
@@ -854,7 +983,7 @@ button:disabled:active {
 .upgrade-desc {
   margin: 0 0 8px 0;
   font-size: 0.9em;
-  color: #ccc;
+  color: var(--color-text-muted);
 }
 
 .upgrade-stats {
@@ -865,18 +994,18 @@ button:disabled:active {
 }
 
 .upgrade-cost {
-  color: #f0c040;
+  color: var(--color-primary);
 }
 
 .upgrade-effects {
-  color: #aaa;
+  color: var(--rarity-common);
   font-style: italic;
   margin-bottom: 8px;
 }
 
 .btn-upgrade {
-  background: #2196f3;
-  color: white;
+  background: var(--color-info);
+  color: var(--color-text-on-primary);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -886,12 +1015,12 @@ button:disabled:active {
 }
 
 .btn-upgrade:hover {
-  background: #1976d2;
+  background: var(--color-info-hover);
 }
 
 .btn-disabled {
-  background: #555;
-  color: #999;
+  background: var(--color-disabled);
+  color: var(--rarity-common);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -907,7 +1036,7 @@ button:disabled:active {
 
 .fame-tier {
   display: block;
-  color: #f0c040;
+  color: var(--color-primary);
   font-weight: bold;
   font-size: 0.9em;
   margin-bottom: 4px;
@@ -916,8 +1045,8 @@ button:disabled:active {
 /* ===== Evolution System (Phase 5) ===== */
 
 .btn-evolve {
-  background: linear-gradient(135deg, #f0c040, #e8a020);
-  color: #1a1a2e;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-gold-accent));
+  color: var(--color-bg);
   border: none;
   padding: 8px 14px;
   border-radius: 4px;
@@ -929,17 +1058,17 @@ button:disabled:active {
 }
 
 .btn-evolve:hover {
-  background: linear-gradient(135deg, #f8d060, #f0b030);
+  background: linear-gradient(135deg, var(--color-gold-light), var(--color-gold-medium));
 }
 
 .evolution-hint {
-  color: #888;
+  color: var(--color-text-muted);
   font-size: 0.75em;
   margin-top: 4px;
 }
 
 .evolved-class {
-  color: #f0c040;
+  color: var(--color-primary);
   font-weight: bold;
 }
 
@@ -947,7 +1076,7 @@ button:disabled:active {
 
 .restock-section {
   grid-column: 1 / -1;
-  border-left: 3px solid #4caf50;
+  border-left: 3px solid var(--color-success);
 }
 
 .restock-controls {
@@ -963,8 +1092,8 @@ button:disabled:active {
 }
 
 .btn-restock {
-  background: #4caf50;
-  color: white;
+  background: var(--color-success);
+  color: var(--color-text-on-primary);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -974,18 +1103,18 @@ button:disabled:active {
 }
 
 .btn-restock:hover {
-  background: #388e3c;
+  background: var(--color-success-hover);
 }
 
 .btn-restock:disabled {
-  background: #555;
-  color: #999;
+  background: var(--color-disabled);
+  color: var(--rarity-common);
   cursor: not-allowed;
 }
 
 .btn-hire {
   background: var(--color-accent);
-  color: white;
+  color: var(--color-text-on-primary);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -997,11 +1126,11 @@ button:disabled:active {
 }
 
 .btn-hire:hover {
-  background: #c7354f;
+  background: var(--color-accent-hover);
 }
 
 .recruit-card {
-  border-left: 3px solid #2196f3;
+  border-left: 3px solid var(--color-info);
 }
 
 .party-summary {
@@ -1011,8 +1140,8 @@ button:disabled:active {
 }
 
 .btn-assign-party {
-  background: #2196f3;
-  color: white;
+  background: var(--color-info);
+  color: var(--color-text-on-primary);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -1024,12 +1153,12 @@ button:disabled:active {
 }
 
 .btn-assign-party:hover {
-  background: #1976d2;
+  background: var(--color-info-hover);
 }
 
 .btn-remove-party {
-  background: #ff9800;
-  color: white;
+  background: var(--color-warning);
+  color: var(--color-text-on-primary);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -1041,7 +1170,7 @@ button:disabled:active {
 }
 
 .btn-remove-party:hover {
-  background: #f57c00;
+  background: var(--color-warning-hover);
 }
 
 /* Guild Master badge */
@@ -1053,14 +1182,15 @@ button:disabled:active {
 }
 
 .guild-master-badge {
-  background: linear-gradient(135deg, #ffd700, #ffaa00);
-  color: #1a1a2e;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-gold-accent));
+  color: var(--color-bg);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 0.7rem;
   font-weight: 700;
+  line-height: 1.2;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   white-space: nowrap;
 }
 
@@ -1073,8 +1203,8 @@ button:disabled:active {
 }
 
 .notification-card {
-  background: linear-gradient(135deg, #2d4a3e, #1a3a2e);
-  border: 1px solid #4caf50;
+  background: linear-gradient(135deg, var(--office-stage-3), var(--color-dark-green));
+  border: 1px solid var(--color-success);
   border-radius: var(--card-radius);
   padding: 12px 16px;
   color: var(--color-text);
@@ -1125,6 +1255,7 @@ button:disabled:active {
 .virtual-list-spacer-bottom {
   width: 100%;
   flex-shrink: 0;
+  line-height: 0;
 }
 
 .virtual-list-cards {
@@ -1136,6 +1267,7 @@ button:disabled:active {
   position: absolute;
   width: 100%;
   left: 0;
+  line-height: 1.4;
   will-change: transform; /* GPU acceleration for smooth scrolling */
 }
 
@@ -1170,13 +1302,13 @@ button:disabled:active {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   min-width: 180px;
   max-width: 280px;
-  font-family: 'Press Start 2P', monospace;
+  font-family: 'Press Start 2P', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiOne Color', 'Segoe UI Symbol', monospace;
 }
 
 .tooltip-title {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #ffd700;
+  color: var(--color-primary);
   padding: 8px 10px;
   border-bottom: 1px solid rgba(255, 215, 0, 0.2);
   white-space: nowrap;
@@ -1200,11 +1332,12 @@ button:disabled:active {
 
 .tooltip-label {
   font-size: 0.55rem;
-  color: #95a5a6;
+  color: var(--rarity-common);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 3px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .tooltip-row {
@@ -1212,13 +1345,13 @@ button:disabled:active {
   justify-content: space-between;
   align-items: center;
   font-size: 0.55rem;
-  color: #eee;
+  color: var(--color-text);
   padding: 1px 0;
   line-height: 1.6;
 }
 
 .tooltip-stat-label {
-  color: #95a5a6;
+  color: var(--rarity-common);
   min-width: 30px;
 }
 
@@ -1227,7 +1360,7 @@ button:disabled:active {
 }
 
 .tooltip-trait-name {
-  color: #e94560;
+  color: var(--color-accent);
   font-size: 0.5rem;
 }
 
@@ -1237,22 +1370,22 @@ button:disabled:active {
 }
 
 .tooltip-bonus-value.bonus-positive {
-  color: #27ae60;
+  color: var(--color-success);
 }
 
 .tooltip-bonus-value.bonus-negative {
-  color: #e74c3c;
+  color: var(--color-danger);
 }
 
 .tooltip-origin-name {
-  color: #3498db;
+  color: var(--color-info);
   font-size: 0.5rem;
 }
 
 /* ─── Quest Tooltip Variants ──────────────────────────── */
 
 #tooltip-container.quest-tooltip .tooltip-title {
-  color: #27AE60;
+  color: var(--color-success);
   border-bottom-color: rgba(39, 174, 96, 0.2);
 }
 
@@ -1263,7 +1396,7 @@ button:disabled:active {
 /* ─── Mechanic Tooltip Variants ───────────────────────────── */
 
 #tooltip-container.mechanic-tooltip.fame-tooltip .tooltip-title {
-  color: #FFD700;
+  color: var(--color-primary);
   border-bottom-color: rgba(255, 215, 0, 0.2);
 }
 
@@ -1272,7 +1405,7 @@ button:disabled:active {
 }
 
 #tooltip-container.mechanic-tooltip.wage-tooltip .tooltip-title {
-  color: #E74C3C;
+  color: var(--color-danger);
   border-bottom-color: rgba(231, 76, 60, 0.2);
 }
 
@@ -1281,7 +1414,7 @@ button:disabled:active {
 }
 
 #tooltip-container.mechanic-tooltip.evolution-tooltip .tooltip-title {
-  color: #3498DB;
+  color: var(--color-info);
   border-bottom-color: rgba(52, 152, 219, 0.2);
 }
 
@@ -1298,7 +1431,7 @@ button:disabled:active {
 .evolution-count {
   display: block;
   font-size: 0.9em;
-  color: #3498DB;
+  color: var(--color-info);
   font-weight: bold;
   margin-top: 4px;
 }
@@ -1333,7 +1466,7 @@ button:disabled:active {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 1001;
+  z-index: 1002;
 }
 
 .party-over-panel .modal-backdrop {
@@ -1378,7 +1511,7 @@ button:disabled:active {
 }
 
 .party-overview-header .panel-quest-difficulty {
-  color: #ffd700;
+  color: var(--color-primary);
   font-size: 0.9rem;
   letter-spacing: 2px;
 }
@@ -1432,12 +1565,12 @@ button:disabled:active {
 
 .stat-row.stat-met {
   background: rgba(39, 174, 96, 0.15);
-  color: #27AE60;
+  color: var(--color-success);
 }
 
 .stat-row.stat-shortfall {
   background: rgba(231, 76, 60, 0.15);
-  color: #E74C3C;
+  color: var(--color-danger);
 }
 
 .stat-label {
@@ -1477,7 +1610,7 @@ button:disabled:active {
   padding: 2px 8px;
   border-radius: 3px;
   background: rgba(233, 69, 96, 0.2);
-  color: #e94560;
+  color: var(--color-accent);
   border: 1px solid rgba(233, 69, 96, 0.3);
 }
 
@@ -1497,15 +1630,15 @@ button:disabled:active {
 }
 
 .success-rate-section .success-rate.high {
-  color: #27AE60;
+  color: var(--color-success);
 }
 
 .success-rate-section .success-rate.medium {
-  color: #FF9800;
+  color: var(--color-warning);
 }
 
 .success-rate-section .success-rate.low {
-  color: #E74C3C;
+  color: var(--color-danger);
 }
 
 .synergy-section {
@@ -1549,15 +1682,15 @@ button:disabled:active {
 }
 
 .synergy-positive {
-  color: #27AE60;
+  color: var(--color-success);
 }
 
 .synergy-neutral {
-  color: #FF9800;
+  color: var(--color-warning);
 }
 
 .synergy-redundant {
-  color: #E74C3C;
+  color: var(--color-danger);
 }
 
 .trait-synergy-notes {
@@ -1588,7 +1721,7 @@ button:disabled:active {
   padding: 6px 8px;
   background: rgba(52, 152, 219, 0.15);
   border-radius: 4px;
-  color: #3498DB;
+  color: var(--color-info);
   margin-top: 6px;
   text-align: center;
 }
@@ -1613,11 +1746,11 @@ button:disabled:active {
 
 .btn-panel-dispatch {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-on-primary);
 }
 
 .btn-panel-dispatch:hover {
-  background: #c7354f;
+  background: var(--color-accent-hover);
 }
 
 .btn-panel-cancel {
@@ -1632,18 +1765,18 @@ button:disabled:active {
 /* ─── Selection Highlights (Story 7-1: INTERACT-03) ───────────────────────────── */
 
 .roster-card.selected {
-  outline: 2px solid #FFD700;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.15);
 }
 
 .party-member-item.selected {
   background: rgba(255, 215, 0, 0.1);
-  border-left: 3px solid #FFD700;
+  border-left: 3px solid var(--color-primary);
 }
 
 .roster-card.drag-over {
-  border: 2px solid #FFD700;
+  border: 2px solid var(--color-primary);
   box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.3);
 }
 
@@ -1699,8 +1832,8 @@ button:disabled:active {
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%) translateY(0);
-  background: #E74C3C;
-  color: white;
+  background: var(--color-danger);
+  color: var(--color-text-on-primary);
   padding: 8px 16px;
   border-radius: 4px;
   font-size: 12px;
@@ -1715,7 +1848,7 @@ button:disabled:active {
 
 .party-member-item.validation-error,
 .party-over-backdrop.validation-error {
-  border-color: #E74C3C !important;
+  border-color: var(--color-danger) !important;
   box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.3);
   animation: redBorderFlash 0.5s ease-out;
 }
@@ -1729,59 +1862,61 @@ button:disabled:active {
 }
 
 @keyframes redBorderFlash {
-  0% { border-color: #E74C3C; }
+  0% { border-color: var(--color-danger); }
   50% { border-color: transparent; }
-  100% { border-color: var(--color-accent, #e94560); }
+  100% { border-color: var(--color-accent); }
 }
 
 .dispatch-btn-warning {
   display: block;
   font-size: 11px;
-  color: #E74C3C;
+  color: var(--color-danger);
   margin-top: 4px;
   text-align: center;
 }
 
 /* ─── Stat Breakdown Tooltip Styles ─────────────────── */
 
-.tooltip-section {
+.tooltip-container.breakdown-tooltip .tooltip-section {
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.tooltip-section:last-child {
+.tooltip-container.breakdown-tooltip .tooltip-section:last-child {
   border-bottom: none;
 }
 
-.tooltip-label {
+.tooltip-container.breakdown-tooltip .tooltip-label {
   font-size: 0.75rem;
-  color: #FFD700;
+  color: var(--color-primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 4px;
+  line-height: 1.3;
 }
 
-.tooltip-row {
+.tooltip-container.breakdown-tooltip .tooltip-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.85rem;
   padding: 2px 0;
+  line-height: 1.3;
 }
 
 .bonus-positive {
-  color: #4CAF50;
+  color: var(--color-success);
   font-weight: 600;
 }
 
 .bonus-negative {
-  color: #E74C3C;
+  color: var(--color-danger);
   font-weight: 600;
 }
 
 .tooltip-empty {
-  color: #888;
+  color: var(--color-text-muted);
   font-style: italic;
   font-size: 0.8rem;
 }
@@ -1795,7 +1930,7 @@ button:disabled:active {
 .breakdown-total-value {
   font-weight: bold;
   font-size: 1.1em;
-  color: #fff;
+  color: var(--color-text-on-primary);
 }
 
 /* ─── Stat Attribution Tooltip Styles (Story 7.3) ─────────── */
@@ -1814,7 +1949,7 @@ button:disabled:active {
 
 .contributor-stat {
   font-weight: 600;
-  color: #fff;
+  color: var(--color-text-on-primary);
 }
 
 .contributor-check {
@@ -1829,13 +1964,131 @@ button:disabled:active {
 
 .quest-req-text {
   font-size: 0.8rem;
-  color: #FFD700;
+  color: var(--color-primary);
   font-style: italic;
 }
 
 /* ─── Roster Card Highlight (Story 7.3) ─────────────────── */
 
 .highlighted-stat-contributor {
-  outline: 2px solid #FFD700;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* ─── Rarity-Based Card Treatments (Story 9.3) ────────────── */
+
+.card-rarity-common {
+  border-color: var(--rarity-common);
+}
+
+.card-rarity-uncommon {
+  border-color: var(--rarity-uncommon);
+}
+
+.card-rarity-rare {
+  border-color: var(--rarity-rare);
+}
+
+.card-rarity-epic {
+  border-color: var(--rarity-epic);
+}
+
+.card-rarity-legendary {
+  border-color: var(--rarity-legendary);
+  box-shadow: 0 0 8px var(--rarity-legendary);
+}
+
+.card-rarity-legendary .card-header {
+  border-bottom-color: var(--rarity-legendary);
+}
+
+/* ─── Sidebar Layout (Story 9.4) ──────────────────────────── */
+
+#game-sidebar {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#sidebar-party-status,
+#sidebar-active-quests,
+#sidebar-event-queue {
+  background: var(--color-surface);
+  border-radius: var(--card-radius);
+  padding: 12px;
+  box-shadow: var(--card-shadow);
+}
+
+#sidebar-party-status h3,
+#sidebar-active-quests h3,
+#sidebar-event-queue h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+/* Party stats summary */
+.sidebar-stat {
+  font-size: 0.8rem;
+  color: var(--color-text);
+  padding: 4px 0;
+}
+
+/* Active quest items */
+.sidebar-quest-item {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-quest-item:last-child {
+  border-bottom: none;
+}
+
+.sidebar-quest-item .quest-name {
+  font-size: 0.75rem;
+  color: var(--color-text);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.sidebar-quest-item .progress-bar {
+  height: 6px;
+}
+
+.sidebar-quest-item .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-cyan));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Event queue items */
+.sidebar-event-item {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-event-item:last-child {
+  border-bottom: none;
+}
+
+.sidebar-event-item .event-title {
+  font-size: 0.75rem;
+  color: var(--color-text);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.sidebar-event-item .event-timestamp {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+.sidebar-empty-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
 }

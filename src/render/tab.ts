@@ -379,20 +379,29 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
     // Already called hideTooltip() above, so direct body renders are safe
     switch (viewName) {
       case 'dashboard':
-        return renderDashboard(document.body, state, dispatch);
+        renderDashboard(document.body, state, dispatch);
+        break;
       case 'roster':
-        return renderRoster(document.body, state, dispatch);
+        renderRoster(document.body, state, dispatch);
+        break;
       case 'recruitment':
-        return renderRecruitment(document.body, state, dispatch);
+        renderRecruitment(document.body, state, dispatch);
+        break;
       case 'quests':
-        return renderQuestBoard(document.body, state, dispatch);
+        renderQuestBoard(document.body, state, dispatch);
+        break;
       case 'events':
-        return renderEvents(document.body, state, dispatch);
+        renderEvents(document.body, state, dispatch);
+        break;
       case 'upgrades':
-        return renderUpgrades(document.body, state, dispatch);
+        renderUpgrades(document.body, state, dispatch);
+        break;
       default:
-        return renderDashboard(document.body, state, dispatch);
+        renderDashboard(document.body, state, dispatch);
+        break;
     }
+    renderSidebar(state, dispatch);
+    return;
   }
 
   const lastView = _lastView.get('game-content');
@@ -401,6 +410,7 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
   // If no previous view (first render), render directly without transition
   if (!lastView) {
     _executeView(viewName, state, dispatch, container);
+    renderSidebar(state, dispatch);
     return;
   }
 
@@ -433,6 +443,7 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
     newContainer.style.left = '';
     newContainer.style.width = '';
     _isTransitioning = false;
+    renderSidebar(state, dispatch);
     return;
   }
 
@@ -473,6 +484,9 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
     container.classList.remove('tab-transitioning');
     _isTransitioning = false;
   });
+
+  // Update sidebar after view rendering
+  renderSidebar(state, dispatch);
 }
 
 /**
@@ -1691,16 +1705,9 @@ export function createPartyOverviewPanel(quest: Quest | null, state: GameState, 
 
   panel.appendChild(actionsSection);
 
-  // Attach dispatch callback for real-time updates
+  // Store a no-op cleanup placeholder (real unsubscribe comes from store.subscribe caller)
   if (dispatch) {
-    const unsubscribe = (newState: GameState, action: { type: string }) => {
-      // Re-render on any action that could modify party composition or stats
-      if (['ASSIGN_PARTY', 'UPDATE_ADVENTURER', 'ADD_ADVENTURER', 'REMOVE_ADVENTURER', 'EQUIP_ITEM'].includes(action.type)) {
-        renderPartyOverviewPanel(quest, newState, dispatch);
-      }
-    };
-    // Store unsubscribe reference on the panel for cleanup
-    (panel as any)._panelUnsubscribe = unsubscribe;
+    (panel as any)._panelUnsubscribe = () => {};
   }
 
   return panel;
@@ -1814,7 +1821,6 @@ export function renderPartyOverviewPanel(quest: Quest | null, state: GameState, 
       closePartyOverviewPanel();
     }
   };
-  (document as unknown as HTMLElement).addEventListener('keydown', _escapeHandler as EventListener);
   trackEventListener(document as unknown as HTMLElement, 'keydown', _escapeHandler as EventListener);
 
   // Store unsubscribe reference on overlay for cleanup during close
@@ -1849,12 +1855,128 @@ export function closePartyOverviewPanel(): void {
     (document.body as unknown as HTMLElement).removeEventListener('click', clickOutsideHandler as EventListener);
     (overlay as any)._tooltipClickOutsideHandler = null;
   }
-  // Also remove from tracked listeners
-  detachAllListeners(document as unknown as HTMLElement);
+  // Remove tracked listeners attached to document during panel lifetime
+  // (dragover, dragleave, drop handlers on backdrop were tracked on document.body, not document)
 
   const backdrop = overlay.querySelector('.party-over-backdrop') as HTMLElement | null;
   if (backdrop) {
     detachAllListeners(backdrop);
   }
   overlay.remove();
+}
+
+// ─── Sidebar Rendering (Story 9.4) ──────────────────────────
+
+/**
+ * Render the dashboard sidebar with party status, active quests, and event queue.
+ * Populates the #game-sidebar element and its child panels.
+ * @param state — Current game state
+ * @param dispatch — Optional dispatch function (unused in sidebar, kept for consistency)
+ */
+export function renderSidebar(state: GameState, dispatch?: DispatchFn): void {
+  const sidebar = document.getElementById('game-sidebar');
+  if (!sidebar) return;
+
+  // ── Party Status Summary ──
+  const partyStats = document.getElementById('party-stats-summary');
+  if (partyStats) {
+    partyStats.innerHTML = '';
+    const party = state.party || {};
+    const adventurerIds = party.adventurerIds || [];
+    const partyAdventurers = state.adventurers.filter((a) => adventurerIds.includes(a.id));
+
+    // Combined stats
+    const combinedStats: Record<string, number> = { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
+    for (const a of partyAdventurers) {
+      for (const stat of Object.keys(combinedStats) as Array<keyof Stats>) {
+        combinedStats[stat] += (a.stats?.[stat] ?? 0);
+      }
+    }
+
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'sidebar-stat';
+    statsDiv.textContent = `Party: ${adventurerIds.length}/${state.adventurers.length} adventurers`;
+    partyStats.appendChild(statsDiv);
+
+    const questCountDiv = document.createElement('div');
+    questCountDiv.className = 'sidebar-stat';
+    const activeQuestCount = (state.quests || []).filter((q) => q.progress < 100).length;
+    questCountDiv.textContent = `Active Quests: ${activeQuestCount}`;
+    partyStats.appendChild(questCountDiv);
+
+    const eventCountDiv = document.createElement('div');
+    eventCountDiv.className = 'sidebar-stat';
+    const unresolvedEvents = (state.events || []).filter((e) => !e.resolved).length;
+    eventCountDiv.textContent = `Open Events: ${unresolvedEvents}`;
+    partyStats.appendChild(eventCountDiv);
+  }
+
+  // ── Active Quests List (top 3) ──
+  const activeQuestsList = document.getElementById('active-quests-list');
+  if (activeQuestsList) {
+    activeQuestsList.innerHTML = '';
+    const activeQuests = (state.quests || [])
+      .filter((q) => q.progress > 0 && q.progress < 100)
+      .slice(0, 3);
+
+    if (activeQuests.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'sidebar-empty-hint';
+      hint.textContent = 'No active quests';
+      activeQuestsList.appendChild(hint);
+    } else {
+      for (const quest of activeQuests) {
+        const questEl = document.createElement('div');
+        questEl.className = 'sidebar-quest-item';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'quest-name';
+        nameSpan.textContent = quest.name;
+        questEl.appendChild(nameSpan);
+
+        const progressBar = document.createElement('div');
+        progressBar.className = 'progress-bar';
+        const progressFill = document.createElement('div');
+        progressFill.className = 'progress-fill';
+        progressFill.style.width = `${quest.progress}%`;
+        progressBar.appendChild(progressFill);
+        questEl.appendChild(progressBar);
+
+        activeQuestsList.appendChild(questEl);
+      }
+    }
+  }
+
+  // ── Event Queue (upcoming events) ──
+  const eventQueueList = document.getElementById('event-queue-list');
+  if (eventQueueList) {
+    eventQueueList.innerHTML = '';
+    const upcomingEvents = (state.events || [])
+      .filter((e) => !e.resolved)
+      .slice(0, 3);
+
+    if (upcomingEvents.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'sidebar-empty-hint';
+      hint.textContent = 'No open events';
+      eventQueueList.appendChild(hint);
+    } else {
+      for (const event of upcomingEvents) {
+        const eventEl = document.createElement('div');
+        eventEl.className = 'sidebar-event-item';
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'event-title';
+        titleSpan.textContent = event.title || event.name || 'Unknown Event';
+        eventEl.appendChild(titleSpan);
+
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'event-timestamp';
+        timestampSpan.textContent = `Day ${event.triggeredDay || state.day || 0}`;
+        eventEl.appendChild(timestampSpan);
+
+        eventQueueList.appendChild(eventEl);
+      }
+    }
+  }
 }
