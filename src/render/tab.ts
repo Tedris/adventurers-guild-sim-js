@@ -739,7 +739,7 @@ function renderRosterStandard(container: HTMLElement, state: GameState, dispatch
       // Assign to party / Remove from party button
       const isInParty = partyIds.has(adventurer.id);
       const partyBtn = document.createElement('button');
-      partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
+      partyBtn.className = isInParty ? 'btn btn-tertiary' : 'btn btn-primary';
       partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
       const partyHandler = () => {
         if (dispatch) {
@@ -766,7 +766,7 @@ function renderRosterStandard(container: HTMLElement, state: GameState, dispatch
       // Retirement button for Level 5+ adventurers
       if (adventurer.level >= 5) {
         const retireBtn = document.createElement('button');
-        retireBtn.className = 'btn-retire';
+        retireBtn.className = 'btn btn-tertiary';
         retireBtn.textContent = 'Retire';
         const retireHandler = () => {
           const cardEl = retireBtn.closest('.roster-card') as HTMLElement | null;
@@ -916,7 +916,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?
       // Assign to party / Remove from party button
       const isInParty = partyIds.has(adventurer.id);
       const partyBtn = document.createElement('button');
-      partyBtn.className = isInParty ? 'btn-remove-party' : 'btn-assign-party';
+      partyBtn.className = isInParty ? 'btn btn-tertiary' : 'btn btn-primary';
       partyBtn.textContent = isInParty ? 'Remove from Party' : 'Add to Party';
       const vPartyHandler = () => {
         if (dispatch) {
@@ -943,7 +943,7 @@ function renderRosterVirtual(container: HTMLElement, state: GameState, dispatch?
       // Retirement button for Level 5+ adventurers
       if (adventurer.level >= 5) {
         const retireBtn = document.createElement('button');
-        retireBtn.className = 'btn-retire';
+        retireBtn.className = 'btn btn-tertiary';
         retireBtn.textContent = 'Retire';
         const vRetireHandler = () => {
           const cardEl = retireBtn.closest('.roster-card') as HTMLElement | null;
@@ -1039,7 +1039,7 @@ export function renderRecruitment(container: HTMLElement, state: GameState, disp
     <h3>Recruitment Pool</h3>
     <div class="restock-controls">
       <span class="pool-count">${recruitmentPool.length} adventurers available</span>
-      <button class="btn-restock" ${gold < 5 ? 'disabled' : ''} data-action="restock">
+      <button class="btn btn-primary" ${gold < 5 ? 'disabled' : ''} data-action="restock">
         Restock (5 gold)
       </button>
     </div>
@@ -1084,7 +1084,7 @@ export function renderRecruitment(container: HTMLElement, state: GameState, disp
     card.setAttribute('data-adventurer-id', adventurer.id);
 
     const hireBtn = document.createElement('button');
-    hireBtn.className = 'btn-hire';
+    hireBtn.className = 'btn btn-primary';
     hireBtn.textContent = 'Join Guild';
     const hireHandler = () => {
       if (dispatch) {
@@ -1260,7 +1260,7 @@ export function renderUpgrades(container: HTMLElement, state: GameState, dispatc
 
     // Upgrade button
     const btn = document.createElement('button');
-    btn.className = gold < upgrade.nextCost ? 'btn-disabled' : 'btn-upgrade';
+    btn.className = gold < upgrade.nextCost ? 'btn btn-disabled' : 'btn btn-primary';
     btn.textContent =
       gold < upgrade.nextCost
         ? 'Insufficient Gold'
@@ -1661,7 +1661,7 @@ export function createPartyOverviewPanel(quest: Quest | null, state: GameState, 
   actionsSection.className = 'panel-actions';
 
   const dispatchBtn = document.createElement('button');
-  dispatchBtn.className = 'btn-panel-dispatch';
+  dispatchBtn.className = 'btn btn-primary';
   dispatchBtn.textContent = 'Dispatch Party';
   const dispatchHandler = () => {
     // Validate party size against quest requirements
@@ -1695,7 +1695,7 @@ export function createPartyOverviewPanel(quest: Quest | null, state: GameState, 
   actionsSection.appendChild(dispatchBtn);
 
   const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn-panel-cancel';
+  cancelBtn.className = 'btn btn-secondary';
   cancelBtn.textContent = 'Cancel';
   const cancelHandler = () => {
     closePartyOverviewPanel();

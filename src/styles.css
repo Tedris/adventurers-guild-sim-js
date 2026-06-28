@@ -59,6 +59,94 @@ button:disabled:active {
   transform: none !important;
 }
 
+/* ===== Semantic Button System (Story 9-5) ===== */
+
+/* Base button — shared for all buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1;
+  border: 2px solid transparent;
+  border-radius: var(--card-radius);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, filter 0.15s ease, transform 0.15s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Size modifiers */
+.btn-sm {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.8rem;
+  min-height: 36px;
+}
+
+.btn-md {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.95rem;
+  min-height: 44px;
+}
+
+.btn-lg {
+  padding: var(--space-md) var(--space-lg);
+  font-size: 1.1rem;
+  min-height: 52px;
+}
+
+/* State modifiers */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+.btn-secondary:hover {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-text);
+}
+
+.btn-tertiary {
+  background: var(--color-danger);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-danger);
+}
+.btn-tertiary:hover {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+  filter: brightness(1.1);
+}
+
+/* Disabled state */
+.btn:disabled,
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: none !important;
+}
+
+/* Focus (keyboard navigation) */
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* ===== CSS Custom Properties ===== */
 :root {
   /* Base colors */
@@ -200,47 +288,6 @@ button:disabled:active {
 #game-toolbar {
   display: flex;
   gap: 6px;
-}
-
-.btn-toolbar {
-  background: var(--color-accent);
-  color: var(--color-text-on-primary);
-  border: none;
-  padding: 6px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-
-.btn-toolbar:hover {
-  background: var(--color-accent-hover);
-}
-
-.btn-new-game {
-  background: var(--color-success);
-}
-
-.btn-new-game:hover {
-  background: var(--color-success-hover);
-}
-
-#header-stats + button,
-#game-header .btn-next-day {
-  background: var(--color-accent);
-  color: var(--color-text-on-primary);
-  border: none;
-  padding: 6px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-
-#game-header .btn-next-day:hover {
-  background: var(--color-accent-hover);
 }
 
 /* ===== Navigation Tabs ===== */
@@ -959,24 +1006,6 @@ button:disabled:active {
   box-shadow: 0 2px 8px rgba(255, 215, 0, 0.15);
 }
 
-/* ===== Retirement Button ===== */
-
-.btn-retire {
-  background: var(--office-stage-2);
-  color: var(--color-cream);
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 8px;
-  width: 100%;
-  font-size: 0.85rem;
-}
-
-.btn-retire:hover {
-  background: var(--office-stage-1);
-}
-
 /* ===== Upgrade System (Phase 5) ===== */
 
 .upgrade-card {
@@ -1010,31 +1039,6 @@ button:disabled:active {
   margin-bottom: 8px;
 }
 
-.btn-upgrade {
-  background: var(--color-info);
-  color: var(--color-text-on-primary);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  width: 100%;
-  font-size: 0.95em;
-}
-
-.btn-upgrade:hover {
-  background: var(--color-info-hover);
-}
-
-.btn-disabled {
-  background: var(--color-disabled);
-  color: var(--rarity-common);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: not-allowed;
-  width: 100%;
-}
-
 /* ===== Fame Card (Phase 5) ===== */
 
 .fame-card {
@@ -1047,25 +1051,6 @@ button:disabled:active {
   font-weight: bold;
   font-size: 0.9em;
   margin-bottom: 4px;
-}
-
-/* ===== Evolution System (Phase 5) ===== */
-
-.btn-evolve {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-gold-accent));
-  color: var(--color-bg);
-  border: none;
-  padding: 8px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 8px;
-  width: 100%;
-  font-weight: bold;
-  font-size: 0.9em;
-}
-
-.btn-evolve:hover {
-  background: linear-gradient(135deg, var(--color-gold-light), var(--color-gold-medium));
 }
 
 .evolution-hint {
@@ -1098,44 +1083,6 @@ button:disabled:active {
   color: var(--color-text-muted);
 }
 
-.btn-restock {
-  background: var(--color-success);
-  color: var(--color-text-on-primary);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.btn-restock:hover {
-  background: var(--color-success-hover);
-}
-
-.btn-restock:disabled {
-  background: var(--color-disabled);
-  color: var(--rarity-common);
-  cursor: not-allowed;
-}
-
-.btn-hire {
-  background: var(--color-accent);
-  color: var(--color-text-on-primary);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 8px;
-  width: 100%;
-  font-weight: 600;
-  font-size: 0.9em;
-}
-
-.btn-hire:hover {
-  background: var(--color-accent-hover);
-}
-
 .recruit-card {
   border-left: 3px solid var(--color-info);
 }
@@ -1144,40 +1091,6 @@ button:disabled:active {
   font-size: 0.85rem;
   color: var(--color-text-muted);
   margin-top: 4px;
-}
-
-.btn-assign-party {
-  background: var(--color-info);
-  color: var(--color-text-on-primary);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 8px;
-  width: 100%;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.btn-assign-party:hover {
-  background: var(--color-info-hover);
-}
-
-.btn-remove-party {
-  background: var(--color-warning);
-  color: var(--color-text-on-primary);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 8px;
-  width: 100%;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.btn-remove-party:hover {
-  background: var(--color-warning-hover);
 }
 
 /* Guild Master badge */
@@ -1460,8 +1373,6 @@ button:disabled:active {
 
 #game-content.tab-transitioning button,
 #game-content.tab-transitioning .nav-tab,
-#game-content.tab-transitioning .btn-next-day,
-#game-content.tab-transitioning .btn-toolbar,
 #game-content.tab-transitioning .virtual-list-container {
   pointer-events: auto;
 }
@@ -1749,24 +1660,6 @@ button:disabled:active {
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
-}
-
-.btn-panel-dispatch {
-  background: var(--color-accent);
-  color: var(--color-text-on-primary);
-}
-
-.btn-panel-dispatch:hover {
-  background: var(--color-accent-hover);
-}
-
-.btn-panel-cancel {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--color-text);
-}
-
-.btn-panel-cancel:hover {
-  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ─── Selection Highlights (Story 7-1: INTERACT-03) ───────────────────────────── */

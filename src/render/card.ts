@@ -251,7 +251,7 @@ export function renderAdventurerCard(
   const evolution = getEvolutionStatus(adventurer);
   if (!adventurer.evolved && evolution.matching.length > 0) {
     const evolveBtn = document.createElement('button');
-    evolveBtn.className = 'btn-evolve';
+    evolveBtn.className = 'btn btn-primary';
     evolveBtn.textContent = 'Evolve Class!';
     const evolveHandler = () => {
       if (dispatch) {
