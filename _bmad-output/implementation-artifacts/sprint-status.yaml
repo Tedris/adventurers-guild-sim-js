@@ -2,6 +2,9 @@
 # last_updated: 2026-06-28
 # updated: story 9-4-dashboard-layout-two-column-reorganization → review → done (code review patches applied)
 # updated: story 9-2-css-token-system → done, story 9-3-rarity-based-visual-treatment → done, story 9-4-dashboard-layout-two-column-reorganization → done
+# updated: story 9-5-button-semantic-layer → ready-for-dev (story context created)
+# updated: story 9-5-button-semantic-layer → in-progress (development started)
+# updated: story 9-5-button-semantic-layer → review → done (code review passed)
 # project: adventurers-guild-sim-js
 # project_key: NOKEY
 # tracking_system: file-system
@@ -50,7 +53,7 @@
 # 14. Epic 12: Game Feel & Content — depends on Epic 13 decision
 # 15. Epic 15: Prestige Reset — future milestone
 
-generated: 2026-06-24
+generated: 2026-06-28
 project: adventurers-guild-sim-js
 project_key: NOKEY
 tracking_system: file-system
@@ -125,7 +128,7 @@ development_status:
   9-2-css-token-system: done
   9-3-rarity-based-visual-treatment: done
   9-4-dashboard-layout-two-column-reorganization: done
-  9-5-button-semantic-layer: backlog
+  9-5-button-semantic-layer: done
   9-6-visual-redesign-integration-and-regression-test: backlog
   epic-9-retrospective: optional
 
