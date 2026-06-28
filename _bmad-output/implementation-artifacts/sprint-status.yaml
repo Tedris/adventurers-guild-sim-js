@@ -1,6 +1,7 @@
-# generated: 2026-05-31
-# last_updated: 2026-06-23T00:00:03
-# updated: epic-8 → in-progress, 8-1-fix-event-cards-use-dispatch → done, 8-2-fix-merge-state-preserve-non-payload-fields → done, 8-3-consume-subscribe-cleanup-fix-listener-leaks → done, 8-4-remove-innerhtml-clear-pattern → done, 8-5-verify-morale-aptitude-functionality → done, 8-6-add-economy-calibration-test-suite → done
+# generated: 2026-06-24
+# last_updated: 2026-06-28
+# updated: story 9-4-dashboard-layout-two-column-reorganization → review → done (code review patches applied)
+# updated: story 9-2-css-token-system → done, story 9-3-rarity-based-visual-treatment → done, story 9-4-dashboard-layout-two-column-reorganization → done
 # project: adventurers-guild-sim-js
 # project_key: NOKEY
 # tracking_system: file-system
@@ -17,9 +18,9 @@
 # Story Status:
 #   - backlog: Story only exists in epic file
 #   - ready-for-dev: Story file created in stories folder
-#   - in-progress: Developer actively working on implementation
+#   - in-progress: Developer actively working
 #   - review: Ready for code review (via Dev's code-review workflow)
-#   - done: Story completed
+#   - done: Completed
 #
 # Retrospective Status:
 #   - optional: Can be completed but not required
@@ -31,17 +32,25 @@
 # - Stories can be worked in parallel if team capacity allows
 # - Developer typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
-#
+
 # RECOMMENDED SPRINT ORDER:
 # 1. Epic 1: Core Gameplay — DONE ✅
 # 2. Epic 2: Bug Fixes — DONE ✅
-# 3. Epic 3: TypeScript Migration — quick win, sets foundation
-# 4. Epic 5: Navigation & Tooltips — Phases 15-16
-# 5. Epic 6: Party Management — Phases 17-18
-# 6. Epic 7: Interaction Quality — Phases 19-20
-# 7. Epic 4: Tech Debt — after Epic 3, complete after Epics 5-7
+# 3. Epic 3: TypeScript Migration — DONE ✅
+# 4. Epic 4: Tech Debt — DONE ✅
+# 5. Epic 5: Navigation & Tooltips — DONE ✅
+# 6. Epic 6: Party Management — DONE ✅
+# 7. Epic 7: Interaction Quality — DONE ✅
+# 8. Epic 8: Deferred Fixes — DONE ✅
+# 9. Epic 13: MVP Scope Cutoff — decide before Epic 12 begins
+# 10. Epic 11: Documentation — can start immediately
+# 11. Epic 14: Error Boundaries — parallel with 9-12
+# 12. Epic 10: Performance — parallel with Epic 9
+# 13. Epic 9: Visual Redesign — depends on Epic 7
+# 14. Epic 12: Game Feel & Content — depends on Epic 13 decision
+# 15. Epic 15: Prestige Reset — future milestone
 
-generated: 2026-05-30
+generated: 2026-06-24
 project: adventurers-guild-sim-js
 project_key: NOKEY
 tracking_system: file-system
@@ -86,7 +95,7 @@ development_status:
   epic-5-retrospective: optional
 
   # Epic 6: Party Management (v1.3 Phases 17-18)
-  epic-6: in-progress
+  epic-6: done
   6-1-build-party-overview-panel: done
   6-2-add-party-synergy-display: done
   6-3-implement-drag-and-drop-party-building: done
@@ -100,12 +109,61 @@ development_status:
   7-3-clickable-stat-attribution: done
   epic-7-retrospective: done
 
-# Epic 8: Backlog — Deferred Bug Fixes & Improvements
-   epic-8: done
-   8-1-fix-event-cards-use-dispatch: done
-   8-2-fix-merge-state-preserve-non-payload-fields: done
-   8-3-consume-subscribe-cleanup-fix-listener-leaks: done
-   8-4-remove-innerhtml-clear-pattern: done
-   8-5-verify-morale-aptitude-functionality: done
-   8-6-add-economy-calibration-test-suite: done
-   epic-8-retrospective: done
+  # Epic 8: Backlog — Deferred Bug Fixes & Improvements
+  epic-8: done
+  8-1-fix-event-cards-use-dispatch: done
+  8-2-fix-merge-state-preserve-non-payload-fields: done
+  8-3-consume-subscribe-cleanup-fix-listener-leaks: done
+  8-4-remove-innerhtml-clear-pattern: done
+  8-5-verify-morale-aptitude-functionality: done
+  8-6-add-economy-calibration-test-suite: done
+  epic-8-retrospective: done
+
+  # Epic 9: Visual Redesign (UX Spec Alignment)
+  epic-9: in-progress
+  9-1-typography-pixel-font-migration: done
+  9-2-css-token-system: done
+  9-3-rarity-based-visual-treatment: done
+  9-4-dashboard-layout-two-column-reorganization: done
+  9-5-button-semantic-layer: backlog
+  9-6-visual-redesign-integration-and-regression-test: backlog
+  epic-9-retrospective: optional
+
+  # Epic 10: Performance (IndexedDB Debounce)
+  epic-10: backlog
+  10-1-indexeddb-save-debounce: backlog
+  10-2-save-state-compression: backlog
+  epic-10-retrospective: optional
+
+  # Epic 11: Documentation
+  epic-11: backlog
+  11-1-project-readme: backlog
+  11-2-entity-api-documentation: backlog
+  11-3-architecture-overview-document: backlog
+  epic-11-retrospective: optional
+
+  # Epic 12: Game Feel & Content (Juice & Humor)
+  epic-12: backlog
+  12-1-click-feedback-juice: backlog
+  12-2-quest-completion-feedback: backlog
+  12-3-event-writing-satirical-content: backlog
+  epic-12-retrospective: optional
+
+  # Epic 13: MVP Scope Cutoff
+  epic-13: backlog
+  13-1-mvp-scope-decision-event-templates: backlog
+  13-2-mvp-scope-decision-class-evolutions: backlog
+  epic-13-retrospective: optional
+
+  # Epic 14: Error Boundaries
+  epic-14: backlog
+  14-1-error-boundaries-in-render-layer: backlog
+  14-2-error-boundary-integration-test: backlog
+  epic-14-retrospective: optional
+
+  # Epic 15: Prestige Reset System (Future Milestone)
+  epic-15: backlog
+  15-1-prestige-reset-core-mechanics: backlog
+  15-2-prestige-path-ascend: backlog
+  15-3-prestige-path-break-and-unionize: backlog
+  epic-15-retrospective: optional

@@ -400,7 +400,7 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
         renderDashboard(document.body, state, dispatch);
         break;
     }
-    renderSidebar(state, dispatch);
+    renderSidebar(state);
     return;
   }
 
@@ -410,7 +410,7 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
   // If no previous view (first render), render directly without transition
   if (!lastView) {
     _executeView(viewName, state, dispatch, container);
-    renderSidebar(state, dispatch);
+    renderSidebar(state);
     return;
   }
 
@@ -443,7 +443,7 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
     newContainer.style.left = '';
     newContainer.style.width = '';
     _isTransitioning = false;
-    renderSidebar(state, dispatch);
+    renderSidebar(state);
     return;
   }
 
@@ -486,7 +486,7 @@ export function renderView(viewName: ViewName, state: GameState, dispatch?: Disp
   });
 
   // Update sidebar after view rendering
-  renderSidebar(state, dispatch);
+  renderSidebar(state);
 }
 
 /**
@@ -1873,7 +1873,7 @@ export function closePartyOverviewPanel(): void {
  * @param state — Current game state
  * @param dispatch — Optional dispatch function (unused in sidebar, kept for consistency)
  */
-export function renderSidebar(state: GameState, dispatch?: DispatchFn): void {
+export function renderSidebar(state: GameState): void {
   const sidebar = document.getElementById('game-sidebar');
   if (!sidebar) return;
 
@@ -1887,8 +1887,9 @@ export function renderSidebar(state: GameState, dispatch?: DispatchFn): void {
 
     // Combined stats
     const combinedStats: Record<string, number> = { str: 0, dex: 0, int: 0, vit: 0, lck: 0 };
+    const statKeys = ['str', 'dex', 'int', 'vit', 'lck'] as Array<keyof Stats>;
     for (const a of partyAdventurers) {
-      for (const stat of Object.keys(combinedStats) as Array<keyof Stats>) {
+      for (const stat of statKeys) {
         combinedStats[stat] += (a.stats?.[stat] ?? 0);
       }
     }
@@ -1906,7 +1907,7 @@ export function renderSidebar(state: GameState, dispatch?: DispatchFn): void {
 
     const eventCountDiv = document.createElement('div');
     eventCountDiv.className = 'sidebar-stat';
-    const unresolvedEvents = (state.events || []).filter((e) => !e.resolved).length;
+    const unresolvedEvents = (state.events || []).filter((e) => e && !e.resolved).length;
     eventCountDiv.textContent = `Open Events: ${unresolvedEvents}`;
     partyStats.appendChild(eventCountDiv);
   }
@@ -1931,14 +1932,14 @@ export function renderSidebar(state: GameState, dispatch?: DispatchFn): void {
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'quest-name';
-        nameSpan.textContent = quest.name;
+        nameSpan.textContent = quest.name || quest.id || 'Unknown Quest';
         questEl.appendChild(nameSpan);
 
         const progressBar = document.createElement('div');
         progressBar.className = 'progress-bar';
         const progressFill = document.createElement('div');
         progressFill.className = 'progress-fill';
-        progressFill.style.width = `${quest.progress}%`;
+        progressFill.style.width = `${Math.max(0, Math.min(100, quest.progress))}%`;
         progressBar.appendChild(progressFill);
         questEl.appendChild(progressBar);
 
@@ -1952,7 +1953,7 @@ export function renderSidebar(state: GameState, dispatch?: DispatchFn): void {
   if (eventQueueList) {
     eventQueueList.innerHTML = '';
     const upcomingEvents = (state.events || [])
-      .filter((e) => !e.resolved)
+      .filter((e) => e && !e.resolved)
       .slice(0, 3);
 
     if (upcomingEvents.length === 0) {

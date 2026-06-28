@@ -434,6 +434,13 @@ button:disabled:active {
    }
  }
 
+ /* Large screens (>1024px) — ensure balanced layout with explicit grid track */
+ @media (min-width: 1025px) {
+   #game-container {
+     grid-template-columns: minmax(0, 1fr) 300px;
+   }
+ }
+
  /* Mobile: below 768px — sidebar stacks below main content */
  @media (max-width: 767px) {
    #game-container {
